@@ -25,7 +25,10 @@ private func observeMouseChange(windowId: UInt32?, notification: String, resizin
                 case .floating:
                     let destination = rect.center.monitorApproximation.activeWorkspace
                     if window.workspace !== destination { window.bindAsFloatingWindow(to: destination) }
-                case .tiled: MouseTiling.shared.observe(window, frame: rect, resizing: resizing)
+                case .tiled:
+                    MouseTiling.shared.observe(window, frame: rect, resizing: resizing)
+                    let point = mouseLocation
+                    MouseTiling.shared.drag(at: point, on: point.monitorApproximation.activeWorkspace)
                 default: break
                 }
             }

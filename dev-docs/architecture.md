@@ -88,8 +88,11 @@ beside the directional neighbor; swap exchanges leaf IDs. `join-*` and `flatten-
 and `toggle-split` replaces `toggle-orientation` without compatibility aliases.
 
 `MouseTiling` stores one gesture's starting layout and frame. Resizes apply absolute gesture deltas to
-the original dividers. Center drops swap within a display, edge drops reinsert, and cross-display drops
-transfer membership. A gesture is rejected when its window, layout, geometry, or gap has changed;
+the original dividers. During dragging, center hits swap within a display, edge hits reinsert, and
+cross-display hits transfer membership. Each edit updates the expected layout and display, keeping the
+gesture active. The pointer must leave the previous target region before another edit, preventing
+repeated rearrangement as tiles move underneath it. Release applies any final move and ends the gesture.
+A gesture is rejected when its window, layout, geometry, or gap has changed externally;
 keyboard/menu actions cancel the gesture. Mouse callbacks and commands both use action execution.
 
 ## Native adapter seam

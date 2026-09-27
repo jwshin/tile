@@ -6,13 +6,15 @@ import Common
     static let shared = MouseTiling()
     private struct Gesture {
         let window: Window
-        let workspace: Workspace
+        var workspace: Workspace
         let original: BinaryLayout
         let frame: Rect
-        let bounds: Rect
+        var bounds: Rect
         let gap: CGFloat
         var expected: BinaryLayout
         var resizing = false
+        var hasRearranged = false
+        var lastTargetRegion: Rect?
     }
     private var gesture: Gesture?
 
@@ -31,19 +33,11 @@ import Common
                 frame: originalFrame, bounds: workspace.layoutRect, gap: CGFloat(config.gap), expected: workspace.layout
             )
         }
-        guard var current = gesture, current.window === window else { return }
-        guard current.workspace === workspace, current.expected == workspace.layout,
-            current.bounds.size == workspace.layoutRect.size,
-            current.bounds.topLeftCorner == workspace.layoutRect.topLeftCorner,
-            current.gap == CGFloat(config.gap)
-        else {
-            cancel()
-            return
-        }
+        guard var current = validGesture(), current.window === window else { return }
         currentlyManipulatedWithMouseWindowId = window.windowId
         current.resizing =
             current.resizing
-            || (resizing
+            || (!current.hasRearranged && resizing
                 && (abs(frame.width - current.frame.width) > 5 || abs(frame.height - current.frame.height) > 5))
         if current.resizing {
             var layout = current.original
@@ -60,19 +54,36 @@ import Common
         gesture = current
     }
 
-    func finish(at point: CGPoint, on destination: Workspace) {
-        defer { cancel() }
-        guard let current = gesture, current.window.isRegistered, current.window.kind == .tiled,
+    private func validGesture() -> Gesture? {
+        guard let current = gesture else { return nil }
+        guard current.window.isRegistered, current.window.kind == .tiled,
             current.window.workspace === current.workspace,
+            current.window.layoutState.contains(current.workspace),
             current.expected == current.workspace.layout,
             current.bounds.size == current.workspace.layoutRect.size,
             current.bounds.topLeftCorner == current.workspace.layoutRect.topLeftCorner,
-            current.gap == CGFloat(config.gap), !current.resizing
+            current.gap == CGFloat(config.gap)
+        else {
+            cancel()
+            return nil
+        }
+        return current
+    }
+
+    func drag(at point: CGPoint, on destination: Workspace) {
+        guard var current = validGesture(), !current.resizing,
+            current.window.layoutState.contains(destination)
         else { return }
+        // Layout changes move hit regions beneath the pointer. Wait until it leaves the
+        // previous region before choosing another target, including at mouse release.
+        if destination === current.workspace, current.lastTargetRegion?.contains(point) == true { return }
+        current.lastTargetRegion = nil
+        gesture = current
         let window = current.window
         let hit = destination.tiledFrames.sorted { $0.key < $1.key }.first { $0.value.contains(point) }
         if let (target, rect) = hit {
             guard target != window.windowId else { return }
+            current.lastTargetRegion = rect
             let x = (point.x - rect.minX) / max(1, rect.width)
             let y = (point.y - rect.minY) / max(1, rect.height)
             if destination === current.workspace, x > 0.25, x < 0.75, y > 0.25, y < 0.75 {
@@ -84,7 +95,20 @@ import Common
             }
         } else if destination !== current.workspace {
             window.layoutState.place(window, on: destination, kind: .tiled)
+            current.lastTargetRegion = destination.layoutRect
+        } else {
+            return
         }
+        current.workspace = destination
+        current.expected = destination.layout
+        current.bounds = destination.layoutRect
+        current.hasRearranged = true
+        gesture = current
         _ = window.focusWindow()
+    }
+
+    func finish(at point: CGPoint, on destination: Workspace) {
+        defer { cancel() }
+        drag(at: point, on: destination)
     }
 }

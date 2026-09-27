@@ -103,9 +103,10 @@ Default shortcuts:
 | `alt-shift-tab` | Move the window to the next monitor and follow it |
 | `alt-shift-r` | Reload configuration |
 
-Mouse gestures retain native window dragging and resizing. Release over a tiled window's center to
-swap positions on the same display; release near an edge to split that window's region in that direction.
-Dragging to another display transfers the window. Resizing adjusts the corresponding binary dividers.
+Mouse gestures retain native window dragging and resizing. Drag over a tiled window's center to
+swap positions on the same display; drag near an edge to split that window's region in that direction.
+Layouts update during the drag, including when moving between displays. Resizing adjusts the corresponding
+binary dividers.
 Floating windows remain freely movable and resizable.
 
 The menu provides enable/disable, config access, permission status, and quit. When disabled, shortcuts
