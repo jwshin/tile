@@ -29,9 +29,9 @@ extension CoreTests {
         init() { setUpWorkspacesForTests() }
 
         @Test func importsNativeFocusThenAppliesFramesAndNativeFocus() async throws {
-            let root = focus.workspace.rootTilingContainer
-            let left = TestWindow.new(id: 1, parent: root)
-            let right = TestWindow.new(id: 2, parent: root)
+            let root = focus.workspace
+            let left = TestWindow.new(id: 1, workspace: root)
+            let right = TestWindow.new(id: 2, workspace: root)
             _ = right.focusWindow()
             let desktop = TestDesktopSessionAdapter()
             desktop.nativeFocus = left
@@ -48,7 +48,7 @@ extension CoreTests {
         }
 
         @Test func failedActionStillLaysOutAndPausedActionsDoNothing() async throws {
-            let window = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+            let window = TestWindow.new(id: 1, workspace: focus.workspace)
             let desktop = TestDesktopSessionAdapter()
             desktop.nativeFocus = window
             let execution = ActionExecution(desktop: desktop)
@@ -62,7 +62,7 @@ extension CoreTests {
             let paused = try await execution.execute(.close)
             #expect(paused.exitCode == .fail)
             #expect(desktop.focusReads == reads)
-            #expect(window.parent != nil)
+            #expect(window.isRegistered)
             let enabled = try await execution.execute(.toggleTiling, from: .menu)
             #expect(enabled.exitCode == .succ)
             #expect(ConfigurationApplication.shared.isEnabled)
@@ -74,7 +74,7 @@ extension CoreTests {
             ConfigurationApplication.shared = application
             application.setEnabled(false)
             let window = TestWindow.new(
-                id: 1, parent: focus.workspace.floatingWindowsContainer,
+                id: 1, workspace: focus.workspace, kind: .floating,
                 rect: Rect(topLeftX: 100, topLeftY: 100, width: 400, height: 300))
             let started = AwaitableOneTimeBroadcastLatch()
             let resumeRead = AwaitableOneTimeBroadcastLatch()
@@ -103,7 +103,7 @@ extension CoreTests {
             let side = TestMonitor(displayId: "side", name: "Side", x: 1920)
             unsafe testMonitors = monitorInfos + [side]
             DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
-            let window = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+            let window = TestWindow.new(id: 1, workspace: focus.workspace)
             let desktop = TestDesktopSessionAdapter()
             desktop.nativeFocus = window
             let execution = ActionExecution(desktop: desktop)
@@ -118,9 +118,9 @@ extension CoreTests {
         }
 
         @Test func actionCancelsAnInFlightBackgroundRefresh() async throws {
-            let root = focus.workspace.rootTilingContainer
-            let left = TestWindow.new(id: 1, parent: root)
-            let right = TestWindow.new(id: 2, parent: root)
+            let root = focus.workspace
+            let left = TestWindow.new(id: 1, workspace: root)
+            let right = TestWindow.new(id: 2, workspace: root)
             TestApp.shared.focusedWindow = left
             let desktop = SuspendingDesktopSessionAdapter()
             let execution = ActionExecution(desktop: desktop)
@@ -135,7 +135,7 @@ extension CoreTests {
         }
 
         @Test func cancelledFocusReadDoesNotApplyTheAction() async throws {
-            let window = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+            let window = TestWindow.new(id: 1, workspace: focus.workspace)
             let desktop = TestDesktopSessionAdapter()
             desktop.failFocusRead = true
             let execution = ActionExecution(desktop: desktop)
@@ -143,7 +143,7 @@ extension CoreTests {
                 _ = try await execution.execute(.close)
                 Issue.record("Expected cancellation")
             } catch is CancellationError {}
-            #expect(window.parent != nil)
+            #expect(window.isRegistered)
             #expect(desktop.statusUpdates == 0)
         }
     }

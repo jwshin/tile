@@ -6,7 +6,7 @@ hidden desktops, CLI server, external automation callbacks, or binding modes.
 
 ## Behavior
 
-- Tile windows horizontally or vertically, with nested splits.
+- Tile windows using a binary tree: each split contains exactly two windows or subtrees.
 - Focus, rearrange, resize, balance, float, or expand windows using keyboard shortcuts.
 - Focus another monitor or move the focused window to it.
 - Keep each display's layout when displays are rearranged.
@@ -33,10 +33,14 @@ code-signing certificate to use it instead. Ad-hoc rebuilds may require renewing
 
 ## Configuration
 
-New layouts start horizontally on landscape displays and vertically on portrait displays. Redundant
-single-child groups are removed automatically, and nested groups alternate orientation. These behaviors
-are fixed; remove `default-root-container-orientation` and both `enable-normalization-*` keys from older
-personal configs. Use `join-left`, `join-down`, `join-up`, or `join-right` to form groups; `split` is no longer supported.
+A new tiled window splits the focused tiled window's region 50/50. When focus is floating,
+tile uses the most recently focused tiled window on that display. Wide regions split side by side;
+tall regions split top/bottom. The chosen orientation stays fixed until you toggle it.
+Closing or floating a window promotes its sibling into the freed region. Nested splits may share an orientation.
+
+The old `join-*`, `flatten-layout`, and `toggle-orientation` actions are removed. Use directional
+`move-*` actions to reinsert beside a neighbor, and `toggle-split` to change the immediate split.
+Update old personal bindings before reloading; invalid configuration is rejected as a whole.
 
 The personal config is `~/.tile.toml`.
 Use **Open config** in the menu to create a copy of [the defaults](resources/default-config.toml).
@@ -68,18 +72,17 @@ Unknown fields or actions reject the entire reload, preserving the working confi
 | Action names | Fixed behavior |
 |---|---|
 | `focus-left`, `focus-down`, `focus-up`, `focus-right` | Focus a neighboring window, including floating windows; stop at monitor edges |
-| `move-left`, `move-down`, `move-up`, `move-right` | Move the focused tiled window; form a group at layout edges when needed |
-| `join-left`, `join-down`, `join-up`, `join-right` | Group with a neighboring window/container |
+| `move-left`, `move-down`, `move-up`, `move-right` | Reinsert the focused tiled window on that side of a neighboring tiled window; stop at display edges |
 | `swap-left`, `swap-down`, `swap-up`, `swap-right` | Exchange neighboring window positions, keeping focus on the original window |
 | `next-monitor`, `previous-monitor` | Cycle monitors, wrapping at either end |
 | `left-monitor`, `down-monitor`, `up-monitor`, `right-monitor` | Focus a monitor in that direction; stop at edges |
 | `move-to-next-monitor`, `move-to-previous-monitor` | Cycle the focused window to a monitor and follow it, wrapping at either end |
 | `move-to-monitor-left`, `move-to-monitor-down`, `move-to-monitor-up`, `move-to-monitor-right` | Move the focused window to a monitor in that direction and follow it |
-| `grow`, `shrink` | Resize by 50 points along the immediate split's orientation |
-| `toggle-orientation` | Toggle the focused split between horizontal and vertical |
+| `grow`, `shrink` | Move the immediate split divider by 50 points to grow/shrink the focused window; manual ratios are limited to 10–90% |
+| `toggle-split` | Toggle the focused split between horizontal and vertical |
 | `toggle-floating` | Toggle the focused window between floating and tiling |
 | `fullscreen` | Toggle filling the monitor's available area, keeping the gap |
-| `balance-sizes`, `flatten-layout` | Equalize sizes or remove nested groups on the focused monitor |
+| `balance-sizes` | Distribute space by leaf count within each split, retaining the tree; gaps can cause small area differences |
 | `close` | Close the focused window |
 | `toggle-tiling` | Enable/disable window management |
 | `reload-config` | Apply the personal configuration if valid |
@@ -90,7 +93,7 @@ Default shortcuts:
 |---|---|
 | `alt-h/j/k/l` | Focus left/down/up/right |
 | `alt-shift-h/j/k/l` | Move the window left/down/up/right |
-| `alt-ctrl-h/j/k/l` | Join with a neighboring window |
+| `alt-ctrl-h/j/k/l` | Swap with a neighboring tiled window |
 | `alt-minus/equal` | Shrink/grow along the current split |
 | `alt-shift-equal` | Balance window sizes |
 | `alt-slash` | Toggle horizontal/vertical split |
@@ -100,19 +103,24 @@ Default shortcuts:
 | `alt-shift-tab` | Move the window to the next monitor and follow it |
 | `alt-shift-r` | Reload configuration |
 
+Mouse gestures retain native window dragging and resizing. Release over a tiled window's center to
+swap positions on the same display; release near an edge to split that window's region in that direction.
+Dragging to another display transfers the window. Resizing adjusts the corresponding binary dividers.
+Floating windows remain freely movable and resizable.
+
 The menu provides enable/disable, config access, permission status, and quit. When disabled, shortcuts
 are unregistered; re-enable from the menu. Quitting leaves window positions as they are.
 
 ## Source map
 
 - `Sources/tile`: SwiftUI application entry point.
-- `Sources/AppBundle/tree`: window/container model and macOS app adapters. `Workspace` now means a display's layout.
-- `Sources/AppBundle/layout`: reconciliation and recursive tiling geometry.
+- `Sources/AppBundle/tree`: binary layout model, window registry, and macOS app adapters. `Workspace` now means a display's layout.
+- `Sources/AppBundle/layout`: action execution, reconciliation, and native frame application.
 - `Sources/AppBundle/command`: the small internal keyboard-action set.
 - `Sources/AppBundle/config`: TOML parsing, keybindings, one gap value, and floating-app exceptions.
 - `Sources/AppBundle/ui`: minimal menu and error messages.
 - `Sources/Common`: shared geometry, result types, and utilities; no command parser, network protocol, or executable client.
-- `Sources/AppBundleTests`: serialized Swift Testing suites, including monitor lifecycle tests.
+- `Sources/AppBundleTests`: pure binary-layout tests and serialized application/monitor lifecycle tests.
 - `axDumps`: accessibility fixtures used by window-classification tests.
 
 See [architecture](dev-docs/architecture.md) and [development](dev-docs/development.md).

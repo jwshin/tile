@@ -11,7 +11,7 @@ struct EnableCommand: Command {
         application.setEnabled(newState)
         if newState {
             for workspace in DisplayLayoutState.shared.workspaces {
-                for window in workspace.allLeafWindowsRecursive where window.isFloating {
+                for window in workspace.floatingWindows {
                     window.lastFloatingSize = (try? await window.getAxSize(.nonCancellable)) ?? window.lastFloatingSize
                 }
             }

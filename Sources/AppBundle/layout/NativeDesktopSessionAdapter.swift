@@ -4,18 +4,17 @@ import Common
 @MainActor struct NativeDesktopSessionAdapter: DesktopSessionAdapter {
     func focusedWindow() async throws -> Window? {
         let focused = try await getNativeFocusedWindow(.cancellable)
-        if let window = focused as? MacWindow, !(window.parent is MacosPopupWindowsContainer) {
+        if let window = focused as? MacWindow, window.kind != .popup {
             window.macApp.lastNativeFocusedWindowId = window.windowId
         }
         return focused
     }
 
     func validatePopups() async throws {
-        for node in macosPopupWindowsContainer.children {
-            let popup = (node as! MacWindow)
+        for popup in MacWindow.allWindows where popup.kind == .popup {
             let windowLevel = getWindowLevel(for: popup.windowId)
             if try await popup.isWindowHeuristic(windowLevel, .cancellable) {
-                try await popup.relayoutWindow(on: focus.workspace, .cancellable)
+                try await popup.reclassify(on: focus.workspace, .cancellable)
             }
         }
     }

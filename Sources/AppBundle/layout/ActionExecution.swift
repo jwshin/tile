@@ -23,6 +23,7 @@ enum ActionInput { case shortcut, menu }
         guard ConfigurationApplication.shared.isEnabled || allowedWhileDisabled else {
             return CmdResult(stdout: [], stderr: [], exitCode: .fail)
         }
+        MouseTiling.shared.cancel()
         return try await runSession(input == .menu ? .menuBarButton : .hotkeyBinding, .forceRun) {
             let command = action.command
             let io = CmdIo()
@@ -97,7 +98,6 @@ enum ActionInput { case shortcut, menu }
 
     private func refreshModel() {
         DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
-        DisplayLayoutState.shared.normalize()
     }
 
     private func layoutWorkspaces() async throws {

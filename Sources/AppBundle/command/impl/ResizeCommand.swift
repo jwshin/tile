@@ -6,15 +6,12 @@ struct ResizeCommand: Command {
     let invalidatesRestoration = true
 
     func run(_ io: CmdIo) -> BinaryExitCode {
-        guard let window = focus.windowOrNil, let parent = window.parent as? TilingContainer else {
-            return .fail(io.err("Resize requires a focused tiling window"))
+        guard let window = focus.windowOrNil, window.kind == .tiled, let workspace = window.workspace else {
+            return .fail(io.err("Resize requires a focused tiled window"))
         }
-        let diff: CGFloat = grow ? 50 : -50
-        guard let childDiff = diff.div(parent.children.count - 1) else { return .fail }
-        for sibling in parent.children where sibling != window {
-            sibling.setWeight(parent.orientation, sibling.getWeight(parent.orientation) - childDiff)
-        }
-        window.setWeight(parent.orientation, window.getWeight(parent.orientation) + diff)
-        return .succ
+        return .from(
+            bool: workspace.layout.resize(
+                window.windowId, by: grow ? 50 : -50,
+                in: workspace.layoutRect, gap: CGFloat(config.gap)))
     }
 }

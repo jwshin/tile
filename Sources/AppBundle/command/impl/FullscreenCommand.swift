@@ -6,7 +6,7 @@ struct FullscreenCommand: Command {
     func run(_ io: CmdIo) -> BinaryExitCode {
         guard let window = focus.windowOrNil else { return .fail(io.err(noWindowIsFocused)) }
         window.isFullscreen.toggle()
-        window.markAsMostRecentChild()
+        window.markRecent()
         return .succ
     }
 }
