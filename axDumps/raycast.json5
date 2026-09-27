@@ -26,7 +26,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=26499, title=nil, role=\"AXTextField\", subrole=\"raycast_searchField\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=26499, title=\"\", role=\"AXWindow\", subrole=\"AXSystemDialog\")",
@@ -44,28 +44,28 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=26499, title=\"\", role=\"AXWindow\", subrole=\"AXSystemDialog\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.raycast.macos",
-  "Aero.App.nsApp.activationPolicy" : "accessory",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/Raycast.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Raycast.app/Contents/MacOS/Raycast",
-  "Aero.App.pid" : 76823,
-  "Aero.App.version" : "0",
-  "Aero.App.versionShort" : "1.103.7",
-  "Aero.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain",
-  "Aero.axWindowId" : 26499,
-  "Aero.macOS.version" : "Version 15.7.1 (Build 24G231)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.raycast.macos",
+  "tile.App.nsApp.activationPolicy" : "accessory",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/Raycast.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/Raycast.app/Contents/MacOS/Raycast",
+  "tile.App.pid" : 76823,
+  "tile.App.version" : "0",
+  "tile.App.versionShort" : "1.103.7",
+  "tile.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain",
+  "tile.axWindowId" : 26499,
+  "tile.macOS.version" : "Version 15.7.1 (Build 24G231)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
-  "Aero.windowLevel" : 8,
-  "Aero.workspace" : null
+  "tile.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
+  "tile.windowLevel" : 8,
+  "tile.workspace" : null
 }

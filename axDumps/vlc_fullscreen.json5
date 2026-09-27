@@ -27,7 +27,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : "<AXUIElement 0x97809e0d0> {pid=86771}",
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=4856, title=\"\", role=\"AXWindow\", subrole=\"AXUnknown\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=4856, title=\"\", role=\"AXWindow\", subrole=\"AXUnknown\")",
@@ -46,28 +46,28 @@
       "AXUIElement(AxWindowId=2941, title=\"Fullscreen Controls\", role=\"AXWindow\", subrole=\"AXDialog\")",
       "AXUIElement(AxWindowId=4856, title=\"\", role=\"AXWindow\", subrole=\"AXUnknown\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "org.videolan.vlc",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/VLC.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/VLC.app/Contents/MacOS/VLC",
-  "Aero.App.pid" : 86771,
-  "Aero.App.version" : "3.0.21",
-  "Aero.App.versionShort" : "3.0.21",
-  "Aero.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup", // todo fix
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain",
-  "Aero.axWindowId" : 4856,
-  "Aero.macOS.version" : "Version 26.1 (Build 25B78)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "org.videolan.vlc",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/VLC.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/VLC.app/Contents/MacOS/VLC",
+  "tile.App.pid" : 86771,
+  "tile.App.version" : "3.0.21",
+  "tile.App.versionShort" : "3.0.21",
+  "tile.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup", // todo fix
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain",
+  "tile.axWindowId" : 4856,
+  "tile.macOS.version" : "Version 26.1 (Build 25B78)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : null
+  "tile.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : null
 }

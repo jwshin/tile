@@ -1,8 +1,10 @@
-@testable import AppBundle
+import AppKit
 import Common
 import Foundation
 import HotKey
-import XCTest
+import Testing
+
+@testable import AppBundle
 
 let projectRoot: URL = {
     var url = URL(filePath: #filePath).absoluteURL
@@ -16,86 +18,46 @@ let projectRoot: URL = {
 @MainActor
 func setUpWorkspacesForTests() {
     config = defaultConfig
-    configUrl = defaultConfigUrl
-    config.enableNormalizationFlattenContainers = false // Make layout tests more predictable
-    config.enableNormalizationOppositeOrientationForNestedContainers = false // Make layout tests more predictable
-    config.defaultRootContainerOrientation = .horizontal // Make default layout predictable
 
-    // Don't create any bindings and workspaces for tests
-    config.modes = [mainModeId: Mode(bindings: [:])]
-    config.persistentWorkspaces = []
-
+    config.bindings = [:]
+    testWorkspaceAliases = [:]
+    unsafe testMonitors = [TestMonitor(displayId: "test-main", name: "Main", x: 0, isMain: true)]
     for workspace in Workspace.all {
-        for child in workspace.children {
-            child.unbindFromParent()
-        }
+        for child in workspace.children { child.unbindFromParent() }
     }
-    check(Workspace.get(byName: "setUpWorkspacesForTests").focusWorkspace())
-    Workspace.garbageCollectUnusedWorkspaces()
-    check(focus.workspace.isEffectivelyEmpty)
-    check(focus.workspace === Workspace.all.singleOrNil(), Workspace.all.map(\.description).joined(separator: ", "))
-    check(mainMonitorInfo.setActiveWorkspace(focus.workspace))
+    Workspace.reconcileMonitors(monitorInfos)
+    _ = mainMonitorInfo.activeWorkspace.focusWorkspace()
+    resetClosedWindowsCache()
 
     TestApp.shared.focusedWindow = nil
     TestApp.shared.windows = []
 }
 
-extension ParsedCmd {
-    var errorOrNil: String? {
-        return switch self {
-            case .failure(let e): e.msg
-            case .cmd, .help: nil
-        }
-    }
-
-    var cmdOrDie: T { cmdOrNil ?? dieT("\(self)") }
+struct TestMonitor: MonitorInfo {
+    let displayId: String
+    let name: String
+    let x: Double
+    var isMain: Bool = false
+    var width: CGFloat = 1920
+    var height: CGFloat = 1080
+    var rect: Rect { Rect(topLeftX: x, topLeftY: 0, width: width, height: height) }
+    var visibleRect: Rect { rect }
 }
 
-func testParseCommandFail(_ command: String, msg expectedMsg: String, exitCode expectedExitCode: Int32, file: StaticString = #filePath, line: UInt = #line) {
-    let parsed = parseCommand(command)
-    switch parsed {
-        case .cmd(let command): XCTFail("\(command) isn't supposed to be parcelable")
-        case .help: die() // todo test help
-        case .failure(let failure):
-            assertEquals(failure, .init(expectedMsg, expectedExitCode), file: file, line: line)
+@MainActor private var testWorkspaceAliases: [String: Workspace] = [:]
+
+/// Map legacy tree fixtures to real display layouts rather than named virtual workspaces.
+@MainActor func workspaceForTest(_ name: String) -> Workspace {
+    if let existing = testWorkspaceAliases[name] { return existing }
+    let workspace: Workspace
+    if testWorkspaceAliases.isEmpty {
+        workspace = mainMonitorInfo.activeWorkspace
+    } else {
+        let monitor = TestMonitor(displayId: name, name: name, x: Double(monitorInfos.count) * 1920)
+        unsafe testMonitors = monitorInfos + [monitor]
+        Workspace.reconcileMonitors(monitorInfos)
+        workspace = monitor.activeWorkspace
     }
+    testWorkspaceAliases[name] = workspace
+    return workspace
 }
-
-extension WorkspaceCmdArgs {
-    init(target: WorkspaceTarget, autoBackAndForth: Bool? = nil, wrapAround: Bool? = nil) {
-        self = WorkspaceCmdArgs(rawArgs: [])
-        self.target = .initialized(target)
-        self._autoBackAndForth = autoBackAndForth
-        self._wrapAround = wrapAround
-    }
-}
-
-extension MoveNodeToWorkspaceCmdArgs {
-    init(target: WorkspaceTarget, wrapAround: Bool? = nil) {
-        self = MoveNodeToWorkspaceCmdArgs(rawArgs: [])
-        self.target = .initialized(target)
-        self._wrapAround = wrapAround
-    }
-
-    init(workspace: String) {
-        self = MoveNodeToWorkspaceCmdArgs(rawArgs: [])
-        self.target = .initialized(.direct(.parse(workspace).getOrDie()))
-    }
-}
-
-extension HotkeyBinding {
-    init(_ modifiers: NSEvent.ModifierFlags, _ keyCode: Key, _ commands: Shell<any Command>) {
-        let descriptionWithKeyNotation = modifiers.isEmpty
-            ? keyCode.toString()
-            : modifiers.toString() + "-" + keyCode.toString()
-        self.init(modifiers, keyCode, commands, descriptionWithKeyNotation: descriptionWithKeyNotation)
-    }
-}
-
-extension FocusCommand {
-    static func new(direction: CardinalDirection) -> FocusCommand {
-        FocusCommand(args: FocusCmdArgs(rawArgs: [], cardinalOrDfsDirection: .direction(direction)))
-    }
-}
-
-func parseCommand(_ raw: String) -> ParsedCmd<Shell<any Command>> { parseCommand(raw, allowExecAndForget: true, allowEval: true) }

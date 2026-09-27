@@ -1,89 +1,102 @@
+import AppKit
+import Testing
+
 @testable import AppBundle
-import XCTest
 
-@MainActor
-final class TreeNodeTest: XCTestCase {
-    override func setUp() async throws { setUpWorkspacesForTests() }
+extension CoreTests {
+    @MainActor
+    struct TreeNodeTest {
+        var name: String { String(describing: Self.self) }
+        init() async throws { setUpWorkspacesForTests() }
 
-    func testChildParentCyclicReferenceMemoryLeak() {
-        let workspace = Workspace.get(byName: name) // Don't cache root node
-        let window = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        @Test func testChildParentCyclicReferenceMemoryLeak() {
+            let workspace = workspaceForTest(name)  // Don't cache root node
+            let window = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
 
-        XCTAssertTrue(window.parent != nil)
-        workspace.rootTilingContainer.unbindFromParent()
-        XCTAssertTrue(window.parent == nil)
-    }
+            expectTrue(window.parent != nil)
+            workspace.rootTilingContainer.unbindFromParent()
+            expectTrue(window.parent == nil)
+        }
 
-    func testIsEffectivelyEmpty() {
-        let workspace = Workspace.get(byName: name)
+        @Test func testIsEffectivelyEmpty() {
+            let workspace = workspaceForTest(name)
 
-        XCTAssertTrue(workspace.isEffectivelyEmpty)
-        weak let window: TestWindow? = .new(id: 1, parent: workspace.rootTilingContainer)
-        XCTAssertNotEqual(window, nil)
-        XCTAssertTrue(!workspace.isEffectivelyEmpty)
-        window!.unbindFromParent()
-        XCTAssertTrue(workspace.isEffectivelyEmpty)
+            expectTrue(workspace.isEffectivelyEmpty)
+            weak let window: TestWindow? = .new(id: 1, parent: workspace.rootTilingContainer)
+            expectNotEqual(window, nil)
+            expectTrue(!workspace.isEffectivelyEmpty)
+            window!.unbindFromParent()
+            expectTrue(workspace.isEffectivelyEmpty)
 
-        // Don't save to local variable
-        TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
-        XCTAssertTrue(!workspace.isEffectivelyEmpty)
-    }
+            // Don't save to local variable
+            TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
+            expectTrue(!workspace.isEffectivelyEmpty)
+        }
 
-    func testNormalizeContainers_dontRemoveRoot() {
-        let workspace = Workspace.get(byName: name)
-        weak let root = workspace.rootTilingContainer
-        func test() {
-            XCTAssertNotEqual(root, nil)
-            XCTAssertTrue(root!.isEffectivelyEmpty)
+        @Test func nestedGroupsAlwaysAlternateOrientation() {
+            let workspace = workspaceForTest(name)
+            let root = workspace.rootTilingContainer
+            let nested = TilingContainer.newHTiles(parent: root, adaptiveWeight: 1)
+            TestWindow.new(id: 1, parent: root)
+            TestWindow.new(id: 2, parent: nested)
+            TestWindow.new(id: 3, parent: nested)
             workspace.normalizeContainers()
-            XCTAssertNotEqual(root, nil)
+            #expect(root.orientation == .h)
+            #expect(nested.orientation == .v)
+            #expect(nested.children.count == 2)
+            nested.changeOrientation(.h)
+            #expect(root.orientation == .v)
+            #expect(nested.orientation == .h)
         }
-        test()
 
-        config.enableNormalizationFlattenContainers = true
-        test()
-    }
-
-    func testNormalizeContainers_singleWindowChild() {
-        config.enableNormalizationFlattenContainers = true
-        let workspace = Workspace.get(byName: name)
-        workspace.rootTilingContainer.apply {
-            TestWindow.new(id: 0, parent: $0)
-            TilingContainer.newHTiles(parent: $0, adaptiveWeight: 1).apply {
-                TestWindow.new(id: 1, parent: $0)
+        @Test func testNormalizeContainers_dontRemoveRoot() {
+            let workspace = workspaceForTest(name)
+            weak let root = workspace.rootTilingContainer
+            func test() {
+                expectNotEqual(root, nil)
+                expectTrue(root!.isEffectivelyEmpty)
+                workspace.normalizeContainers()
+                expectNotEqual(root, nil)
             }
+            test()
         }
-        workspace.normalizeContainers()
-        assertEquals(
-            .h_tiles([.window(0), .window(1)]),
-            workspace.rootTilingContainer.layoutDescription,
-        )
-    }
 
-    func testNormalizeContainers_removeEffectivelyEmpty() {
-        let workspace = Workspace.get(byName: name)
-        workspace.rootTilingContainer.apply {
-            TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1).apply {
-                _ = TilingContainer.newHTiles(parent: $0, adaptiveWeight: 1)
+        @Test func testNormalizeContainers_singleWindowChild() {
+            let workspace = workspaceForTest(name)
+            workspace.rootTilingContainer.apply {
+                TestWindow.new(id: 0, parent: $0)
+                TilingContainer.newHTiles(parent: $0, adaptiveWeight: 1).apply {
+                    TestWindow.new(id: 1, parent: $0)
+                }
             }
+            workspace.normalizeContainers()
+            assertEquals(
+                .h_tiles([.window(0), .window(1)]),
+                workspace.rootTilingContainer.layoutDescription,
+            )
         }
-        assertEquals(workspace.rootTilingContainer.children.count, 1)
-        workspace.normalizeContainers()
-        assertEquals(workspace.rootTilingContainer.children.count, 0)
-    }
 
-    func testNormalizeContainers_flattenContainers() {
-        let workspace = Workspace.get(byName: name) // Don't cache root node
-        workspace.rootTilingContainer.apply {
-            TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1).apply {
-                TestWindow.new(id: 1, parent: $0, adaptiveWeight: 1)
+        @Test func testNormalizeContainers_removeEffectivelyEmpty() {
+            let workspace = workspaceForTest(name)
+            workspace.rootTilingContainer.apply {
+                TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1).apply {
+                    _ = TilingContainer.newHTiles(parent: $0, adaptiveWeight: 1)
+                }
             }
+            assertEquals(workspace.rootTilingContainer.children.count, 1)
+            workspace.normalizeContainers()
+            assertEquals(workspace.rootTilingContainer.children.count, 0)
         }
-        workspace.normalizeContainers()
-        XCTAssertTrue(workspace.rootTilingContainer.children.singleOrNil() is TilingContainer)
 
-        config.enableNormalizationFlattenContainers = true
-        workspace.normalizeContainers()
-        XCTAssertTrue(workspace.rootTilingContainer.children.singleOrNil() is TestWindow)
+        @Test func testNormalizeContainers_flattenContainers() {
+            let workspace = workspaceForTest(name)  // Don't cache root node
+            workspace.rootTilingContainer.apply {
+                TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1).apply {
+                    TestWindow.new(id: 1, parent: $0, adaptiveWeight: 1)
+                }
+            }
+            workspace.normalizeContainers()
+            expectTrue(workspace.rootTilingContainer.children.singleOrNil() is TestWindow)
+        }
     }
 }

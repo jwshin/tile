@@ -30,7 +30,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=18692, title=nil, role=\"AXTextArea\", subrole=nil)",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=18692, title=\"\", role=\"AXWindow\", subrole=\"AXUnknown\")",
@@ -49,28 +49,28 @@
       "AXUIElement(AxWindowId=18692, title=\"\", role=\"AXWindow\", subrole=\"AXUnknown\")",
       "AXUIElement(AxWindowId=15127, title=\"jvm-gradle-sandbox [~/a/jvm-gradle-sandbox] – /Users/bobko/a/jvm-gradle-sandbox/src/_052.kt\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXExtrasMenuBar(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXExtrasMenuBar(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.jetbrains.intellij",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Users/bobko/Applications/ij-253.app/",
-  "Aero.App.nsApp.execPath" : "file:///Users/bobko/Applications/ij-253.app/Contents/MacOS/idea",
-  "Aero.App.pid" : 61359,
-  "Aero.App.version" : "IU-253.32098.37",
-  "Aero.App.versionShort" : "2025.3.4",
-  "Aero.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXMinimizeButton(noValue), get.AXDocument(noValue), get.AXCloseButton(noValue), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXTitleUIElement(noValue), get.AXCancelButton(noValue), get.AXZoomButton(noValue), get.AXToolbarButton(noValue)",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections",
-  "Aero.axWindowId" : 18692,
-  "Aero.macOS.version" : "Version 26.5.1 (Build 25F80)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.jetbrains.intellij",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Users/bobko/Applications/ij-253.app/",
+  "tile.App.nsApp.execPath" : "file:///Users/bobko/Applications/ij-253.app/Contents/MacOS/idea",
+  "tile.App.pid" : 61359,
+  "tile.App.version" : "IU-253.32098.37",
+  "tile.App.versionShort" : "2025.3.4",
+  "tile.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXMinimizeButton(noValue), get.AXDocument(noValue), get.AXCloseButton(noValue), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXTitleUIElement(noValue), get.AXCancelButton(noValue), get.AXZoomButton(noValue), get.AXToolbarButton(noValue)",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections",
+  "tile.axWindowId" : 18692,
+  "tile.macOS.version" : "Version 26.5.1 (Build 25F80)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
-  "Aero.windowLevel" : 101,
-  "Aero.workspace" : null
+  "tile.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
+  "tile.windowLevel" : 101,
+  "tile.workspace" : null
 }

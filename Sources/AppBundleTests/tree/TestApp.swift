@@ -1,19 +1,16 @@
-@testable import AppBundle
 import Common
+
+@testable import AppBundle
 
 final class TestApp: AbstractApp {
     let pid: Int32
-    let rawAppBundleId: String?
     let name: String?
-    let execPath: String? = nil
-    let bundlePath: String? = nil
     @MainActor
     static let shared = TestApp()
 
     private init() {
         self.pid = 0
-        self.rawAppBundleId = "bobko.AeroSpace.test-app"
-        self.name = rawAppBundleId
+        self.name = "tile test app"
     }
 
     var _windows: [Window] = []

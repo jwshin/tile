@@ -1,64 +1,18 @@
-# Contributing
+# Development of this personal fork
 
-The main and the most important rule: **read the room!**
+This repository is tile, a reduced window manager for keyboard-driven tiling across multiple monitors.
+Read [the architecture](dev-docs/architecture.md) and [development guide](dev-docs/development.md)
+before changing window-management behavior.
 
-* Does your patch look like typical commit in the repo?
-* Does your commit message look like typical commit message in the repo?
-* Does your test look like typical test in the repo?
-* etc.
+Keep configuration limited to shortcuts, one gap value, and floating-app exceptions. Bindings select
+named actions from `Sources/AppBundle/command/Action.swift`; there is no CLI or command server.
 
-## Submiting bugs and feature ideas
+Run `./test.sh` before submitting changes. For changes to native window handling, also perform the
+multi-monitor desktop checks described in the development guide. Describe the behavior changed and
+what you verified in the pull request.
 
-Submit bugs to https://github.com/nikitabobko/AeroSpace/discussions/categories/potential-bugs
+For a problem in this fork, record the reproduction steps, personal configuration, macOS version,
+and any runtime diagnostic. Diagnose it here before treating it as an upstream issue.
 
-Submit feature ideas to https://github.com/nikitabobko/AeroSpace/discussions/categories/feature-ideas
-
-Rules:
-* Search for duplicates (in GitHub Issues and Discussions) before creating a new discussion
-* Upvote for issues/discussions that you find useful
-
-**Consider including in bug reports**
-
-* `aerospace debug-windows` output, if the problem is about handling some windows
-* Screenshots of problematic windows
-* Videos of problematic windows
-* What did you try to resolve the issue?
-* Your config
-* AeroSpace version
-* macOS version
-
-**Consider including in feature request**
-
-* Use cases!
-* Alternative approaches
-* Links to docs of similar features in other window managers that you know
-* Synopsis, if you suggest a new command
-* Mental model description
-
-## Submiting code
-
-There are 2 options:
-1. Send email patches to: `echo YWVyb3NwYWNlLXBhdGNoZXNAYm9ia28ueHl6Cg== | base64 --decode`
-2. Send GitHub PRs
-
-**License Agreement**. By contributing changes to this repository, you agree to license your contributions under the MIT license.
-
-Maintainers can apply your patch with arbitrary modifications.
-
-## Spread the word
-
-Do you like the project? Does AeroSpace finally fix your problems with windows management on macOS? Good to hear it!
-
-* Spread the word in social networks! (Don't forget to share the link :) )
-* Talk about AeroSpace to your colleagues and friends
-* Write a blogpost about your workflows
-* Record a YouTube video
-
-## Share your workflow and tips
-
-Submit your tips to [the Goodies page](https://nikitabobko.github.io/AeroSpace/goodies). The source code of the page can be found in `./docs` directory
-
-## Support the project financially
-
-Supporting the project financially counts as a contribution (even if it's just a $1/month).
-You can sponsor the project on GitHub Sponsors page: https://github.com/sponsors/nikitabobko
+Contributions are licensed under the repository's MIT license. Preserve upstream copyright notices
+and the third-party notices in `legal/`.

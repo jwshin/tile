@@ -25,7 +25,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=78408, title=\"test.py – Doom Emacs\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=78408, title=\"test.py – Doom Emacs\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -42,19 +42,19 @@
       "AXUIElement(AxWindowId=78636, title=\"posframe\", role=\"AXWindow\", subrole=\"AXFloatingWindow\")",
       "AXUIElement(AxWindowId=78408, title=\"test.py – Doom Emacs\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "org.gnu.Emacs",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.execPath" : "file:///opt/homebrew/Cellar/emacs-plus@30/30.2/Emacs.app/Contents/MacOS/Emacs-real",
-  "Aero.App.version" : "9.0",
-  "Aero.App.versionShort" : "30.2",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.axWindowId" : 78636,
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.on-window-detected" : [],
-  "Aero.treeNodeParent" : "AppBundle.Workspace",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "1"
+  "tile.App.appBundleId" : "org.gnu.Emacs",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.execPath" : "file:///opt/homebrew/Cellar/emacs-plus@30/30.2/Emacs.app/Contents/MacOS/Emacs-real",
+  "tile.App.version" : "9.0",
+  "tile.App.versionShort" : "30.2",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.axWindowId" : 78636,
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.on-window-detected" : [],
+  "tile.treeNodeParent" : "AppBundle.Workspace",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "1"
 }

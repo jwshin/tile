@@ -33,26 +33,18 @@ enum MacOsWindowLevel: Sendable, Equatable {
 
     static func new(windowLevel: Int) -> MacOsWindowLevel {
         switch windowLevel {
-            case 0: .normalWindow
-            case 3: .alwaysOnTopWindow
-            default: .unknown(windowLevel: windowLevel)
+        case 0: .normalWindow
+        case 3: .alwaysOnTopWindow
+        default: .unknown(windowLevel: windowLevel)
         }
     }
 
     static func fromJson(_ json: Json) -> MacOsWindowLevel? {
         switch json {
-            case .string("normalWindow"): .normalWindow
-            case .string("alwaysOnTopWindow"): .alwaysOnTopWindow
-            case .int(let int): .new(windowLevel: Int(exactly: int).orDie())
-            default: nil
-        }
-    }
-
-    func toJson() -> Json {
-        switch self {
-            case .normalWindow: .string("normalWindow")
-            case .alwaysOnTopWindow: .string("alwaysOnTopWindow")
-            case .unknown(let layerNumber): .int(layerNumber)
+        case .string("normalWindow"): .normalWindow
+        case .string("alwaysOnTopWindow"): .alwaysOnTopWindow
+        case .int(let int): .new(windowLevel: Int(exactly: int).orDie())
+        default: nil
         }
     }
 }

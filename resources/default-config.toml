@@ -1,0 +1,28 @@
+# One permanent layout per connected monitor. Reload from the menu after editing.
+floating-apps = [] # Application bundle IDs that should always float.
+
+gap = 8
+
+# Omit this table to keep default shortcuts. An explicit table replaces them all.
+[bindings]
+alt-h = 'focus-left'
+alt-j = 'focus-down'
+alt-k = 'focus-up'
+alt-l = 'focus-right'
+alt-shift-h = 'move-left'
+alt-shift-j = 'move-down'
+alt-shift-k = 'move-up'
+alt-shift-l = 'move-right'
+alt-ctrl-h = 'join-left'
+alt-ctrl-j = 'join-down'
+alt-ctrl-k = 'join-up'
+alt-ctrl-l = 'join-right'
+alt-minus = 'shrink'
+alt-equal = 'grow'
+alt-shift-equal = 'balance-sizes'
+alt-slash = 'toggle-orientation'
+alt-shift-space = 'toggle-floating'
+alt-f = 'fullscreen'
+alt-tab = 'next-monitor'
+alt-shift-tab = 'move-to-next-monitor'
+alt-shift-r = 'reload-config'

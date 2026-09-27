@@ -9,8 +9,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18872, title=\"VLC media player\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18872, title=\"VLC media player\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : null,
@@ -29,8 +29,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18872, title=\"VLC media player\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18872, title=\"VLC media player\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -54,10 +54,10 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18872, title=\"VLC media player\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18872, title=\"VLC media player\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : "<AXUIElement 0xca6f70810> {pid=80574}",
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=18872, title=nil, role=\"AXTextField\", subrole=\"AXSearchField\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=18872, title=\"VLC media player\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -75,28 +75,28 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=18872, title=\"VLC media player\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "org.videolan.vlc",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/VLC.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/VLC.app/Contents/MacOS/VLC",
-  "Aero.App.pid" : 80574,
-  "Aero.App.version" : "3.0.23",
-  "Aero.App.versionShort" : "3.0.23",
-  "Aero.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXDocument(noValue), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXCancelButton(noValue), get.AXToolbarButton(noValue)",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "dialog",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain, AXMinimized, AXSize",
-  "Aero.axWindowId" : 18872,
-  "Aero.macOS.version" : "Version 26.5.1 (Build 25F80)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "org.videolan.vlc",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/VLC.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/VLC.app/Contents/MacOS/VLC",
+  "tile.App.pid" : 80574,
+  "tile.App.version" : "3.0.23",
+  "tile.App.versionShort" : "3.0.23",
+  "tile.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXDocument(noValue), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXCancelButton(noValue), get.AXToolbarButton(noValue)",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "dialog",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain, AXMinimized, AXSize",
+  "tile.axWindowId" : 18872,
+  "tile.macOS.version" : "Version 26.5.1 (Build 25F80)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.FloatingWindowsContainer)",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "M"
+  "tile.treeNodeParent" : "Optional(AppBundle.FloatingWindowsContainer)",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "M"
 }

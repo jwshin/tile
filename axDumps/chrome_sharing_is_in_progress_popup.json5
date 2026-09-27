@@ -27,7 +27,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : null,
     "AXFocusedWindow" : "AXUIElement(AxWindowId=913, title=\"\", role=\"AXWindow\", subrole=\"AXUnknown\")",
@@ -47,22 +47,22 @@
       "AXUIElement(AxWindowId=913, title=\"\", role=\"AXWindow\", subrole=\"AXUnknown\")",
       "AXUIElement(AxWindowId=441, title=\"Meet – hjq-dnoz-obo - Google Chrome\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "com.google.Chrome",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Google%20Chrome.app/Contents/MacOS/Google%20Chrome",
-  "Aero.App.version" : "7151.104",
-  "Aero.App.versionShort" : "137.0.7151.104",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.axWindowId" : 920,
-  "Aero.macOS.version" : "Version 15.5 (Build 24F74)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.google.Chrome",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.execPath" : "file:///Applications/Google%20Chrome.app/Contents/MacOS/Google%20Chrome",
+  "tile.App.version" : "7151.104",
+  "tile.App.versionShort" : "137.0.7151.104",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.axWindowId" : 920,
+  "tile.macOS.version" : "Version 15.5 (Build 24F74)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
-  "Aero.windowLevel" : 25,
-  "Aero.workspace" : null
+  "tile.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
+  "tile.windowLevel" : 25,
+  "tile.workspace" : null
 }

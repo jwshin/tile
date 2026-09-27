@@ -27,7 +27,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : "<AXUIElement 0x79c149b60> {pid=57720}",
     "AXFocusedUIElement" : null,
     "AXFocusedWindow" : "AXUIElement(AxWindowId=23883, title=\"Codex\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -46,28 +46,28 @@
       "AXUIElement(AxWindowId=25375, title=\"Codex\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
       "AXUIElement(AxWindowId=23883, title=\"Codex\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXFocusedUIElement, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXFocusedUIElement, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.openai.codex",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/Codex.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Codex.app/Contents/MacOS/Codex",
-  "Aero.App.pid" : 57720,
-  "Aero.App.version" : "4212",
-  "Aero.App.versionShort" : "26.616.51431",
-  "Aero.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain",
-  "Aero.axWindowId" : 25375,
-  "Aero.macOS.version" : "Version 26.5.1 (Build 25F80)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.openai.codex",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/Codex.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/Codex.app/Contents/MacOS/Codex",
+  "tile.App.pid" : 57720,
+  "tile.App.version" : "4212",
+  "tile.App.versionShort" : "26.616.51431",
+  "tile.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain",
+  "tile.axWindowId" : 25375,
+  "tile.macOS.version" : "Version 26.5.1 (Build 25F80)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.Workspace)",
-  "Aero.windowLevel" : "alwaysOnTopWindow",
-  "Aero.workspace" : "1"
+  "tile.treeNodeParent" : "Optional(AppBundle.Workspace)",
+  "tile.windowLevel" : "alwaysOnTopWindow",
+  "tile.workspace" : "1"
 }

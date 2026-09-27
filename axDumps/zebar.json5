@@ -26,7 +26,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : "<AXUIElement 0x7a6601b30> {pid=5114}",
     "AXFocusedUIElement" : "<AXUIElement 0x7a6601b30> {pid=5122}",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=10742, title=\"Zebar - glzr-io.starter / vanilla\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -45,25 +45,25 @@
       "AXUIElement(AxWindowId=10742, title=\"Zebar - glzr-io.starter / vanilla\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
       "AXUIElement(AxWindowId=10743, title=\"Zebar - glzr-io.starter / vanilla\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "com.glzr.zebar",
-  "Aero.App.nsApp.activationPolicy" : "accessory",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Zebar.app/Contents/MacOS/zebar",
-  "Aero.App.version" : "20250618.170017",
-  "Aero.App.versionShort" : "3.1.1",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.axWindowId" : 10742,
-  "Aero.macOS.version" : "Version 26.0 (Build 25A354)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.glzr.zebar",
+  "tile.App.nsApp.activationPolicy" : "accessory",
+  "tile.App.nsApp.execPath" : "file:///Applications/Zebar.app/Contents/MacOS/zebar",
+  "tile.App.version" : "20250618.170017",
+  "tile.App.versionShort" : "3.1.1",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.axWindowId" : 10742,
+  "tile.macOS.version" : "Version 26.0 (Build 25A354)",
+  "tile.on-window-detected" : [
     {
       "commands" : "layout tiling",
       "matcher" : ""
     }
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.TilingContainer)",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "1"
+  "tile.treeNodeParent" : "Optional(AppBundle.TilingContainer)",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "1"
 }

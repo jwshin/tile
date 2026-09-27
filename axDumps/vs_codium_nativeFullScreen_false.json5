@@ -10,8 +10,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18857, title=\"Release Notes: 1.121.03429\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18857, title=\"Release Notes: 1.121.03429\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : "",
@@ -29,8 +29,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18857, title=\"Release Notes: 1.121.03429\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18857, title=\"Release Notes: 1.121.03429\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -55,10 +55,10 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18857, title=\"Release Notes: 1.121.03429\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18857, title=\"Release Notes: 1.121.03429\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=18857, title=\"\", role=\"AXTextArea\", subrole=nil)",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=18857, title=\"Release Notes: 1.121.03429\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -77,28 +77,28 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=18857, title=\"Release Notes: 1.121.03429\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXExtrasMenuBar(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXManualAccessibility, AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXExtrasMenuBar(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXManualAccessibility, AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.vscodium",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/VSCodium.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/VSCodium.app/Contents/MacOS/VSCodium",
-  "Aero.App.pid" : 80161,
-  "Aero.App.version" : "1.121.03429",
-  "Aero.App.versionShort" : "1.121.03429",
-  "Aero.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXTitleUIElement(failure), get.AXCancelButton(noValue), get.AXToolbarButton(noValue)",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "window",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : false,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain, AXMinimized, AXSize",
-  "Aero.axWindowId" : 18857,
-  "Aero.macOS.version" : "Version 26.5.1 (Build 25F80)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.vscodium",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/VSCodium.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/VSCodium.app/Contents/MacOS/VSCodium",
+  "tile.App.pid" : 80161,
+  "tile.App.version" : "1.121.03429",
+  "tile.App.versionShort" : "1.121.03429",
+  "tile.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXTitleUIElement(failure), get.AXCancelButton(noValue), get.AXToolbarButton(noValue)",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "window",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : false,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain, AXMinimized, AXSize",
+  "tile.axWindowId" : 18857,
+  "tile.macOS.version" : "Version 26.5.1 (Build 25F80)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.TilingContainer)",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "M"
+  "tile.treeNodeParent" : "Optional(AppBundle.TilingContainer)",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "M"
 }

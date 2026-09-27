@@ -9,8 +9,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : null,
@@ -25,8 +25,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXGrowArea" : null,
   "AXMain" : 1,
@@ -38,8 +38,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -63,10 +63,10 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -85,28 +85,28 @@
       "AXUIElement(AxWindowId=18623, title=\"\", role=\"AXWindow\", subrole=\"AXUnknown\")",
       "AXUIElement(AxWindowId=18469, title=\"Untitled - DrRacket\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXExtrasMenuBar(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXExtrasMenuBar(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "org.racket-lang.DrRacket",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/Racket%20v9.2/DrRacket.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Racket%20v9.2/DrRacket.app/Contents/MacOS/DrRacket",
-  "Aero.App.pid" : 75065,
-  "Aero.App.version" : "9.2",
-  "Aero.App.versionShort" : "9.2",
-  "Aero.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXDocument(noValue), isWritable.AXActivationPoint(failure), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXCancelButton(noValue), get.AXToolbarButton(noValue)",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "window",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : false,
-  "Aero.AxWritable" : "AXFullScreen, AXPosition, AXSections, AXMain, AXMinimized, AXSize",
-  "Aero.axWindowId" : 18469,
-  "Aero.macOS.version" : "Version 26.5.1 (Build 25F80)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "org.racket-lang.DrRacket",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/Racket%20v9.2/DrRacket.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/Racket%20v9.2/DrRacket.app/Contents/MacOS/DrRacket",
+  "tile.App.pid" : 75065,
+  "tile.App.version" : "9.2",
+  "tile.App.versionShort" : "9.2",
+  "tile.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXDocument(noValue), isWritable.AXActivationPoint(failure), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXCancelButton(noValue), get.AXToolbarButton(noValue)",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "window",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : false,
+  "tile.AxWritable" : "AXFullScreen, AXPosition, AXSections, AXMain, AXMinimized, AXSize",
+  "tile.axWindowId" : 18469,
+  "tile.macOS.version" : "Version 26.5.1 (Build 25F80)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.TilingContainer)",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "M"
+  "tile.treeNodeParent" : "Optional(AppBundle.TilingContainer)",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "M"
 }

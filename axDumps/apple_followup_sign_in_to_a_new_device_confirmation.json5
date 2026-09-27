@@ -9,7 +9,7 @@
     "AXTitle" : "Do Not Allow",
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=4744, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=4744, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXCloseButton" : null,
   "AXDefaultButton" : {
@@ -20,7 +20,7 @@
     "AXTitle" : "Allow",
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=4744, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=4744, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXDocument" : null,
   "AXFocused" : 0,
@@ -46,7 +46,7 @@
   "AXTitleUIElement" : "AXUIElement(AxWindowId=4744, title=nil, role=\"AXStaticText\", subrole=nil)",
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : {
       "AXEnabled" : 1,
@@ -56,7 +56,7 @@
       "AXTitle" : "Do Not Allow",
       "AXTopLevelUIElement" : "AXUIElement(AxWindowId=4744, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
       "AXWindow" : "AXUIElement(AxWindowId=4744, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-      "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+      "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
     },
     "AXFocusedWindow" : "AXUIElement(AxWindowId=4744, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXFrame" : null,
@@ -73,28 +73,28 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=4744, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.apple.FollowUpUI",
-  "Aero.App.nsApp.activationPolicy" : "accessory",
-  "Aero.App.nsApp.appBundlePath" : "file:///System/Library/PrivateFrameworks/CoreFollowUp.framework/Versions/A/Resources/FollowUpUI.app/",
-  "Aero.App.nsApp.execPath" : "file:///System/Library/PrivateFrameworks/CoreFollowUp.framework/Versions/A/Resources/FollowUpUI.app/Contents/MacOS/FollowUpUI",
-  "Aero.App.pid" : 93865,
-  "Aero.App.version" : "281.1.5",
-  "Aero.App.versionShort" : "1.0",
-  "Aero.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXZoomButton, get.AXToolbarButton",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain",
-  "Aero.axWindowId" : 4744,
-  "Aero.macOS.version" : "Version 26.1 (Build 25B78)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.apple.FollowUpUI",
+  "tile.App.nsApp.activationPolicy" : "accessory",
+  "tile.App.nsApp.appBundlePath" : "file:///System/Library/PrivateFrameworks/CoreFollowUp.framework/Versions/A/Resources/FollowUpUI.app/",
+  "tile.App.nsApp.execPath" : "file:///System/Library/PrivateFrameworks/CoreFollowUp.framework/Versions/A/Resources/FollowUpUI.app/Contents/MacOS/FollowUpUI",
+  "tile.App.pid" : 93865,
+  "tile.App.version" : "281.1.5",
+  "tile.App.versionShort" : "1.0",
+  "tile.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXZoomButton, get.AXToolbarButton",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain",
+  "tile.axWindowId" : 4744,
+  "tile.macOS.version" : "Version 26.1 (Build 25B78)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
-  "Aero.windowLevel" : 25,
-  "Aero.workspace" : null
+  "tile.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
+  "tile.windowLevel" : 25,
+  "tile.workspace" : null
 }

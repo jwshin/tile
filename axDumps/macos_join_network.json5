@@ -8,7 +8,7 @@
     "AXTitle" : "Cancel",
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXCloseButton" : {
     "AXEnabled" : 1,
@@ -18,8 +18,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxFailed" : "get.AXTitle",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : null,
@@ -38,8 +38,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -63,10 +63,10 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "<AXUIElement 0x600000434db0> {pid=73508}",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -84,28 +84,28 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=9780, title=\"Join Network\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.apple.CaptiveNetworkAssistant",
-  "Aero.App.nsApp.activationPolicy" : "accessory",
-  "Aero.App.nsApp.appBundlePath" : "file:///System/Library/CoreServices/Captive%20Network%20Assistant.app/",
-  "Aero.App.nsApp.execPath" : "file:///System/Library/CoreServices/Captive%20Network%20Assistant.app/Contents/MacOS/Captive%20Network%20Assistant",
-  "Aero.App.pid" : 73503,
-  "Aero.App.version" : "5.0",
-  "Aero.App.versionShort" : "5.0",
-  "Aero.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXDocument, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXToolbarButton",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "dialog",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain",
-  "Aero.axWindowId" : 9780,
-  "Aero.macOS.version" : "Version 15.6.1 (Build 24G90)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.apple.CaptiveNetworkAssistant",
+  "tile.App.nsApp.activationPolicy" : "accessory",
+  "tile.App.nsApp.appBundlePath" : "file:///System/Library/CoreServices/Captive%20Network%20Assistant.app/",
+  "tile.App.nsApp.execPath" : "file:///System/Library/CoreServices/Captive%20Network%20Assistant.app/Contents/MacOS/Captive%20Network%20Assistant",
+  "tile.App.pid" : 73503,
+  "tile.App.version" : "5.0",
+  "tile.App.versionShort" : "5.0",
+  "tile.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXDocument, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXToolbarButton",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "dialog",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain",
+  "tile.axWindowId" : 9780,
+  "tile.macOS.version" : "Version 15.6.1 (Build 24G90)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.Workspace)",
-  "Aero.windowLevel" : 8,
-  "Aero.workspace" : "1"
+  "tile.treeNodeParent" : "Optional(AppBundle.Workspace)",
+  "tile.windowLevel" : 8,
+  "tile.workspace" : "1"
 }

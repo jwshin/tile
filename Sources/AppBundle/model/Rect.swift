@@ -1,7 +1,7 @@
 import AppKit
 import Common
 
-struct Rect: ConvenienceMutable, AeroAny {
+struct Rect: ConvenienceMutable, TileValue {
     var topLeftX: CGFloat
     var topLeftY: CGFloat
 
@@ -49,10 +49,6 @@ extension Rect {
     }
 
     var topLeftCorner: CGPoint { CGPoint(x: topLeftX, y: topLeftY) }
-    // periphery:ignore
-    var topRightCorner: CGPoint { CGPoint(x: maxX, y: minY) }
-    var bottomRightCorner: CGPoint { CGPoint(x: maxX, y: maxY) }
-    var bottomLeftCorner: CGPoint { CGPoint(x: minX, y: maxY) }
 
     var minY: CGFloat { topLeftY }
     var maxY: CGFloat { topLeftY + height }

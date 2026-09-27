@@ -1,12 +1,13 @@
 import Common
 import Foundation
+import Synchronization
 
 extension Thread {
     @discardableResult
     func runInLoopAsync(
         job: RunLoopJob,
         autoCheckCancelled: Bool = true,
-        _ body: @Sendable @escaping (RunLoopJob) -> (),
+        _ body: @Sendable @escaping (RunLoopJob) -> Void,
     ) -> RunLoopJob {
         let action = RunLoopAction(job: job, autoCheckCancelled: autoCheckCancelled, body)
         // Alternative: CFRunLoopPerformBlock + CFRunLoopWakeUp
@@ -17,7 +18,7 @@ extension Thread {
     func runInLoop<T>(
         _ cm: CancellationMode,
         _ body: @Sendable @escaping (RunLoopJob) throws -> T,
-    ) async throws -> T { // todo try to convert to typed throws
+    ) async throws -> T {  // todo try to convert to typed throws
         try checkCancellation(cm)
         let job = RunLoopJob(cm)
         return try await withTaskCancellationHandler {
@@ -40,11 +41,11 @@ extension Thread {
 }
 
 private final class RunLoopAction: NSObject, Sendable {
-    private let _action: @Sendable (RunLoopJob) -> ()
+    private let _action: @Sendable (RunLoopJob) -> Void
     let job: RunLoopJob
     private let autoCheckCancelled: Bool
     private let _refreshSessionEvent: RefreshSessionEvent?
-    init(job: RunLoopJob, autoCheckCancelled: Bool, _ action: @escaping @Sendable (RunLoopJob) -> ()) {
+    init(job: RunLoopJob, autoCheckCancelled: Bool, _ action: @escaping @Sendable (RunLoopJob) -> Void) {
         self.job = job
         self.autoCheckCancelled = autoCheckCancelled
         _action = action
@@ -58,17 +59,14 @@ private final class RunLoopAction: NSObject, Sendable {
     }
 }
 
-final class RunLoopJob: Sendable, AeroAny {
-    // Alternative 1. In macOS 15, it's possible to use `Atomic<Bool>` from `Synchronization` module
-    // Alternative 2. https://github.com/apple/swift-atomics/tree/main but I don't want to add one more dependency just for
-    //                AtomicBool
-    nonisolated(unsafe) private var _isCancelled: Int32 = 0
-    var isCancelled: Bool { unsafe _isCancelled == 1 }
+final class RunLoopJob: Sendable, TileValue {
+    // This flag publishes no other state; relaxed atomic loads/stores are sufficient.
+    private let cancelledFlag = Atomic<Bool>(false)
+    var isCancelled: Bool { cancelledFlag.load(ordering: .relaxed) }
+
     func cancel() {
-        if cm == .nonCancellable { return }
-        while !isCancelled {
-            unsafe OSAtomicCompareAndSwapInt(0, 1, &_isCancelled)
-        }
+        guard cm == .cancellable else { return }
+        cancelledFlag.store(true, ordering: .relaxed)
     }
 
     let cm: CancellationMode

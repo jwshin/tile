@@ -9,7 +9,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : null,
@@ -24,7 +24,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXGrowArea" : null,
   "AXMain" : 1,
@@ -36,7 +36,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -60,9 +60,9 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=4294, title=\"\", role=\"AXTextField\", subrole=\"AXUnknown\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -80,22 +80,22 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=4294, title=\"Mozilla Firefox\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "org.mozilla.firefox",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Firefox.app/Contents/MacOS/firefox",
-  "Aero.App.version" : "13925.5.29",
-  "Aero.App.versionShort" : "139.0.1",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.axWindowId" : 4294,
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true, // todo fix
-  "Aero.AxUiElementWindowType" : "dialog",
-  "Aero.macOS.version" : "Version 15.5 (Build 24F74)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "org.mozilla.firefox",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.execPath" : "file:///Applications/Firefox.app/Contents/MacOS/firefox",
+  "tile.App.version" : "13925.5.29",
+  "tile.App.versionShort" : "139.0.1",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.axWindowId" : 4294,
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true, // todo fix
+  "tile.AxUiElementWindowType" : "dialog",
+  "tile.macOS.version" : "Version 15.5 (Build 24F74)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.TilingContainer)",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "W"
+  "tile.treeNodeParent" : "Optional(AppBundle.TilingContainer)",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "W"
 }

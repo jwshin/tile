@@ -10,8 +10,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18696, title=\"Rebase\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18696, title=\"Rebase\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : null,
@@ -29,8 +29,8 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18696, title=\"Rebase\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18696, title=\"Rebase\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -55,10 +55,10 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=18696, title=\"Rebase\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=18696, title=\"Rebase\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxFailed" : "get.AXTitle(noValue)",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxFailed" : "get.AXTitle(noValue)",
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=18696, title=nil, role=\"AXTextArea\", subrole=nil)",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=18696, title=\"Rebase\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -77,28 +77,28 @@
       "AXUIElement(AxWindowId=18696, title=\"Rebase\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
       "AXUIElement(AxWindowId=15127, title=\"jvm-gradle-sandbox [~/a/jvm-gradle-sandbox] – /Users/bobko/a/jvm-gradle-sandbox/src/_052.kt\", role=\"AXWindow\", subrole=\"AXDialog\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXExtrasMenuBar(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXExtrasMenuBar(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.jetbrains.intellij",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Users/bobko/Applications/ij-253.app/",
-  "Aero.App.nsApp.execPath" : "file:///Users/bobko/Applications/ij-253.app/Contents/MacOS/idea",
-  "Aero.App.pid" : 61359,
-  "Aero.App.version" : "IU-253.32098.37",
-  "Aero.App.versionShort" : "2025.3.4",
-  "Aero.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXDocument(noValue), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXCancelButton(noValue), get.AXToolbarButton(noValue)",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "dialog",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain, AXSize",
-  "Aero.axWindowId" : 18696,
-  "Aero.macOS.version" : "Version 26.5.1 (Build 25F80)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.jetbrains.intellij",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Users/bobko/Applications/ij-253.app/",
+  "tile.App.nsApp.execPath" : "file:///Users/bobko/Applications/ij-253.app/Contents/MacOS/idea",
+  "tile.App.pid" : 61359,
+  "tile.App.version" : "IU-253.32098.37",
+  "tile.App.versionShort" : "2025.3.4",
+  "tile.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXDocument(noValue), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXCancelButton(noValue), get.AXToolbarButton(noValue)",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "dialog",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain, AXSize",
+  "tile.axWindowId" : 18696,
+  "tile.macOS.version" : "Version 26.5.1 (Build 25F80)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.FloatingWindowsContainer)",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "I"
+  "tile.treeNodeParent" : "Optional(AppBundle.FloatingWindowsContainer)",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "I"
 }

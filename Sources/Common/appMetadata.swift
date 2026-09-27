@@ -1,8 +1,8 @@
-public let stableAeroSpaceAppId: String = "bobko.aerospace"
+public let stableAppId: String = "local.jwshin.tile"
 #if DEBUG
-    public let aeroSpaceAppId: String = "bobko.aerospace.debug"
-    public let aeroSpaceAppName: String = "AeroSpace-Debug"
+    public let appId: String = "local.jwshin.tile.debug"
+    public let appName: String = "tile-debug"
 #else
-    public let aeroSpaceAppId: String = stableAeroSpaceAppId
-    public let aeroSpaceAppName: String = "AeroSpace"
+    public let appId: String = stableAppId
+    public let appName: String = "tile"
 #endif

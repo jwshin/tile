@@ -2,7 +2,7 @@ import AppKit
 import Common
 
 private struct MonitorInfoImpl {
-    let monitorAppKitNsScreenScreensId: Int
+    let displayId: String
     let name: String
     let rect: Rect
     let visibleRect: Rect
@@ -15,9 +15,8 @@ extension MonitorInfoImpl: MonitorInfo {
 }
 
 /// Use it instead of NSScreen because it can be mocked in tests
-protocol MonitorInfo: AeroAny {
-    /// The index in NSScreen.screens array. 1-based index
-    var monitorAppKitNsScreenScreensId: Int { get }
+protocol MonitorInfo: TileValue {
+    var displayId: String { get }
     var name: String { get }
     var rect: Rect { get }
     var visibleRect: Rect { get }
@@ -28,20 +27,20 @@ protocol MonitorInfo: AeroAny {
 
 final class LazyMonitorInfo: MonitorInfo {
     private let screen: NSScreen
-    let monitorAppKitNsScreenScreensId: Int
     let name: String
+    let displayId: String
     let width: CGFloat
     let height: CGFloat
     let isMain: Bool
     private var _rect: Rect?
     private var _visibleRect: Rect?
 
-    init(monitorAppKitNsScreenScreensId: Int, isMain: Bool, _ screen: NSScreen) {
-        self.monitorAppKitNsScreenScreensId = monitorAppKitNsScreenScreensId
+    init(isMain: Bool, _ screen: NSScreen) {
         self.name = screen.localizedName
-        self.width = screen.frame.width // Don't call rect because it would cause recursion during mainMonitor init
-        self.height = screen.frame.height // Don't call rect because it would cause recursion during mainMonitor init
+        self.width = screen.frame.width  // Don't call rect because it would cause recursion during mainMonitor init
+        self.height = screen.frame.height  // Don't call rect because it would cause recursion during mainMonitor init
         self.screen = screen
+        self.displayId = screen.displayId
         self.isMain = isMain
     }
 
@@ -59,9 +58,13 @@ final class LazyMonitorInfo: MonitorInfo {
 // 2. It's inaccurate because NSScreen.main doesn't work correctly from NSWorkspace.didActivateApplicationNotification &
 //    kAXFocusedWindowChangedNotification callbacks.
 extension NSScreen {
-    fileprivate func toMonitorInfo(monitorAppKitNsScreenScreensId: Int) -> MonitorInfo {
+    fileprivate var displayId: String {
+        (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.stringValue ?? localizedName
+    }
+
+    fileprivate func toMonitorInfo() -> MonitorInfo {
         MonitorInfoImpl(
-            monitorAppKitNsScreenScreensId: monitorAppKitNsScreenScreensId,
+            displayId: displayId,
             name: localizedName,
             rect: rect,
             visibleRect: visibleRect,
@@ -87,27 +90,33 @@ extension NSScreen {
 
 private let testMonitorInfoRect = Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080)
 private let testMonitorInfo = MonitorInfoImpl(
-    monitorAppKitNsScreenScreensId: 1,
+    displayId: "test-main",
     name: "Test Monitor",
     rect: testMonitorInfoRect,
     visibleRect: testMonitorInfoRect,
     isMain: true,
 )
 
+nonisolated(unsafe) var testMonitors: [MonitorInfo]? = nil
+
 var mainMonitorInfo: MonitorInfo {
+    if let testMonitors = unsafe testMonitors {
+        return testMonitors.first(where: \.isMain) ?? testMonitors.first ?? testMonitorInfo
+    }
     if isUnitTest { return testMonitorInfo }
     let screens = NSScreen.screens
     // Fallback: If main screen can't be found (e.g., during display reconfiguration),
     // return screens.first or testMonitor to avoid crash
-    let screen = screens.withIndex.singleOrNil(where: \.value.isMainScreen) ?? screens.first.map { (0, $0) }
+    let screen = screens.singleOrNil(where: \.isMainScreen) ?? screens.first
     guard let screen else { return testMonitorInfo }
-    return LazyMonitorInfo(monitorAppKitNsScreenScreensId: screen.index + 1, isMain: true, screen.value)
+    return LazyMonitorInfo(isMain: true, screen)
 }
 
 var monitorInfos: [MonitorInfo] {
-    isUnitTest
+    if let testMonitors = unsafe testMonitors { return testMonitors }
+    return isUnitTest
         ? [testMonitorInfo]
-        : NSScreen.screens.enumerated().map { $0.element.toMonitorInfo(monitorAppKitNsScreenScreensId: $0.offset + 1) }
+        : NSScreen.screens.map { $0.toMonitorInfo() }
 }
 
 var sortedMonitorInfos: [MonitorInfo] {

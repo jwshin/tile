@@ -8,25 +8,23 @@ enum FrozenTreeNode: Sendable {
 
 struct FrozenContainer: Sendable {
     let children: [FrozenTreeNode]
-    let layout: Layout
     let orientation: Orientation
     let weight: CGFloat
 
     @MainActor init(_ container: TilingContainer) {
         children = container.children.map {
             switch $0.nodeCases {
-                case .window(let w): .window(FrozenWindow(w))
-                case .tilingContainer(let c): .container(FrozenContainer(c))
-                case .workspace,
-                     .floatingWindowsContainer,
-                     .macosMinimizedWindowsContainer,
-                     .macosHiddenAppsWindowsContainer,
-                     .macosFullscreenWindowsContainer,
-                     .macosPopupWindowsContainer:
-                    illegalChildParentRelation(child: $0, parent: container)
+            case .window(let w): .window(FrozenWindow(w))
+            case .tilingContainer(let c): .container(FrozenContainer(c))
+            case .workspace,
+                .floatingWindowsContainer,
+                .macosMinimizedWindowsContainer,
+                .macosHiddenAppsWindowsContainer,
+                .macosFullscreenWindowsContainer,
+                .macosPopupWindowsContainer:
+                illegalChildParentRelation(child: $0, parent: container)
             }
         }
-        layout = container.layout
         orientation = container.orientation
         weight = getWeightOrNil(container) ?? 1
     }

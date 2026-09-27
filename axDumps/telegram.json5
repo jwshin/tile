@@ -9,7 +9,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : null,
@@ -24,7 +24,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXGrowArea" : null,
   "AXMain" : 1,
@@ -36,7 +36,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -60,9 +60,9 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=13215, title=\"\", role=\"AXTextArea\", subrole=nil)",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -80,21 +80,21 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=13215, title=\"‎⁨Saved Messages⁩ – (47104)\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "com.tdesktop.Telegram",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Telegram.app/Contents/MacOS/Telegram",
-  "Aero.App.version" : "5.14.0",
-  "Aero.App.versionShort" : "5.14.0",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.axWindowId" : 13215,
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : false,
-  "Aero.AxUiElementWindowType" : "window",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.tdesktop.Telegram",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.execPath" : "file:///Applications/Telegram.app/Contents/MacOS/Telegram",
+  "tile.App.version" : "5.14.0",
+  "tile.App.versionShort" : "5.14.0",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.axWindowId" : 13215,
+  "tile.AxUiElementWindowType_isDialogHeuristic" : false,
+  "tile.AxUiElementWindowType" : "window",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "AppBundle.TilingContainer",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "T"
+  "tile.treeNodeParent" : "AppBundle.TilingContainer",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "T"
 }

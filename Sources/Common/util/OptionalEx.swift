@@ -13,24 +13,10 @@ extension Optional {
         self.map(Result.success) ?? .failure(or())
     }
 
-    public func asList() -> [Wrapped] {
-        switch self {
-            case let ok?: [ok]
-            case nil: []
-        }
-    }
-
-    public func flattenOptional<T>() -> T? where Wrapped == T? {
-        switch self {
-            case let x?: x
-            case nil: nil
-        }
-    }
-
     public var prettyDescription: String {
         switch self {
-            case let ok?: String(describing: ok)
-            case nil: "nil"
+        case let ok?: String(describing: ok)
+        case nil: "nil"
         }
     }
 }

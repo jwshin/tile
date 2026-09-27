@@ -21,7 +21,7 @@ actor AwaitableOneTimeBroadcastLatch {
                 }
             }
         } onCancel: {
-            Task.startUnstructured { await self.cancel(id: id) }
+            _ = Task { await self.cancel(id: id) }
         }
     }
 

@@ -1,7 +1,7 @@
 import AppKit
 import Common
 
-open class TreeNode: Equatable, AeroAny {
+open class TreeNode: Equatable, TileValue {
     private var _children: [TreeNode] = []
     var children: [TreeNode] { _children }
     fileprivate final weak var _parent: NonLeafTreeNodeObject? = nil
@@ -17,9 +17,8 @@ open class TreeNode: Equatable, AeroAny {
     // - drag window with mouse
     // - move-mouse command
     // - focus-follows-mouse
-    var lastAppliedLayoutPhysicalRect: Rect? = nil // with real inner gaps
+    var lastAppliedLayoutPhysicalRect: Rect? = nil  // with real inner gaps
     final var unboundStacktrace: String? = nil
-    var isBound: Bool { parent != nil } // todo drop, once https://github.com/nikitabobko/AeroSpace/issues/1215 is fixed
 
     @MainActor
     init(parent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat, index: Int) {
@@ -35,16 +34,13 @@ open class TreeNode: Equatable, AeroAny {
     func setWeight(_ targetOrientation: Orientation, _ newValue: CGFloat) {
         guard let parent else { die("Can't change weight if TreeNode doesn't have parent") }
         switch getChildParentRelation(child: self, parent: parent) {
-            case .tiling(let parent):
-                if parent.orientation != targetOrientation {
-                    die("You can't change \(targetOrientation) weight of nodes located in \(parent.orientation) container")
-                }
-                if parent.layout != .tiles {
-                    die("Weight can be changed only for nodes whose parent has 'tiles' layout")
-                }
-                adaptiveWeight = newValue
-            default:
-                die("Can't change weight")
+        case .tiling(let parent):
+            if parent.orientation != targetOrientation {
+                die("You can't change \(targetOrientation) weight of nodes located in \(parent.orientation) container")
+            }
+            adaptiveWeight = newValue
+        default:
+            die("Can't change weight")
         }
     }
 
@@ -53,14 +49,14 @@ open class TreeNode: Equatable, AeroAny {
     func getWeight(_ targetOrientation: Orientation) -> CGFloat {
         guard let parent else { die("Weight doesn't make sense for containers without parent") }
         return switch getChildParentRelation(child: self, parent: parent) {
-            case .tiling(let parent):
-                parent.orientation == targetOrientation ? adaptiveWeight : parent.getWeight(targetOrientation)
-            case .rootTilingContainer: parent.getWeight(targetOrientation)
-            case .floatingWindow, .macosNativeFullscreenWindow: dieT("Weight doesn't make sense for floating windows")
-            case .macosNativeMinimizedWindow: dieT("Weight doesn't make sense for minimized windows")
-            case .macosPopupWindow: dieT("Weight doesn't make sense for popup windows")
-            case .macosNativeHiddenAppWindow: dieT("Weight doesn't make sense for windows of hidden apps")
-            case .shimContainerRelation: dieT("Weight doesn't make sense for stub containers")
+        case .tiling(let parent):
+            parent.orientation == targetOrientation ? adaptiveWeight : parent.getWeight(targetOrientation)
+        case .rootTilingContainer: parent.getWeight(targetOrientation)
+        case .floatingWindow, .macosNativeFullscreenWindow: dieT("Weight doesn't make sense for floating windows")
+        case .macosNativeMinimizedWindow: dieT("Weight doesn't make sense for minimized windows")
+        case .macosPopupWindow: dieT("Weight doesn't make sense for popup windows")
+        case .macosNativeHiddenAppWindow: dieT("Weight doesn't make sense for windows of hidden apps")
+        case .shimContainerRelation: dieT("Weight doesn't make sense for stub containers")
         }
     }
 
@@ -72,16 +68,18 @@ open class TreeNode: Equatable, AeroAny {
         if newParent === NilTreeNode.instance {
             return result
         }
-        let relation = getChildParentRelation(child: self, parent: newParent) // Side effect: verify relation
+        let relation = getChildParentRelation(child: self, parent: newParent)  // Side effect: verify relation
         if adaptiveWeight == WEIGHT_AUTO {
-            self.adaptiveWeight = switch relation {
+            self.adaptiveWeight =
+                switch relation {
                 case .tiling(let newParent):
-                    CGFloat(newParent.children.sumOfDouble { $0.getWeight(newParent.orientation) }).div(newParent.children.count) ?? 1
+                    CGFloat(newParent.children.sumOfDouble { $0.getWeight(newParent.orientation) }).div(
+                        newParent.children.count) ?? 1
                 case .floatingWindow, .macosNativeFullscreenWindow,
-                     .rootTilingContainer, .macosNativeMinimizedWindow,
-                     .shimContainerRelation, .macosPopupWindow, .macosNativeHiddenAppWindow:
+                    .rootTilingContainer, .macosNativeMinimizedWindow,
+                    .shimContainerRelation, .macosPopupWindow, .macosNativeHiddenAppWindow:
                     WEIGHT_DOESNT_MATTER
-            }
+                }
         } else {
             self.adaptiveWeight = adaptiveWeight
         }
@@ -115,11 +113,12 @@ open class TreeNode: Equatable, AeroAny {
 
     var mostRecentChild: TreeNode? { _mruChildren.mostRecent ?? children.last }
 
-    var mruChildren: MruStack<TreeNode> { _mruChildren }
-
     @discardableResult
     func unbindFromParent() -> BindingData {
-        unbindIfBound() ?? dieT("\(self) is already unbound. The stacktrace where it was unbound:\n\(unboundStacktrace.prettyDescription)")
+        unbindIfBound()
+            ?? dieT(
+                "\(self) is already unbound. The stacktrace where it was unbound:\n\(unboundStacktrace.prettyDescription)"
+            )
     }
 
     nonisolated public static func == (lhs: TreeNode, rhs: TreeNode) -> Bool {
@@ -135,7 +134,6 @@ open class TreeNode: Equatable, AeroAny {
     func cleanUserData<T>(key: TreeNodeUserDataKey<T>) -> T? { userData.removeValue(forKey: key.key) as! T? }
 }
 
-// periphery:ignore - Generic T is used
 struct TreeNodeUserDataKey<T> {
     let key: String
 }

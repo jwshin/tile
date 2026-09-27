@@ -28,7 +28,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=2861, title=nil, role=\"AXTextArea\", subrole=nil)",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=2861, title=\"~\", role=\"AXWindow\", subrole=\"AXFloatingWindow\")",
@@ -47,28 +47,28 @@
       "AXUIElement(AxWindowId=2861, title=\"~\", role=\"AXWindow\", subrole=\"AXFloatingWindow\")",
       "AXUIElement(AxWindowId=2854, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.mitchellh.ghostty",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/Ghostty.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Ghostty.app/Contents/MacOS/ghostty",
-  "Aero.App.pid" : 18587,
-  "Aero.App.version" : "12214",
-  "Aero.App.versionShort" : "1.2.3",
-  "Aero.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain, AXMinimized, AXSize",
-  "Aero.axWindowId" : 2861,
-  "Aero.macOS.version" : "Version 26.1 (Build 25B78)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.mitchellh.ghostty",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/Ghostty.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/Ghostty.app/Contents/MacOS/ghostty",
+  "tile.App.pid" : 18587,
+  "tile.App.version" : "12214",
+  "tile.App.versionShort" : "1.2.3",
+  "tile.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain, AXMinimized, AXSize",
+  "tile.axWindowId" : 2861,
+  "tile.macOS.version" : "Version 26.1 (Build 25B78)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
-  "Aero.windowLevel" : "alwaysOnTopWindow",
-  "Aero.workspace" : null
+  "tile.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
+  "tile.windowLevel" : "alwaysOnTopWindow",
+  "tile.workspace" : null
 }

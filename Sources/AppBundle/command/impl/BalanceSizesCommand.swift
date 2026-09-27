@@ -3,11 +3,10 @@ import Common
 import Foundation
 
 struct BalanceSizesCommand: Command {
-    let args: BalanceSizesCmdArgs
-    /*conforms*/ let shouldResetClosedWindowsCache = false
+    let shouldResetClosedWindowsCache = true
 
-    func run(_ env: CmdEnv, _ io: CmdIo) -> BinaryExitCode {
-        guard let target = args.resolveTargetOrReportError(env, io) else { return .fail }
+    func run(_ io: CmdIo) -> BinaryExitCode {
+        let target = focus
         balance(target.workspace.rootTilingContainer)
         return .succ
     }
@@ -16,10 +15,7 @@ struct BalanceSizesCommand: Command {
 @MainActor
 private func balance(_ parent: TilingContainer) {
     for child in parent.children {
-        switch parent.layout {
-            case .tiles: child.setWeight(parent.orientation, 1)
-            case .accordion: break // Do nothing
-        }
+        child.setWeight(parent.orientation, 1)
         if let child = child as? TilingContainer {
             balance(child)
         }

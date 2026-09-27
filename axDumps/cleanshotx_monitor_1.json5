@@ -26,7 +26,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : "<AXUIElement 0x9dec48840> {pid=972}",
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=70857, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=70857, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -47,31 +47,31 @@
       "AXUIElement(AxWindowId=70860, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
       "AXUIElement(AxWindowId=70859, title=\"\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "pl.maketheweb.cleanshotx",
-  "Aero.App.nsApp.activationPolicy" : "accessory",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/CleanShot%20X.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/CleanShot%20X.app/Contents/MacOS/CleanShot%20X",
-  "Aero.App.pid" : 972,
-  "Aero.App.version" : "4.8.4",
-  "Aero.App.versionShort" : "4.8.4",
-  "Aero.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections, AXMain",
-  "Aero.axWindowId" : 70857,
-  "Aero.macOS.version" : "Version 26.1 (Build 25B78)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "pl.maketheweb.cleanshotx",
+  "tile.App.nsApp.activationPolicy" : "accessory",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/CleanShot%20X.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/CleanShot%20X.app/Contents/MacOS/CleanShot%20X",
+  "tile.App.pid" : 972,
+  "tile.App.version" : "4.8.4",
+  "tile.App.versionShort" : "4.8.4",
+  "tile.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXDefaultButton, get.AXTitleUIElement, get.AXCancelButton, get.AXZoomButton, get.AXToolbarButton",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections, AXMain",
+  "tile.axWindowId" : 70857,
+  "tile.macOS.version" : "Version 26.1 (Build 25B78)",
+  "tile.on-window-detected" : [
     {
       "commands" : "layout floating",
       "matcher" : "appNameRegexSubstrin=Regex"
     }
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
-  "Aero.windowLevel" : 103,
-  "Aero.workspace" : null
+  "tile.treeNodeParent" : "Optional(AppBundle.MacosPopupWindowsContainer)",
+  "tile.windowLevel" : 103,
+  "tile.workspace" : null
 }

@@ -12,7 +12,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : null,
@@ -27,7 +27,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXGrowArea" : null,
   "AXMain" : 1,
@@ -39,7 +39,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -63,9 +63,9 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -83,17 +83,17 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=197, title=\"ta ~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "org.alacritty",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.version" : "1",
-  "Aero.App.versionShort" : "0.15.1",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.axWindowId" : "197",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : false,
-  "Aero.AxUiElementWindowType" : "window",
-  "Aero.treeNodeParent" : "AppBundle.TilingContainer",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "M"
+  "tile.App.appBundleId" : "org.alacritty",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.version" : "1",
+  "tile.App.versionShort" : "0.15.1",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.axWindowId" : "197",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : false,
+  "tile.AxUiElementWindowType" : "window",
+  "tile.treeNodeParent" : "AppBundle.TilingContainer",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "M"
 }

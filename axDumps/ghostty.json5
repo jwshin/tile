@@ -10,7 +10,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : "file:///Users/bobko/",
@@ -25,7 +25,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXGrowArea" : null,
   "AXIdentifier" : "TerminalWindowRestoration",
@@ -38,7 +38,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -63,9 +63,9 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=14591, title=nil, role=\"AXUnknown\", subrole=nil)",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -83,21 +83,21 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=14591, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "com.mitchellh.ghostty",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Ghostty.app/Contents/MacOS/ghostty",
-  "Aero.App.version" : "9438",
-  "Aero.App.versionShort" : "1.1.3",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.axWindowId" : 14591,
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : false,
-  "Aero.AxUiElementWindowType" : "window",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.mitchellh.ghostty",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.execPath" : "file:///Applications/Ghostty.app/Contents/MacOS/ghostty",
+  "tile.App.version" : "9438",
+  "tile.App.versionShort" : "1.1.3",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.axWindowId" : 14591,
+  "tile.AxUiElementWindowType_isDialogHeuristic" : false,
+  "tile.AxUiElementWindowType" : "window",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "AppBundle.TilingContainer",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "M"
+  "tile.treeNodeParent" : "AppBundle.TilingContainer",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "M"
 }

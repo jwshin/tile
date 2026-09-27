@@ -9,7 +9,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=14642, title=\"Calculator\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=14642, title=\"Calculator\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription, AXEdited"
   },
   "AXDefaultButton" : null,
   "AXDocument" : null,
@@ -28,7 +28,7 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=14642, title=\"Calculator\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=14642, title=\"Calculator\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXMinimized" : 0,
   "AXModal" : 0,
@@ -54,9 +54,9 @@
     "AXTitle" : null,
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=14642, title=\"Calculator\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
     "AXWindow" : "AXUIElement(AxWindowId=14642, title=\"Calculator\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXChildren, AXHelp, AXPosition, AXRoleDescription"
   },
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=14642, title=nil, role=\"AXGroup\", subrole=\"AXHostingView\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=14642, title=\"Calculator\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -74,21 +74,21 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=14642, title=\"Calculator\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "com.apple.calculator",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.execPath" : "file:///System/Applications/Calculator.app/Contents/MacOS/Calculator",
-  "Aero.App.version" : "224",
-  "Aero.App.versionShort" : "11.0",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.axWindowId" : 14642,
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxUiElementWindowType" : "dialog",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.apple.calculator",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.execPath" : "file:///System/Applications/Calculator.app/Contents/MacOS/Calculator",
+  "tile.App.version" : "224",
+  "tile.App.versionShort" : "11.0",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.axWindowId" : 14642,
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxUiElementWindowType" : "dialog",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "AppBundle.Workspace",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "M"
+  "tile.treeNodeParent" : "AppBundle.Workspace",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "M"
 }

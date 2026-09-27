@@ -3,75 +3,37 @@ import Common
 import Foundation
 import os
 
-let signposter = OSSignposter(subsystem: aeroSpaceAppId, category: .pointsOfInterest)
+let signposter = OSSignposter(subsystem: appId, category: .pointsOfInterest)
 
 let myPid = NSRunningApplication.current.processIdentifier
 let lockScreenAppBundleId = "com.apple.loginwindow"
 
 func interceptTermination(_ _signal: Int32) {
-    signal(_signal, { (signal: Int32) in
-        check(Thread.current.isMainThread)
-        Task.startUnstructured { @MainActor in
-            terminationHandler?.beforeTermination()
-            exit(signal)
-        }
-    } as sig_t)
+    signal(
+        _signal,
+        { (signal: Int32) in
+            check(Thread.current.isMainThread)
+            _ = Task { @MainActor in
+                terminationHandler?.beforeTermination()
+                exit(signal)
+            }
+        } as sig_t)
 }
 
 @MainActor
 func initTerminationHandler() {
-    unsafe _terminationHandler = AppServerTerminationHandler()
+    unsafe _terminationHandler = AppTerminationHandler()
 }
 
-private struct AppServerTerminationHandler: TerminationHandler {
+private struct AppTerminationHandler: TerminationHandler {
     @MainActor
-    func beforeTermination() {
-        // Make all windows fullscreen before Quit
-        for window in MacWindow.allWindowsMap.values {
-            // makeAllWindowsVisibleAndRestoreSize may be invoked when something went wrong (e.g. some windows are unbound)
-            // that's why it's not allowed to use `.parent` call in here
-            let monitor = window.macApp.getAxRectForTermination(window.windowId)?.center.monitorApproximation ?? mainMonitorInfo
-            let monitorVisibleRect = monitor.visibleRect
-            let windowSize = window.lastFloatingSize ?? CGSize(width: monitorVisibleRect.width, height: monitorVisibleRect.height)
-            let point = CGPoint(
-                x: (monitorVisibleRect.width - windowSize.width) / 2,
-                y: (monitorVisibleRect.height - windowSize.height) / 2,
-            )
-            window.macApp.setAxFrameForTermination(window.windowId, point, windowSize)
-        }
-        if isDebug {
-            let semaphore = DispatchSemaphore(value: 0)
-            // Use Task.detached to avoid inheriting @MainActor.
-            // If @MainActor was inherited, it would cause a deadlock
-            Task.detached {
-                await toggleReleaseServerIfDebug(.on)
-                semaphore.signal()
-            }
-            semaphore.wait()
-        }
-    }
+    func beforeTermination() { resetHotKeys() }
 }
 
 @MainActor
 func terminateApp() -> Never {
     NSApplication.shared.terminate(nil)
     die("Unreachable code")
-}
-
-extension String {
-    func copyToClipboard() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.declareTypes([.string], owner: nil)
-        pasteboard.setString(self, forType: .string)
-    }
-}
-
-func - (a: CGPoint, b: CGPoint) -> CGPoint {
-    CGPoint(x: a.x - b.x, y: a.y - b.y)
-}
-
-func + (a: CGPoint, b: CGPoint) -> CGPoint {
-    CGPoint(x: a.x + b.x, y: a.y + b.y)
 }
 
 extension CGPoint: ConvenienceMutable {}
@@ -93,7 +55,9 @@ extension CGPoint {
 
     func addingXOffset(_ offset: CGFloat) -> CGPoint { CGPoint(x: x + offset, y: y) }
     func addingYOffset(_ offset: CGFloat) -> CGPoint { CGPoint(x: x, y: y + offset) }
-    func addingOffset(_ orientation: Orientation, _ offset: CGFloat) -> CGPoint { orientation == .h ? addingXOffset(offset) : addingYOffset(offset) }
+    func addingOffset(_ orientation: Orientation, _ offset: CGFloat) -> CGPoint {
+        orientation == .h ? addingXOffset(offset) : addingYOffset(offset)
+    }
 
     func getProjection(_ orientation: Orientation) -> Double { orientation == .h ? x : y }
 
@@ -116,17 +80,10 @@ extension CGFloat {
 
     func coerce(in range: ClosedRange<CGFloat>) -> CGFloat {
         switch true {
-            case self > range.upperBound: range.upperBound
-            case self < range.lowerBound: range.lowerBound
-            default: self
+        case self > range.upperBound: range.upperBound
+        case self < range.lowerBound: range.lowerBound
+        default: self
         }
-    }
-}
-
-extension CGPoint: @retroactive Hashable { // todo migrate to self written Point
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(x)
-        hasher.combine(y)
     }
 }
 

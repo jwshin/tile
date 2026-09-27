@@ -10,7 +10,7 @@
     "AXTitle" : "OK",
     "AXTopLevelUIElement" : "AXUIElement(AxWindowId=2866, title=\"\", role=\"AXWindow\", subrole=\"AXDialog\")",
     "AXWindow" : "AXUIElement(AxWindowId=2866, title=\"\", role=\"AXWindow\", subrole=\"AXDialog\")",
-    "Aero.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
+    "tile.AxIgnored" : "AXFrame, AXSize, AXFocused, AXHelp, AXPosition, AXRoleDescription"
   },
   "AXDescription" : "alert",
   "AXDocument" : null,
@@ -37,7 +37,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=2866, title=\"\", role=\"AXWindow\", subrole=\"AXDialog\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=2866, title=\"\", role=\"AXWindow\", subrole=\"AXDialog\")",
@@ -56,28 +56,28 @@
       "AXUIElement(AxWindowId=2866, title=\"\", role=\"AXWindow\", subrole=\"AXDialog\")",
       "AXUIElement(AxWindowId=2854, title=\"~\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements, get.AXFrame, isWritable.AXFrame, get.AXExtrasMenuBar, isWritable.AXExtrasMenuBar, get.AXSize, isWritable.AXSize, get.AXPosition, isWritable.AXPosition",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.mitchellh.ghostty",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/Ghostty.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Ghostty.app/Contents/MacOS/ghostty",
-  "Aero.App.pid" : 18587,
-  "Aero.App.version" : "12214",
-  "Aero.App.versionShort" : "1.2.3",
-  "Aero.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXTitleUIElement, get.AXCancelButton, isWritable.AXDescription, get.AXZoomButton, get.AXToolbarButton",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "dialog",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections",
-  "Aero.axWindowId" : 2866,
-  "Aero.macOS.version" : "Version 26.1 (Build 25B78)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.mitchellh.ghostty",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/Ghostty.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/Ghostty.app/Contents/MacOS/ghostty",
+  "tile.App.pid" : 18587,
+  "tile.App.version" : "12214",
+  "tile.App.versionShort" : "1.2.3",
+  "tile.AxFailed" : "isWritable.AXFrame, get.AXGrowArea, get.AXMinimizeButton, get.AXDocument, get.AXCloseButton, isWritable.AXActivationPoint, get.AXFullScreenButton, get.AXProxy, get.AXTitleUIElement, get.AXCancelButton, isWritable.AXDescription, get.AXZoomButton, get.AXToolbarButton",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "dialog",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections",
+  "tile.axWindowId" : 2866,
+  "tile.macOS.version" : "Version 26.1 (Build 25B78)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.Workspace)",
-  "Aero.windowLevel" : 8,
-  "Aero.workspace" : "M"
+  "tile.treeNodeParent" : "Optional(AppBundle.Workspace)",
+  "tile.windowLevel" : 8,
+  "tile.workspace" : "M"
 }

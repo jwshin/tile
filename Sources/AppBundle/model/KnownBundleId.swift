@@ -24,7 +24,6 @@ enum KnownBundleId: String, Equatable {
     case wisprFlow = "com.electron.wispr-flow"
     case xcode = "com.apple.dt.Xcode"
     case zenBrowser = "app.zen-browser.zen"
-    case zoom = "us.zoom.xos"
 
     case mozillaFirefox = "org.mozilla.firefox"
     case mozillaFirefoxDeveloperEdition = "org.mozilla.firefoxdeveloperedition"

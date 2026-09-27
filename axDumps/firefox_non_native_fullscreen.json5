@@ -27,7 +27,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=14384, title=\"YouTube Video Player in Full screen\", role=\"AXGroup\", subrole=\"AXApplicationGroup\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=14384, title=\"Поперечный - ПОП КУЛЬТУРА - YouTube\", role=\"AXWindow\", subrole=\"AXUnknown\")",
@@ -46,21 +46,21 @@
       "AXUIElement(AxWindowId=14384, title=\"Поперечный - ПОП КУЛЬТУРА - YouTube\", role=\"AXWindow\", subrole=\"AXUnknown\")",
       "AXUIElement(AxWindowId=13054, title=\"YouTube\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "org.mozilla.firefox",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Firefox.app/Contents/MacOS/firefox",
-  "Aero.App.version" : "13725.4.14",
-  "Aero.App.versionShort" : "137.0.2",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.axWindowId" : 14384,
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxUiElementWindowType" : "dialog",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "org.mozilla.firefox",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.execPath" : "file:///Applications/Firefox.app/Contents/MacOS/firefox",
+  "tile.App.version" : "13725.4.14",
+  "tile.App.versionShort" : "137.0.2",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.axWindowId" : 14384,
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxUiElementWindowType" : "dialog",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "AppBundle.Workspace",
-  "Aero.windowLevel" : "normalWindow",
-  "Aero.workspace" : "W"
+  "tile.treeNodeParent" : "AppBundle.Workspace",
+  "tile.windowLevel" : "normalWindow",
+  "tile.workspace" : "W"
 }

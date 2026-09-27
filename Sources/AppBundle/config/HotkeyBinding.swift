@@ -25,93 +25,84 @@ extension HotKey {
     }
 }
 
-@MainActor var activeMode: String? = mainModeId
-@MainActor func activateMode_nonCancellable(_ targetMode: String?) async {
-    let targetBindings = targetMode.flatMap { config.modes[$0] }?.bindings ?? [:]
-    for binding in targetBindings.values where !hotkeys.keys.contains(binding.descriptionWithKeyCode) {
-        hotkeys[binding.descriptionWithKeyCode] = HotKey(key: binding.keyCode, modifiers: binding.modifiers, keyDownHandler: {
-            Task.startUnstructured {
-                if let activeMode {
-                    broadcastEvent(.bindingTriggered(
-                        mode: activeMode,
-                        binding: binding.descriptionWithKeyNotation,
-                    ))
-                    try await runLightSession(.hotkeyBinding, .checkServerIsEnabledOrDie()) { () throws in
-                        _ = await config.modes[activeMode]?.bindings[binding.descriptionWithKeyCode]?.commands
-                            .run(.defaultEnv, .emptyStdin)
+@MainActor func syncHotkeys() {
+    resetHotKeys()
+    guard TrayMenuModel.shared.isEnabled else { return }
+    for binding in config.bindings.values {
+        hotkeys[binding.descriptionWithKeyCode] = HotKey(
+            key: binding.keyCode, modifiers: binding.modifiers,
+            keyDownHandler: {
+                _ = Task { @MainActor in
+                    guard let guardToken = RunSessionGuard.isEnabled else { return }
+                    try await runLightSession(.hotkeyBinding, guardToken) {
+                        let result = await binding.action.run()
+                        if result.exitCode.rawValue != 0 && !result.diagnostics.isEmpty {
+                            MessageModel.shared.message = Message(
+                                body: result.diagnostics)
+                        }
                     }
                 }
-            }
-        })
-    }
-    for (binding, key) in hotkeys {
-        key.isEnabled = targetBindings.keys.contains(binding)
-    }
-    let oldMode = activeMode
-    activeMode = targetMode
-    if oldMode != targetMode {
-        broadcastEvent(.modeChanged(mode: targetMode))
-        _ = await config.onModeChanged.run(.defaultEnv, .emptyStdin)
+            })
     }
 }
 
 struct HotkeyBinding: Equatable, Sendable {
     let modifiers: NSEvent.ModifierFlags
     let keyCode: Key
-    let commands: Shell<any Command>
+    let action: Action
     let descriptionWithKeyCode: String
-    let descriptionWithKeyNotation: String
 
-    init(_ modifiers: NSEvent.ModifierFlags, _ keyCode: Key, _ commands: Shell<any Command>, descriptionWithKeyNotation: String) {
+    init(
+        _ modifiers: NSEvent.ModifierFlags, _ keyCode: Key, _ action: Action
+    ) {
         self.modifiers = modifiers
         self.keyCode = keyCode
-        self.commands = commands
-        self.descriptionWithKeyCode = modifiers.isEmpty
+        self.action = action
+        self.descriptionWithKeyCode =
+            modifiers.isEmpty
             ? keyCode.toString()
             : modifiers.toString() + "-" + keyCode.toString()
-        self.descriptionWithKeyNotation = descriptionWithKeyNotation
     }
 
-    static func == (lhs: HotkeyBinding, rhs: HotkeyBinding) -> Bool {
-        lhs.modifiers == rhs.modifiers &&
-            lhs.keyCode == rhs.keyCode &&
-            lhs.descriptionWithKeyCode == rhs.descriptionWithKeyCode &&
-            lhs.commands.strictEquals(rhs.commands)
-    }
 }
 
-func parseBindings(_ raw: OrderedJson, _ backtrace: ConfigBacktrace, _ c: inout ConfigParserContext, _ mapping: [String: Key]) -> [String: HotkeyBinding] {
-    guard let rawTable = raw.asDictOrNil else {
-        c.errors += [expectedActualTypeDiagnostic(expected: .table, actual: raw.tomlType, backtrace)]
+func parseBindings(
+    _ raw: OrderedJson, _ backtrace: ConfigBacktrace, _ errors: inout [ConfigParseDiagnostic]
+) -> [String: HotkeyBinding] {
+    guard let table = raw.asDictOrNil else {
+        errors.append(expectedActualTypeDiagnostic(expected: .table, actual: raw.tomlType, backtrace))
         return [:]
     }
     var result: [String: HotkeyBinding] = [:]
-    for (binding, rawCommand): (String, OrderedJson) in rawTable {
-        let backtrace = backtrace + .key(binding)
-        let binding = parseBinding(binding, backtrace, mapping)
-            .map { modifiers, key -> HotkeyBinding in
-                let commands = parseShellOfCommandsForConfig(rawCommand, backtrace, &c)
-                return HotkeyBinding(modifiers, key, commands, descriptionWithKeyNotation: binding)
-            }
-            .getOrNil(appendErrorTo: &c.errors)
-        if let binding {
-            if result.keys.contains(binding.descriptionWithKeyCode) {
-                c.errors.append(.init(backtrace, "'\(binding.descriptionWithKeyCode)' Binding redeclaration"))
-            }
-            result[binding.descriptionWithKeyCode] = binding
+    for (shortcut, value) in table {
+        let path = backtrace + .key(shortcut)
+        guard let (modifiers, key) = parseBinding(shortcut, path).getOrNil(appendErrorTo: &errors) else { continue }
+        guard let name = parseString(value, path).getOrNil(appendErrorTo: &errors) else { continue }
+        guard let action = Action(rawValue: name) else {
+            errors.append(
+                .init(
+                    path,
+                    "Unknown action '\(name)'. Expected one named action; arguments and sequences are unsupported."))
+            continue
+        }
+        let binding = HotkeyBinding(modifiers, key, action)
+        if result.updateValue(binding, forKey: binding.descriptionWithKeyCode) != nil {
+            errors.append(.init(path, "'\(binding.descriptionWithKeyCode)' Binding redeclaration"))
         }
     }
     return result
 }
 
-func parseBinding(_ raw: String, _ backtrace: ConfigBacktrace, _ mapping: [String: Key]) -> ResOrConfigParseDiagnostic<(NSEvent.ModifierFlags, Key)> {
+func parseBinding(_ raw: String, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<
+    (NSEvent.ModifierFlags, Key)
+> {
     let rawKeys = raw.split(separator: "-")
     let modifiers: ResOrConfigParseDiagnostic<NSEvent.ModifierFlags> = rawKeys.dropLast()
         .mapAllOrFailure {
             modifiersMap[String($0)].toResult(.init(backtrace, "Can't parse modifiers in '\(raw)' binding"))
         }
         .map { NSEvent.ModifierFlags($0) }
-    let key: ResOrConfigParseDiagnostic<Key> = rawKeys.last.flatMap { mapping[String($0)] }
+    let key: ResOrConfigParseDiagnostic<Key> = rawKeys.last.flatMap { keyNotationToKeyCode[String($0)] }
         .toResult(.init(backtrace, "Can't parse the key in '\(raw)' binding"))
     return modifiers.flatMap { modifiers -> ResOrConfigParseDiagnostic<(NSEvent.ModifierFlags, Key)> in
         key.flatMap { key -> ResOrConfigParseDiagnostic<(NSEvent.ModifierFlags, Key)> in

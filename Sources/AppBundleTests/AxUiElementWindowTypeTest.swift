@@ -1,10 +1,15 @@
-@testable import AppBundle
+import AppKit
 import Common
-import XCTest
+import Testing
 
-final class AxWindowKindTest: XCTestCase {
-    func test() throws {
-        try checkAxDumpsRecursive(projectRoot.appending(path: "./axDumps"))
+@testable import AppBundle
+
+extension CoreTests {
+    struct AxWindowKindTest {
+        var name: String { String(describing: Self.self) }
+        @Test func test() throws {
+            try checkAxDumpsRecursive(projectRoot.appending(path: "./axDumps"))
+        }
     }
 }
 
@@ -16,20 +21,23 @@ func checkAxDumpsRecursive(_ dir: URL) throws {
         }
         if file.pathExtension == "md" { continue }
 
-        let rawJson = try JSONSerialization.jsonObject(with: Data.init(contentsOf: file), options: [.json5Allowed]) as! [String: Any]
+        let rawJson =
+            try JSONSerialization.jsonObject(with: Data.init(contentsOf: file), options: [.json5Allowed])
+            as! [String: Any]
         let json = Json.newOrDieRecursive(rawJson).asDictOrDie
-        let app = json["Aero.AXApp"]!.asDictOrDie
-        let appBundleId = (rawJson["Aero.App.appBundleId"] as? String).flatMap { KnownBundleId.init(rawValue: $0) }
-        let windowLevel = json["Aero.windowLevel"].map { MacOsWindowLevel.fromJson($0) ?? dieT() }
-        let activationPolicy: NSApplication.ActivationPolicy = .from(string: rawJson["Aero.App.nsApp.activationPolicy"] as! String)
+        let app = json["tile.AXApp"]!.asDictOrDie
+        let appBundleId = (rawJson["tile.App.appBundleId"] as? String).flatMap { KnownBundleId.init(rawValue: $0) }
+        let windowLevel = json["tile.windowLevel"].map { MacOsWindowLevel.fromJson($0) ?? dieT() }
+        let activationPolicy: NSApplication.ActivationPolicy = .from(
+            string: rawJson["tile.App.nsApp.activationPolicy"] as! String)
         assertEquals(
             json.getWindowType(axApp: app, appBundleId, activationPolicy, windowLevel),
-            AxUiElementWindowType(rawValue: rawJson["Aero.AxUiElementWindowType"] as? String ?? dieT()),
+            AxUiElementWindowType(rawValue: rawJson["tile.AxUiElementWindowType"] as? String ?? dieT()),
             additionalMsg: "\(file.path()):0:0: AxUiElementWindowType doesn't match",
         )
         assertEquals(
             json.isDialogHeuristic(appBundleId, windowLevel),
-            rawJson["Aero.AxUiElementWindowType_isDialogHeuristic"] as? Bool ?? dieT(),
+            rawJson["tile.AxUiElementWindowType_isDialogHeuristic"] as? Bool ?? dieT(),
             additionalMsg: "\(file.path()):0:0: AxUiElementWindowType_isDialogHeuristic doesn't match",
         )
     }
@@ -48,12 +56,12 @@ extension [String: Json]: AxUiElementMock {
         }
     }
 
-    private var isSynthetic: Bool { self[kAXAeroSynthetic] != nil }
+    private var isSynthetic: Bool { self[kAXTileSynthetic] != nil }
 
     public func containingWindowId() -> CGWindowID? { _containingWindowId() }
 
     private func _containingWindowId() -> CGWindowID {
-        let windowId = self["Aero.axWindowId"]?.asInt64OrNil ?? dieT()
+        let windowId = self["tile.axWindowId"]?.asInt64OrNil ?? dieT()
         return UInt32.init(exactly: windowId).orDie()
     }
 }
@@ -61,10 +69,10 @@ extension [String: Json]: AxUiElementMock {
 extension NSApplication.ActivationPolicy {
     static func from(string: String) -> NSApplication.ActivationPolicy {
         switch string {
-            case "regular": .regular
-            case "accessory": .accessory
-            case "prohibited": .prohibited
-            default: dieT("Unknown ActivationPolicy \(string)")
+        case "regular": .regular
+        case "accessory": .accessory
+        case "prohibited": .prohibited
+        default: dieT("Unknown ActivationPolicy \(string)")
         }
     }
 }

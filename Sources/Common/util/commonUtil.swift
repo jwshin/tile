@@ -2,10 +2,6 @@ import AppKit
 import Darwin
 import Foundation
 
-public let socketPath = "/tmp/\(aeroSpaceAppId)-\(unixUserName).sock"
-public let unixUserName = NSUserName()
-public let mainModeId = "main"
-
 @TaskLocal
 public var refreshSessionEvent: RefreshSessionEvent? = nil
 
@@ -23,13 +19,11 @@ public func bugPrompt(
     let _message = __message.contains("\n") ? "\n" + __message.prefixLines(with: "    ") : __message
     let thread = Thread.current
     return """
-        Please report to:
-            https://github.com/nikitabobko/AeroSpace/discussions/categories/potential-bugs
-            Please describe what you did to trigger this error
+        tile diagnostic
+        Include the steps that triggered this error when investigating it.
 
         Message: \(_message)
-        Version: \(aeroSpaceAppVersion)
-        Git hash: \(gitHash)
+        Version: \(appVersion)
         refreshSessionEvent: \(refreshSessionEvent.prettyDescription)
         Date: \(Date.now)
         Thread name: \(thread.name.prettyDescription)
@@ -38,7 +32,6 @@ public func bugPrompt(
         macOS version: \(ProcessInfo().operatingSystemVersionString)
         Coordinate: \(file):\(line):\(column) \(function)
         recursionDetectorDuringTermination: \(recursionDetectorDuringTermination)
-        cli: \(isCli)
         die: \(isDie)
         Monitor count: \(NSScreen.screens.count)
         Displays have separate spaces: \(NSScreen.screensHaveSeparateSpaces)
@@ -56,12 +49,12 @@ public func dieT<T>(
     function: String = #function,
 ) -> T {
     let message = bugPrompt(__message, isDie: true, file: file, line: line, column: column, function: function)
-    if !isUnitTest && isServer {
+    if !isUnitTest {
         showMessageInGui(
             filenameIfConsoleApp: recursionDetectorDuringTermination
-                ? "aerospace-runtime-error-recursion.txt"
-                : "aerospace-runtime-error.txt",
-            title: "AeroSpace Runtime Error",
+                ? "tile-runtime-error-recursion.txt"
+                : "tile-runtime-error.txt",
+            title: "tile runtime error",
             message: message,
         )
     }
@@ -76,52 +69,35 @@ public func dieT<T>(
 }
 
 extension MainActor {
-    static func runSync(block: @escaping @MainActor () -> ()) {
+    static func runSync(block: @escaping @MainActor () -> Void) {
         switch Thread.isMainThread {
-            case true: MainActor.assumeIsolated(block)
-            case false: DispatchQueue.main.asyncAndWait { block() }
+        case true: MainActor.assumeIsolated(block)
+        case false: DispatchQueue.main.asyncAndWait { block() }
         }
     }
 }
 
 public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
-    case configAutoReload
     case globalObserver(String)
     case globalObserverLeftMouseUp
     case menuBarButton
     case hotkeyBinding
     case startup
-    case socketServer(any CmdArgs)
     case resetManipulatedWithMouse
     case ax(String)
-    case focusFollowsMouse
-
-    public var isStartup: Bool {
-        if case .startup = self { return true } else { return false }
-    }
-
-    public var isFocusFollowsMouse: Bool {
-        if case .focusFollowsMouse = self { return true } else { return false }
-    }
 
     public var description: String {
         switch self {
-            case .ax(let str): "ax(\(str))"
-            case .configAutoReload: "configAutoReload"
-            case .globalObserver(let str): "globalObserver(\(str))"
-            case .globalObserverLeftMouseUp: "globalObserverLeftMouseUp"
-            case .hotkeyBinding: "hotkeyBinding"
-            case .menuBarButton: "menuBarButton"
-            case .resetManipulatedWithMouse: "resetManipulatedWithMouse"
-            case .socketServer(let args): "socketServer: \(args)"
-            case .startup: "startup"
-            case .focusFollowsMouse: "focusFollowsMouse"
+        case .ax(let str): "ax(\(str))"
+        case .globalObserver(let str): "globalObserver(\(str))"
+        case .globalObserverLeftMouseUp: "globalObserverLeftMouseUp"
+        case .hotkeyBinding: "hotkeyBinding"
+        case .menuBarButton: "menuBarButton"
+        case .resetManipulatedWithMouse: "resetManipulatedWithMouse"
+        case .startup: "startup"
         }
     }
 }
-
-// periphery:ignore
-public func throwT<T, E: Error>(_ error: E) throws(E) -> T { throw error }
 
 public func getStringStacktrace() -> String { Thread.callStackSymbols.joined(separator: "\n") }
 
@@ -148,44 +124,14 @@ public func check(
     }
 }
 
-public var isUnitTest: Bool { NSClassFromString("XCTestCase") != nil }
-
-extension CaseIterable where Self: RawRepresentable, RawValue == String {
-    public static var cliArgsCases: [String] { allCases.map(\.rawValue) }
-    public static var unionLiteral: String { cliArgsCases.joinedCliArgs }
-}
-
-extension [String] {
-    public var joinedCliArgs: String { "(" + self.joined(separator: "|") + ")" }
-}
-
-extension Int {
-    public func toDouble() -> Double { Double(self) }
-}
-
-public func + <K, V>(lhs: [K: V], rhs: [K: V]) -> [K: V] {
-    lhs.merging(rhs) { _, r in r }
+public var isUnitTest: Bool {
+    CommandLine.arguments.contains { $0.contains(".xctest") }
 }
 
 extension String {
     public func removePrefix(_ prefix: String) -> String {
         hasPrefix(prefix) ? String(dropFirst(prefix.count)) : self
     }
-
-    public func prependLines(_ prefix: String) -> String {
-        split(separator: "\n").map { prefix + $0 }.joined(separator: "\n")
-    }
-}
-
-extension Bool {
-    /// Implication
-    /// | a     | b     | a.implies(b) |
-    /// |-------|-------|--------------|
-    /// | false | false | true         |
-    /// | false | true  | true         |
-    /// | true  | false | false        |
-    /// | true  | true  | true         |
-    public func implies(_ mustHold: @autoclosure () -> Bool) -> Bool { !self || mustHold() }
 }
 
 extension URL {
@@ -210,10 +156,3 @@ public func exitT<T>(_ exitCode: Int32, out: String? = nil, err: String? = nil) 
 
 /// 'id' stands for 'identity'. It's a common name in functional programming
 public func id<T>(_ t: T) -> T { t }
-
-@inlinable public func zipIfCountsAreEqual<C1, C2>(_ c1: C1, _ c2: C2) -> Zip2Sequence<C1, C2>? where C1: Collection, C2: Collection {
-    switch c1.count == c2.count {
-        case true: zip(c1, c2)
-        case false: nil
-    }
-}

@@ -22,8 +22,8 @@ final class MruStack<T: Equatable>: Sequence {
         while let cur = current {
             if cur.value == value {
                 switch prev {
-                    case let prev?: prev.next = cur.next
-                    case nil: mruNode = current?.next
+                case let prev?: prev.next = cur.next
+                case nil: mruNode = current?.next
                 }
                 cur.next = nil
                 return true
@@ -57,9 +57,5 @@ private final class Node<T: Equatable> {
     init(_ value: T, _ next: Node<T>?) {
         self.value = value
         self.next = next
-    }
-
-    init(_ value: T) {
-        self.value = value
     }
 }

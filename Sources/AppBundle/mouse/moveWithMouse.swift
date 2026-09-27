@@ -7,14 +7,14 @@ private var moveWithMouseTask: Task<(), any Error>? = nil
 func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
     let windowId = ax.containingWindowId()
     let notif = notif as String
-    Task.startUnstructured { @MainActor in
-        guard let token: RunSessionGuard = .isServerEnabled else { return }
+    _ = Task { @MainActor in
+        guard let token: RunSessionGuard = .isEnabled else { return }
         guard let windowId, let window = Window.get(byId: windowId), try await isManipulatedWithMouse(window) else {
             scheduleCancellableCompleteRefreshSession(.ax(notif))
             return
         }
         moveWithMouseTask?.cancel()
-        moveWithMouseTask = Task.startUnstructured {
+        moveWithMouseTask = Task {
             try checkCancellation()
             try await runLightSession(.ax(notif), token) {
                 try await moveWithMouse(window)
@@ -24,22 +24,25 @@ func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableR
 }
 
 @MainActor
-private func moveWithMouse(_ window: Window) async throws { // todo cover with tests
+private func moveWithMouse(_ window: Window) async throws {  // todo cover with tests
     resetClosedWindowsCache()
     switch window.windowParentCases {
-        case .floatingWindowsContainer:
-            try await moveFloatingWindow(window)
-        case .macosFullscreenWindowsContainer, .macosMinimizedWindowsContainer, .macosPopupWindowsContainer, .macosHiddenAppsWindowsContainer:
-            return // Unconventional windows can't be moved with mouse
-        case .tilingContainer:
-            moveTilingWindow(window)
-        case .unbound: return
+    case .floatingWindowsContainer:
+        try await moveFloatingWindow(window)
+    case .macosFullscreenWindowsContainer, .macosMinimizedWindowsContainer, .macosPopupWindowsContainer,
+        .macosHiddenAppsWindowsContainer:
+        return  // Unconventional windows can't be moved with mouse
+    case .tilingContainer:
+        moveTilingWindow(window)
+    case .unbound: return
     }
 }
 
 @MainActor
 private func moveFloatingWindow(_ window: Window) async throws {
-    guard let targetWorkspace = try await window.getCenter(.cancellable)?.monitorApproximation.activeWorkspace else { return }
+    guard let targetWorkspace = try await window.getCenter(.cancellable)?.monitorApproximation.activeWorkspace else {
+        return
+    }
     guard let parent = window.parent else { return }
     if targetWorkspace != parent {
         window.bindAsFloatingWindow(to: targetWorkspace)
@@ -52,17 +55,21 @@ private func moveTilingWindow(_ window: Window) {
     window.lastAppliedLayoutPhysicalRect = nil
     let mouseLocation = mouseLocation
     let targetWorkspace = mouseLocation.monitorApproximation.activeWorkspace
-    let swapTarget = mouseLocation
+    let swapTarget =
+        mouseLocation
         .findWindowRecursively(in: targetWorkspace.rootTilingContainer, virtual: false, fullscreenCoversAll: false)?
         .takeIf { $0 != window }
-    if targetWorkspace != window.nodeWorkspace { // Move window to a different monitor
-        let index: Int = if let swapTarget, let parent = swapTarget.parent as? TilingContainer, let targetRect = swapTarget.lastAppliedLayoutPhysicalRect {
-            mouseLocation.getProjection(parent.orientation) >= targetRect.center.getProjection(parent.orientation)
-                ? swapTarget.ownIndex.orDie() + 1
-                : swapTarget.ownIndex.orDie()
-        } else {
-            0
-        }
+    if targetWorkspace != window.nodeWorkspace {  // Move window to a different monitor
+        let index: Int =
+            if let swapTarget, let parent = swapTarget.parent as? TilingContainer,
+                let targetRect = swapTarget.lastAppliedLayoutPhysicalRect
+            {
+                mouseLocation.getProjection(parent.orientation) >= targetRect.center.getProjection(parent.orientation)
+                    ? swapTarget.ownIndex.orDie() + 1
+                    : swapTarget.ownIndex.orDie()
+            } else {
+                0
+            }
         window.bind(
             to: swapTarget?.parent ?? targetWorkspace.rootTilingContainer,
             adaptiveWeight: WEIGHT_AUTO,
@@ -102,18 +109,15 @@ extension CGPoint {
     @MainActor
     private func _findWindowRecursively(in tree: TilingContainer, virtual: Bool) -> Window? {
         let point = self
-        let target: TreeNode? = switch tree.layout {
-            case .tiles:
-                tree.children.first(where: {
-                    (virtual ? $0.lastAppliedLayoutVirtualRect : $0.lastAppliedLayoutPhysicalRect)?.contains(point) == true
-                })
-            case .accordion:
-                tree.mostRecentChild
-        }
+        let target: TreeNode? =
+            tree.children.first(where: {
+                (virtual ? $0.lastAppliedLayoutVirtualRect : $0.lastAppliedLayoutPhysicalRect)?.contains(point)
+                    == true
+            })
         guard let target else { return nil }
         return switch target.tilingTreeNodeCasesOrDie() {
-            case .window(let window): window
-            case .tilingContainer(let container): _findWindowRecursively(in: container, virtual: virtual)
+        case .window(let window): window
+        case .tilingContainer(let container): _findWindowRecursively(in: container, virtual: virtual)
         }
     }
 }

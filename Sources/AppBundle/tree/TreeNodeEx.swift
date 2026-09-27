@@ -36,13 +36,14 @@ extension TreeNode {
     @MainActor
     var nodeMonitor: MonitorInfo? {
         switch self.nodeCases {
-            case .workspace(let ws): ws.workspaceMonitor
-            case .window,
-                 .tilingContainer,
-                 .macosFullscreenWindowsContainer,
-                 .macosHiddenAppsWindowsContainer,
-                 .floatingWindowsContainer: parent?.nodeMonitor
-            case .macosMinimizedWindowsContainer, .macosPopupWindowsContainer: nil
+        case .workspace(let ws): ws.workspaceMonitor
+        case .window,
+            .tilingContainer,
+            .macosFullscreenWindowsContainer,
+            .macosHiddenAppsWindowsContainer,
+            .floatingWindowsContainer:
+            parent?.nodeMonitor
+        case .macosMinimizedWindowsContainer, .macosPopupWindowsContainer: nil
         }
     }
 
@@ -82,31 +83,29 @@ extension TreeNode {
     /// Returns closest parent that has children in the specified direction relative to `self`
     func closestParent(
         hasChildrenInDirection direction: CardinalDirection,
-        withLayout layout: Layout?,
     ) -> (parent: TilingContainer, ownIndex: Int)? {
         let innermostChild = parentsWithSelf.first(where: { (node: TreeNode) -> Bool in
             return switch node.parent?.cases {
-                // stop searching. We didn't find it, or something went wrong
-                case .workspace, nil, .macosMinimizedWindowsContainer,
-                     .floatingWindowsContainer,
-                     .macosFullscreenWindowsContainer,
-                     .macosHiddenAppsWindowsContainer,
-                     .macosPopupWindowsContainer:
-                    true
-                case .tilingContainer(let parent):
-                    (layout == nil || parent.layout == layout) &&
-                        parent.orientation == direction.orientation &&
-                        (node.ownIndex.map { parent.children.indices.contains($0 + direction.focusOffset) } ?? true)
+            // stop searching. We didn't find it, or something went wrong
+            case .workspace, nil, .macosMinimizedWindowsContainer,
+                .floatingWindowsContainer,
+                .macosFullscreenWindowsContainer,
+                .macosHiddenAppsWindowsContainer,
+                .macosPopupWindowsContainer:
+                true
+            case .tilingContainer(let parent):
+                parent.orientation == direction.orientation
+                    && (node.ownIndex.map { parent.children.indices.contains($0 + direction.focusOffset) } ?? true)
             }
         })
         guard let innermostChild else { return nil }
         switch innermostChild.parent?.cases {
-            case .tilingContainer(let parent):
-                check(parent.orientation == direction.orientation)
-                return innermostChild.ownIndex.map { (parent, $0) }
-            case .workspace, .floatingWindowsContainer, nil, .macosMinimizedWindowsContainer,
-                 .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer, .macosPopupWindowsContainer:
-                return nil
+        case .tilingContainer(let parent):
+            check(parent.orientation == direction.orientation)
+            return innermostChild.ownIndex.map { (parent, $0) }
+        case .workspace, .floatingWindowsContainer, nil, .macosMinimizedWindowsContainer,
+            .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer, .macosPopupWindowsContainer:
+            return nil
         }
     }
 }

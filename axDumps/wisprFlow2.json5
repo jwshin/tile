@@ -1,4 +1,4 @@
-// WisprFlow changes it's activationPolicy during runtime which confuses AeroSpace
+// WisprFlow changes it's activationPolicy during runtime which confuses tile
 // This second report is with another activationPolicy
 {
   "AXActivationPoint" : "<AXValue 0x600003de49f0> {value = x:-1.000000 y:1118.000000 type = kAXValueCGPointType}",
@@ -29,7 +29,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : "<AXUIElement 0x600003c2bb10> {pid=30586}",
     "AXFocusedUIElement" : null,
     "AXFocusedWindow" : "AXUIElement(AxWindowId=4381, title=\"Hub\", role=\"AXWindow\", subrole=\"AXStandardWindow\")",
@@ -49,28 +49,28 @@
       "AXUIElement(AxWindowId=4379, title=\"Status\", role=\"AXWindow\", subrole=\"AXDialog\")",
       "AXUIElement(AxWindowId=4381, title=\"Hub\", role=\"AXWindow\", subrole=\"AXStandardWindow\")"
     ],
-    "Aero.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXFocusedUIElement(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
-    "Aero.AxWritable" : "AXManualAccessibility, AXFrontmost"
+    "tile.AxFailed" : "isWritable.AXFunctionRowTopLevelElements(failure), get.AXFrame(attributeUnsupported), isWritable.AXFrame(failure), get.AXFocusedUIElement(noValue), isWritable.AXExtrasMenuBar(failure), get.AXSize(attributeUnsupported), isWritable.AXSize(attributeUnsupported), get.AXPosition(attributeUnsupported), isWritable.AXPosition(attributeUnsupported)",
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden",
+    "tile.AxWritable" : "AXManualAccessibility, AXFrontmost"
   },
-  "Aero.App.appBundleId" : "com.electron.wispr-flow",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.appBundlePath" : "file:///Applications/Wispr%20Flow.app/",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Wispr%20Flow.app/Contents/MacOS/Wispr%20Flow",
-  "Aero.App.pid" : 30586,
-  "Aero.App.version" : "1.6.7",
-  "Aero.App.versionShort" : "1.6.7",
-  "Aero.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXMinimizeButton(noValue), get.AXCloseButton(noValue), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXTitleUIElement(noValue), get.AXCancelButton(noValue), get.AXZoomButton(noValue), get.AXToolbarButton(noValue)",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.AxUiElementWindowType" : "popup",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.AxWritable" : "AXPosition, AXSections",
-  "Aero.axWindowId" : 4379,
-  "Aero.macOS.version" : "...",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.electron.wispr-flow",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.appBundlePath" : "file:///Applications/Wispr%20Flow.app/",
+  "tile.App.nsApp.execPath" : "file:///Applications/Wispr%20Flow.app/Contents/MacOS/Wispr%20Flow",
+  "tile.App.pid" : 30586,
+  "tile.App.version" : "1.6.7",
+  "tile.App.versionShort" : "1.6.7",
+  "tile.AxFailed" : "isWritable.AXFrame(failure), get.AXGrowArea(failure), get.AXMinimizeButton(noValue), get.AXCloseButton(noValue), isWritable.AXActivationPoint(failure), get.AXFullScreenButton(noValue), get.AXProxy(noValue), get.AXDefaultButton(noValue), get.AXTitleUIElement(noValue), get.AXCancelButton(noValue), get.AXZoomButton(noValue), get.AXToolbarButton(noValue)",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.AxUiElementWindowType" : "popup",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.AxWritable" : "AXPosition, AXSections",
+  "tile.axWindowId" : 4379,
+  "tile.macOS.version" : "...",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.FloatingWindowsContainer)",
-  "Aero.windowLevel" : 1000,
-  "Aero.workspace" : "..."
+  "tile.treeNodeParent" : "Optional(AppBundle.FloatingWindowsContainer)",
+  "tile.windowLevel" : 1000,
+  "tile.workspace" : "..."
 }

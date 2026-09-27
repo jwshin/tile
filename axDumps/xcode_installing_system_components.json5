@@ -26,7 +26,7 @@
   "AXTitleUIElement" : null,
   "AXToolbarButton" : null,
   "AXZoomButton" : null,
-  "Aero.AXApp" : {
+  "tile.AXApp" : {
     "AXExtrasMenuBar" : null,
     "AXFocusedUIElement" : "AXUIElement(AxWindowId=372, title=\"Xcode\", role=\"AXWindow\", subrole=\"AXDialog\")",
     "AXFocusedWindow" : "AXUIElement(AxWindowId=372, title=\"Xcode\", role=\"AXWindow\", subrole=\"AXDialog\")",
@@ -44,22 +44,22 @@
     "AXWindows" : [
       "AXUIElement(AxWindowId=372, title=\"Xcode\", role=\"AXWindow\", subrole=\"AXDialog\")"
     ],
-    "Aero.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
+    "tile.AxIgnored" : "AXChildren, AXChildrenInNavigationOrder, AXEnhancedUserInterface, AXPreferredLanguage, AXRoleDescription, AXHidden"
   },
-  "Aero.App.appBundleId" : "com.apple.dt.Xcode",
-  "Aero.App.nsApp.activationPolicy" : "regular",
-  "Aero.App.nsApp.execPath" : "file:///Applications/Xcode.app/Contents/MacOS/Xcode",
-  "Aero.App.version" : "23792",
-  "Aero.App.versionShort" : "16.4",
-  "Aero.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
-  "Aero.axWindowId" : 372,
-  "Aero.AxUiElementWindowType" : "dialog",
-  "Aero.AxUiElementWindowType_isDialogHeuristic" : true,
-  "Aero.macOS.version" : "Version 15.5 (Build 24F74)",
-  "Aero.on-window-detected" : [
+  "tile.App.appBundleId" : "com.apple.dt.Xcode",
+  "tile.App.nsApp.activationPolicy" : "regular",
+  "tile.App.nsApp.execPath" : "file:///Applications/Xcode.app/Contents/MacOS/Xcode",
+  "tile.App.version" : "23792",
+  "tile.App.versionShort" : "16.4",
+  "tile.AxIgnored" : "AXChildrenInNavigationOrder, AXChildren, AXRoleDescription",
+  "tile.axWindowId" : 372,
+  "tile.AxUiElementWindowType" : "dialog",
+  "tile.AxUiElementWindowType_isDialogHeuristic" : true,
+  "tile.macOS.version" : "Version 15.5 (Build 24F74)",
+  "tile.on-window-detected" : [
 
   ],
-  "Aero.treeNodeParent" : "Optional(AppBundle.Workspace)",
-  "Aero.workspace" : "D"
+  "tile.treeNodeParent" : "Optional(AppBundle.Workspace)",
+  "tile.workspace" : "D"
 }
 

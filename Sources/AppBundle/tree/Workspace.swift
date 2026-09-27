@@ -1,202 +1,95 @@
 import AppKit
 import Common
 
-@MainActor private var workspaceNameToWorkspace: [String: Workspace] = [:]
-
-@MainActor private var screenPointToPrevVisibleWorkspace: [CGPoint: String] = [:]
-@MainActor private var screenPointToVisibleWorkspace: [CGPoint: Workspace] = [:]
-@MainActor private var visibleWorkspaceToScreenPoint: [Workspace: CGPoint] = [:]
-
-// The returned workspace must be invisible and it must belong to the requested monitor
-@MainActor func getStubWorkspace(for monitor: MonitorInfo) -> Workspace {
-    getStubWorkspace(forPoint: monitor.rect.topLeftCorner)
-}
-
-@MainActor
-private func getStubWorkspace(forPoint point: CGPoint) -> Workspace {
-    if let prev = screenPointToPrevVisibleWorkspace[point].map({ Workspace.get(byName: $0) }),
-       !prev.isVisible && prev.workspaceMonitor.rect.topLeftCorner == point && prev.forceAssignedMonitor == nil
-    {
-        return prev
-    }
-    if let candidate = Workspace.all
-        .first(where: { !$0.isVisible && $0.workspaceMonitor.rect.topLeftCorner == point })
-    {
-        return candidate
-    }
-    return (1 ... Int.max).lazy
-        .map { Workspace.get(byName: String($0)) }
-        .first { $0.isEffectivelyEmpty && !$0.isVisible && !config.persistentWorkspaces.contains($0.name) && $0.forceAssignedMonitor == nil }
-        .orDie("Can't create empty workspace")
-}
-
+/// A permanent layout for one connected display. Names are internal display IDs.
 final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
+    @MainActor private static var layouts: [String: Workspace] = [:]
     let name: String
-    nonisolated private let nameLogicalSegments: StringLogicalSegments
-    /// `assignedMonitorPoint` must be interpreted only when the workspace is invisible
-    fileprivate var assignedMonitorPoint: CGPoint? = nil
+    private(set) var workspaceMonitor: MonitorInfo
 
-    @MainActor
-    private init(_ name: String) {
-        self.name = name
-        self.nameLogicalSegments = name.toLogicalSegments()
+    @MainActor private init(monitor: MonitorInfo) {
+        name = monitor.displayId
+        workspaceMonitor = monitor
         super.init(parent: NilTreeNode.instance, adaptiveWeight: 0, index: 0)
     }
 
-    @MainActor static var all: [Workspace] {
-        workspaceNameToWorkspace.values.sorted()
-    }
+    @MainActor static var all: [Workspace] { layouts.values.sorted() }
 
     @MainActor static func get(byName name: String) -> Workspace {
-        if let existing = workspaceNameToWorkspace[name] {
-            return existing
-        } else {
-            let workspace = Workspace(name)
-            workspaceNameToWorkspace[name] = workspace
-            return workspace
+        // Frozen focus can refer to a disconnected display; resolve it to the main display.
+        if let existing = layouts[name] { return existing }
+        return mainMonitorInfo.activeWorkspace
+    }
+
+    @MainActor static func forMonitor(_ monitor: MonitorInfo) -> Workspace {
+        if let existing = layouts[monitor.displayId] { return existing }
+        let workspace = Workspace(monitor: monitor)
+        layouts[monitor.displayId] = workspace
+        return workspace
+    }
+
+    /// Reconcile by display identity, not coordinates: moving a display must not exchange layouts.
+    @MainActor static func reconcileMonitors(_ monitors: [MonitorInfo]) {
+        // macOS can temporarily report no displays during reconfiguration or sleep.
+        guard let main = monitors.first(where: \.isMain) ?? monitors.first else { return }
+        let ids = Set(monitors.map(\.displayId))
+        let removed = all.filter { !ids.contains($0.name) }
+        for monitor in monitors { forMonitor(monitor).workspaceMonitor = monitor }
+        let destination = forMonitor(main)
+        for source in removed {
+            // Preserve the detached display's tiling subtree, including order and sizing.
+            let incoming = source.rootTilingContainer
+            if !incoming.children.isEmpty {
+                let current = destination.rootTilingContainer
+                if current.children.isEmpty {
+                    current.unbindFromParent()
+                    incoming.bind(to: destination, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+                } else if current.orientation == incoming.orientation {
+                    // Group both trees under the opposite orientation so normalization
+                    // preserves each display's internal arrangement.
+                    current.unbindFromParent()
+                    let group = TilingContainer(
+                        parent: destination, adaptiveWeight: 1,
+                        current.orientation.opposite, index: INDEX_BIND_LAST)
+                    current.bind(to: group, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+                    incoming.bind(to: group, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+                } else {
+                    incoming.bind(to: current, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+                }
+            }
+            for window in source.floatingWindows {
+                window.bindAsFloatingWindow(to: destination)
+            }
+            for window in source.macOsNativeFullscreenWindowsContainer.children {
+                window.bind(
+                    to: destination.macOsNativeFullscreenWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER,
+                    index: INDEX_BIND_LAST)
+            }
+            for window in source.macOsNativeHiddenAppsWindowsContainer.children {
+                window.bind(
+                    to: destination.macOsNativeHiddenAppsWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER,
+                    index: INDEX_BIND_LAST)
+            }
+            layouts.removeValue(forKey: source.name)
         }
+        if !removed.isEmpty { resetClosedWindowsCache() }
     }
 
-    nonisolated static func < (lhs: Workspace, rhs: Workspace) -> Bool {
-        lhs.nameLogicalSegments < rhs.nameLogicalSegments
-    }
+    @MainActor static func garbageCollectUnusedWorkspaces() { reconcileMonitors(monitorInfos) }
 
-    override func getWeight(_ targetOrientation: Orientation) -> CGFloat {
-        workspaceMonitor.visibleRectPaddedByOuterGaps.getDimension(targetOrientation)
-    }
+    @MainActor var isVisible: Bool { Self.layouts[name] === self }
 
-    override func setWeight(_ targetOrientation: Orientation, _ newValue: CGFloat) {
-        die("It's not possible to change weight of Workspace")
+    override func getWeight(_ orientation: Orientation) -> CGFloat {
+        workspaceMonitor.visibleRectPaddedByOuterGaps.getDimension(orientation)
     }
-
-    @MainActor
-    var description: String {
-        let description = [
-            ("name", name),
-            ("isVisible", String(isVisible)),
-            ("isEffectivelyEmpty", String(isEffectivelyEmpty)),
-            ("doKeepAlive", String(config.persistentWorkspaces.contains(name))),
-        ].map { "\($0.0): \(String(describing: $0.1).singleQuoted)" }.joined(separator: ", ")
-        return "Workspace(\(description))"
-    }
-
-    @MainActor
-    static func garbageCollectUnusedWorkspaces() {
-        for name in config.persistentWorkspaces {
-            _ = get(byName: name) // Make sure that all persistent workspaces are "cached"
-        }
-        workspaceNameToWorkspace = workspaceNameToWorkspace.filter { (_, workspace: Workspace) in
-            config.persistentWorkspaces.contains(workspace.name) ||
-                !workspace.isEffectivelyEmpty ||
-                workspace.isVisible ||
-                workspace.name == focus.workspace.name
-        }
-    }
-
-    nonisolated static func == (lhs: Workspace, rhs: Workspace) -> Bool {
-        check((lhs === rhs) == (lhs.name == rhs.name), "lhs: \(lhs) rhs: \(rhs)")
-        return lhs === rhs
-    }
-
+    override func setWeight(_ orientation: Orientation, _ value: CGFloat) { die("Can't resize a display") }
+    nonisolated static func == (lhs: Workspace, rhs: Workspace) -> Bool { lhs === rhs }
+    nonisolated static func < (lhs: Workspace, rhs: Workspace) -> Bool { lhs.name < rhs.name }
     nonisolated func hash(into hasher: inout Hasher) { hasher.combine(name) }
 }
 
-extension Workspace {
-    @MainActor
-    var isVisible: Bool { visibleWorkspaceToScreenPoint.keys.contains(self) }
-    @MainActor
-    var workspaceMonitor: MonitorInfo {
-        forceAssignedMonitor
-            ?? visibleWorkspaceToScreenPoint[self]?.monitorApproximation
-            ?? assignedMonitorPoint?.monitorApproximation
-            ?? mainMonitorInfo
-    }
-}
-
 extension MonitorInfo {
-    @MainActor
-    var activeWorkspace: Workspace {
-        if let existing = screenPointToVisibleWorkspace[rect.topLeftCorner] {
-            return existing
-        }
-        // What if monitor configuration changed? (frame.origin is changed)
-        rearrangeWorkspacesOnMonitors()
-        // Normally, recursion should happen only once more because we must take the value from the cache
-        // (Unless, monitor configuration data race happens)
-        return self.activeWorkspace
-    }
-
-    @MainActor
-    func setActiveWorkspace(_ workspace: Workspace) -> Bool {
-        rect.topLeftCorner.setActiveWorkspace(workspace)
-    }
+    @MainActor var activeWorkspace: Workspace { Workspace.forMonitor(self) }
 }
 
-@MainActor
-func gcMonitors() {
-    if screenPointToVisibleWorkspace.count != monitorInfos.count {
-        rearrangeWorkspacesOnMonitors()
-    }
-}
-
-extension CGPoint {
-    @MainActor
-    fileprivate func setActiveWorkspace(_ workspace: Workspace) -> Bool {
-        if !isValidAssignment(workspace: workspace, screen: self) {
-            return false
-        }
-        if let prevMonitorPoint = visibleWorkspaceToScreenPoint[workspace] {
-            visibleWorkspaceToScreenPoint.removeValue(forKey: workspace)
-            screenPointToPrevVisibleWorkspace[prevMonitorPoint] =
-                screenPointToVisibleWorkspace.removeValue(forKey: prevMonitorPoint)?.name
-        }
-        if let prevWorkspace = screenPointToVisibleWorkspace[self] {
-            screenPointToPrevVisibleWorkspace[self] =
-                screenPointToVisibleWorkspace.removeValue(forKey: self)?.name
-            visibleWorkspaceToScreenPoint.removeValue(forKey: prevWorkspace)
-        }
-        visibleWorkspaceToScreenPoint[workspace] = self
-        screenPointToVisibleWorkspace[self] = workspace
-        workspace.assignedMonitorPoint = self
-        return true
-    }
-}
-
-@MainActor
-private func rearrangeWorkspacesOnMonitors() {
-    let newScreens = monitorInfos.map(\.rect.topLeftCorner)
-    var newScreenToOldScreenMapping: [CGPoint: CGPoint] = [:]
-    for (oldScreen, _) in screenPointToVisibleWorkspace {
-        guard let newScreen = newScreens.minBy({ ($0 - oldScreen).vectorLength }) else { continue }
-        if let prevOldScreen = newScreenToOldScreenMapping[newScreen] {
-            if (prevOldScreen - newScreen).vectorLength <= (oldScreen - newScreen).vectorLength {
-                // newScreen has already been assigned to a closer oldScreen.
-                continue
-            }
-        }
-        newScreenToOldScreenMapping[newScreen] = oldScreen
-    }
-
-    let oldScreenPointToVisibleWorkspace = screenPointToVisibleWorkspace
-    screenPointToVisibleWorkspace = [:]
-    visibleWorkspaceToScreenPoint = [:]
-
-    for newScreen in newScreens {
-        if let existingVisibleWorkspace = newScreenToOldScreenMapping[newScreen].flatMap({ oldScreenPointToVisibleWorkspace[$0] }),
-           newScreen.setActiveWorkspace(existingVisibleWorkspace)
-        {
-            continue
-        }
-        let stubWorkspace = getStubWorkspace(forPoint: newScreen)
-        check(newScreen.setActiveWorkspace(stubWorkspace),
-              "getStubWorkspace generated incompatible stub workspace (\(stubWorkspace)) for the monitor (\(newScreen)")
-    }
-}
-
-@MainActor
-private func isValidAssignment(workspace: Workspace, screen: CGPoint) -> Bool {
-    switch workspace.forceAssignedMonitor {
-        case let forceAssigned? where forceAssigned.rect.topLeftCorner != screen: false
-        default: true
-    }
-}
+@MainActor func gcMonitors() { Workspace.reconcileMonitors(monitorInfos) }
