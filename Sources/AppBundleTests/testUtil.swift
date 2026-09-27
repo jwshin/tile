@@ -17,18 +17,16 @@ let projectRoot: URL = {
 
 @MainActor
 func setUpWorkspacesForTests() {
-    config = defaultConfig
-
-    config.bindings = [:]
+    ActionExecution.shared.cancelRefresh()
+    ActionExecution.shared = ActionExecution(desktop: TestDesktopSessionAdapter())
+    ConfigurationApplication.shared = ConfigurationApplication(
+        defaults: defaultConfig, shortcuts: RecordingShortcutRegistrar())
     testWorkspaceAliases = [:]
     unsafe testMonitors = [TestMonitor(displayId: "test-main", name: "Main", x: 0, isMain: true)]
-    for workspace in Workspace.all {
-        for child in workspace.children { child.unbindFromParent() }
-    }
-    Workspace.reconcileMonitors(monitorInfos)
+    DisplayLayoutState.shared = DisplayLayoutState(monitors: monitorInfos)
     _ = mainMonitorInfo.activeWorkspace.focusWorkspace()
-    resetClosedWindowsCache()
 
+    TestApp.shared.isHidden = false
     TestApp.shared.focusedWindow = nil
     TestApp.shared.windows = []
 }
@@ -55,9 +53,29 @@ struct TestMonitor: MonitorInfo {
     } else {
         let monitor = TestMonitor(displayId: name, name: name, x: Double(monitorInfos.count) * 1920)
         unsafe testMonitors = monitorInfos + [monitor]
-        Workspace.reconcileMonitors(monitorInfos)
+        DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
         workspace = monitor.activeWorkspace
     }
     testWorkspaceAliases[name] = workspace
     return workspace
+}
+
+extension Command {
+    @MainActor @discardableResult
+    // Used by algorithm tests; input callers use ActionExecution for the complete session.
+    func applyToModel() async -> CmdResult {
+        let io = CmdIo()
+        let result =
+            invalidatesRestoration
+            ? await DisplayLayoutState.shared.changeLayout { await run(io) }
+            : await run(io)
+        DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
+        DisplayLayoutState.shared.normalize()
+        return CmdResult(stdout: io.stdout, stderr: io.stderr, exitCode: result)
+    }
+}
+
+extension Action {
+    @MainActor @discardableResult
+    func applyToModel() async -> CmdResult { await command.applyToModel() }
 }

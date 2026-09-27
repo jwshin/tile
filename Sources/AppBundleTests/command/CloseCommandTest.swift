@@ -19,7 +19,7 @@ extension CoreTests {
             assertEquals(focus.windowOrNil?.windowId, 1)
             assertEquals(focus.workspace.rootTilingContainer.children.count, 2)
 
-            await Action.close.run()
+            await Action.close.applyToModel()
 
             assertEquals(focus.windowOrNil?.windowId, 2)
             assertEquals(focus.workspace.rootTilingContainer.children.count, 1)

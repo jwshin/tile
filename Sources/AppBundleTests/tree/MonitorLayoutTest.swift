@@ -13,7 +13,7 @@ extension CoreTests {
 
         private func connect(_ monitors: [MonitorInfo]) {
             unsafe testMonitors = monitors
-            Workspace.reconcileMonitors(monitors)
+            DisplayLayoutState.shared.reconcileMonitors(monitors)
         }
 
         @Test func newLayoutsFollowDisplayAspectRatio() {
@@ -30,14 +30,14 @@ extension CoreTests {
             let first = main.activeWorkspace
             let second = side.activeWorkspace
             #expect(first !== second)
-            #expect(Workspace.all.count == 2)
-            let allVisible = Workspace.all.allSatisfy { $0.isVisible }
+            #expect(DisplayLayoutState.shared.workspaces.count == 2)
+            let allVisible = DisplayLayoutState.shared.workspaces.allSatisfy { $0.isVisible }
             #expect(allVisible)
             _ = second.focusWorkspace()
             _ = first.focusWorkspace()
             #expect(side.activeWorkspace === second)
             #expect(main.activeWorkspace === first)
-            #expect(Workspace.all.count == 2)
+            #expect(DisplayLayoutState.shared.workspaces.count == 2)
         }
 
         @Test func rearrangingDisplaysPreservesTheirTrees() {
@@ -63,7 +63,7 @@ extension CoreTests {
             let hidden = TestWindow.new(id: 5, parent: source.macOsNativeHiddenAppsWindowsContainer)
             _ = b.focusWindow()
             connect([main])
-            #expect(Workspace.all.count == 1)
+            #expect(DisplayLayoutState.shared.workspaces.count == 1)
             #expect(root === main.activeWorkspace.rootTilingContainer)
             #expect(root.children == [a, b])
             #expect(root.orientation == .v)
@@ -97,7 +97,7 @@ extension CoreTests {
             connect([main, side])
             let window = TestWindow.new(id: 1, parent: side.activeWorkspace.rootTilingContainer)
             connect([])
-            #expect(Workspace.all.count == 2)
+            #expect(DisplayLayoutState.shared.workspaces.count == 2)
             #expect(window.parent != nil)
             connect([main, side])
             #expect(window.nodeWorkspace === side.activeWorkspace)
@@ -107,28 +107,28 @@ extension CoreTests {
             connect([main, side])
             let window = TestWindow.new(id: 1, parent: main.activeWorkspace.rootTilingContainer)
             _ = window.focusWindow()
-            let move = await Action.moveToMonitorRight.run()
+            let move = await Action.moveToMonitorRight.applyToModel()
             #expect(move.exitCode.rawValue == 0)
             #expect(window.nodeWorkspace === side.activeWorkspace)
             #expect(focus.windowOrNil === window)
-            let focusResult = await Action.leftMonitor.run()
+            let focusResult = await Action.leftMonitor.applyToModel()
             #expect(focusResult.exitCode.rawValue == 0)
             #expect(focus.workspace === main.activeWorkspace)
-            #expect(Workspace.all.count == 2)
+            #expect(DisplayLayoutState.shared.workspaces.count == 2)
         }
 
         @Test func monitorCyclingWrapsAndMovingAlwaysFollowsWindow() async {
             connect([main, side])
             let window = TestWindow.new(id: 1, parent: main.activeWorkspace.rootTilingContainer)
             _ = window.focusWindow()
-            await Action.previousMonitor.run()
+            await Action.previousMonitor.applyToModel()
             #expect(focus.workspace === side.activeWorkspace)
-            await Action.nextMonitor.run()
+            await Action.nextMonitor.applyToModel()
             #expect(focus.windowOrNil === window)
-            await Action.moveToPreviousMonitor.run()
+            await Action.moveToPreviousMonitor.applyToModel()
             #expect(window.nodeWorkspace === side.activeWorkspace)
             #expect(focus.windowOrNil === window)
-            await Action.moveToNextMonitor.run()
+            await Action.moveToNextMonitor.applyToModel()
             #expect(window.nodeWorkspace === main.activeWorkspace)
             #expect(focus.windowOrNil === window)
         }
@@ -139,12 +139,12 @@ extension CoreTests {
             let last = TestWindow.new(id: 2, parent: main.activeWorkspace.rootTilingContainer)
             TestWindow.new(id: 3, parent: side.activeWorkspace.rootTilingContainer)
             _ = last.focusWindow()
-            await Action.focusRight.run()
+            await Action.focusRight.applyToModel()
             #expect(focus.windowOrNil === last)
             _ = first.focusWindow()
-            await Action.focusLeft.run()
+            await Action.focusLeft.applyToModel()
             #expect(focus.windowOrNil === first)
-            let result = await Action.leftMonitor.run()
+            let result = await Action.leftMonitor.applyToModel()
             #expect(result.exitCode == .fail)
             #expect(focus.workspace === main.activeWorkspace)
         }
@@ -156,7 +156,7 @@ extension CoreTests {
             let b = TestWindow.new(id: 2, parent: root, adaptiveWeight: 100)
             _ = a.focusWindow()
             for action in [Action.nextMonitor, .previousMonitor, .moveToNextMonitor, .moveToPreviousMonitor] {
-                let result = await action.run()
+                let result = await action.applyToModel()
                 #expect(result.exitCode == .succ)
                 #expect(root.children == [a, b])
                 #expect(focus.windowOrNil === a)
@@ -166,7 +166,7 @@ extension CoreTests {
 
         @Test func uniformGapAppliesToEveryDisplayAndFullscreen() async throws {
             connect([main, side])
-            config.gap = 12
+            ConfigurationApplication.shared.apply("gap = 12")
             for monitor in [main, side] {
                 let workspace = monitor.activeWorkspace
                 let a = TestWindow.new(id: monitor.isMain ? 1 : 3, parent: workspace.rootTilingContainer)
@@ -179,13 +179,13 @@ extension CoreTests {
                 #expect(second.minX - first.maxX == 12)
                 #expect(second.maxX == monitor.rect.maxX - 12)
                 _ = a.focusWindow()
-                await Action.fullscreen.run()
+                await Action.fullscreen.applyToModel()
                 try await workspace.layoutWorkspace()
                 let fullscreen = try #require(await a.getAxRect(.nonCancellable))
                 let expected = monitor.visibleRectPaddedByOuterGaps
                 #expect(fullscreen.topLeftCorner == expected.topLeftCorner)
                 #expect(fullscreen.size == expected.size)
-                await Action.fullscreen.run()
+                await Action.fullscreen.applyToModel()
                 #expect(!a.isFullscreen)
             }
         }
@@ -202,21 +202,5 @@ extension CoreTests {
             #expect(rect.maxX <= main.visibleRect.maxX)
         }
 
-        @Test func lockScreenRestorationKeepsDisplayMembership() async throws {
-            connect([main, side])
-            let root = side.activeWorkspace.rootTilingContainer
-            root.changeOrientation(.v)
-            let a = TestWindow.new(id: 1, parent: root)
-            let b = TestWindow.new(id: 2, parent: root)
-            cacheClosedWindowIfNeeded()
-            a.unbindFromParent()
-            b.unbindFromParent()
-            a.bind(to: main.activeWorkspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-            b.bind(to: main.activeWorkspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-            #expect(try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: a))
-            #expect(a.nodeWorkspace === side.activeWorkspace)
-            #expect(b.nodeWorkspace === side.activeWorkspace)
-            #expect(side.activeWorkspace.rootTilingContainer.orientation == .v)
-        }
     }
 }

@@ -17,6 +17,7 @@ final class MacApp: AbstractApp {
     @MainActor private static var focusJob: RunLoopJob? = nil
 
     /*conforms*/ var name: String? { nsApp.localizedName }
+    @MainActor var isHidden: Bool { nsApp.isHidden }
 
     // todo think if it's possible to integrate this global mutable state to https://github.com/nikitabobko/AeroSpace/issues/1215
     //      and make deinitialization automatic in deinit

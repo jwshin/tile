@@ -2,7 +2,7 @@ import Common
 
 struct FocusMonitorCommand: Command {
     let target: MonitorTarget
-    let shouldResetClosedWindowsCache = false
+    let invalidatesRestoration = false
 
     func run(_ io: CmdIo) -> BinaryExitCode {
         switch target.resolve(focus.workspace.workspaceMonitor) {

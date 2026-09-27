@@ -81,3 +81,12 @@ public final class MessageModel {
 public struct Message: Hashable, Equatable {
     public let body: String
 }
+
+@MainActor extension MessageModel {
+    func present(_ result: CmdResult, for action: Action) {
+        if action == .reloadConfig && result.exitCode == .succ { message = nil }
+        if result.exitCode == .fail && !result.diagnostics.isEmpty {
+            message = Message(body: result.diagnostics)
+        }
+    }
+}

@@ -3,46 +3,26 @@ import Common
 import Foundation
 import HotKey
 
-@MainActor private var hotkeys: [String: HotKey] = [:]
-
-@MainActor func resetHotKeys() {
-    // Explicitly unregister all hotkeys. We cannot always rely on destruction of the HotKey object to trigger
-    // unregistration because we might be running inside a hotkey handler that is keeping its HotKey object alive.
-    for (_, key) in hotkeys {
-        key.isEnabled = false
-    }
-    hotkeys = [:]
+@MainActor protocol ShortcutRegistrar {
+    func replace(with bindings: [String: HotkeyBinding])
 }
 
-extension HotKey {
-    var isEnabled: Bool {
-        get { !isPaused }
-        set {
-            if isEnabled != newValue {
-                isPaused = !newValue
-            }
-        }
-    }
-}
+@MainActor final class NativeShortcutRegistrar: ShortcutRegistrar {
+    private var hotkeys: [HotKey] = []
 
-@MainActor func syncHotkeys() {
-    resetHotKeys()
-    guard TrayMenuModel.shared.isEnabled else { return }
-    for binding in config.bindings.values {
-        hotkeys[binding.descriptionWithKeyCode] = HotKey(
-            key: binding.keyCode, modifiers: binding.modifiers,
-            keyDownHandler: {
-                _ = Task { @MainActor in
-                    guard let guardToken = RunSessionGuard.isEnabled else { return }
-                    try await runLightSession(.hotkeyBinding, guardToken) {
-                        let result = await binding.action.run()
-                        if result.exitCode.rawValue != 0 && !result.diagnostics.isEmpty {
-                            MessageModel.shared.message = Message(
-                                body: result.diagnostics)
-                        }
+    func replace(with bindings: [String: HotkeyBinding]) {
+        // A running handler may retain its HotKey, so unregister explicitly.
+        for key in hotkeys { key.isPaused = true }
+        hotkeys = bindings.values.map { binding in
+            HotKey(
+                key: binding.keyCode, modifiers: binding.modifiers,
+                keyDownHandler: {
+                    _ = Task { @MainActor in
+                        let result = try await ActionExecution.shared.execute(binding.action)
+                        MessageModel.shared.present(result, for: binding.action)
                     }
-                }
-            })
+                })
+        }
     }
 }
 

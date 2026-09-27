@@ -10,14 +10,14 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
     _ = Task { @MainActor in
         guard let token: RunSessionGuard = .isEnabled else { return }
         guard let windowId, let window = Window.get(byId: windowId), try await isManipulatedWithMouse(window) else {
-            scheduleCancellableCompleteRefreshSession(.ax(notif))
+            ActionExecution.shared.scheduleRefresh(.ax(notif))
             return
         }
         resizeWithMouseTask?.cancel()
         resizeWithMouseTask = Task {
             try checkCancellation()
-            try await runLightSession(.ax(notif), token) {
-                try await resizeWithMouse(window)
+            try await ActionExecution.shared.runSession(.ax(notif), token) {
+                try await DisplayLayoutState.shared.changeLayout { try await resizeWithMouse(window) }
             }
         }
     }
@@ -27,10 +27,10 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
 func resetManipulatedWithMouseIfPossible() async throws {
     if currentlyManipulatedWithMouseWindowId != nil {
         currentlyManipulatedWithMouseWindowId = nil
-        for workspace in Workspace.all {
+        for workspace in DisplayLayoutState.shared.workspaces {
             workspace.resetResizeWeightBeforeResizeRecursive()
         }
-        scheduleCancellableCompleteRefreshSession(.resetManipulatedWithMouse, optimisticallyPreLayoutWorkspaces: true)
+        ActionExecution.shared.scheduleRefresh(.resetManipulatedWithMouse, optimisticallyPreLayoutWorkspaces: true)
     }
 }
 
@@ -39,7 +39,6 @@ private let adaptiveWeightBeforeResizeWithMouseKey = TreeNodeUserDataKey<CGFloat
 
 @MainActor
 private func resizeWithMouse(_ window: Window) async throws {  // todo cover with tests
-    resetClosedWindowsCache()
     switch window.windowParentCases {
     case .unbound: return
     case .floatingWindowsContainer, .macosMinimizedWindowsContainer, .macosFullscreenWindowsContainer,

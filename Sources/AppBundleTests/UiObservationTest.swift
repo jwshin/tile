@@ -6,6 +6,7 @@ import Testing
 
 extension CoreTests {
     @MainActor struct UiObservationTest {
+        init() { setUpWorkspacesForTests() }
         @Test func messageChangesInvalidateObservation() {
             let model = MessageModel.shared
             let original = model.message
@@ -25,14 +26,14 @@ extension CoreTests {
         @Test func enableChangesInvalidateMenuObservation() {
             let model = TrayMenuModel.shared
             let original = model.isEnabled
-            defer { model.isEnabled = original }
+            defer { ConfigurationApplication.shared.setEnabled(original) }
             let changed = Atomic<Bool>(false)
             withObservationTracking {
                 _ = model.isEnabled
             } onChange: {
                 changed.store(true, ordering: .relaxed)
             }
-            model.isEnabled.toggle()
+            ConfigurationApplication.shared.setEnabled(!original)
             let didChange = changed.load(ordering: .relaxed)
             #expect(didChange)
         }

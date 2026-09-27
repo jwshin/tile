@@ -24,30 +24,31 @@ import Foundation
             interceptTermination(SIGTERM)
         }
 
-        await bootstrapConfig_nonCancellable()
-        _ = await reloadConfig_nonCancellable()
+        bootstrapConfiguration()
+        let configResult = ConfigurationApplication.shared.reload()
+        MessageModel.shared.message = configResult.diagnostics.map { Message(body: $0) }
 
         GlobalObserver.initObserver()
-        Workspace.garbageCollectUnusedWorkspaces()  // init workspaces
-        _ = Workspace.all.first?.focusWorkspace()
-        await runHeavyCompleteRefreshSession(
+        DisplayLayoutState.shared.reconcileMonitors(monitorInfos)  // init workspaces
+        _ = DisplayLayoutState.shared.workspaces.first?.focusWorkspace()
+        await ActionExecution.shared.refresh(
             .startup,
             // It's important for the first initialization to be non cancellable
             // so initialization completes before subsequent refreshes
             assumeCancellable: false,
             layoutWorkspaces: false,
         )
-        try await runLightSession(.startup, .forceRun) {}
+        try await ActionExecution.shared.runSession(.startup, .forceRun) {}
     }
 }
 
-@MainActor private func bootstrapConfig_nonCancellable() async {
-    let result = await reloadConfig_nonCancellable(forceConfigUrl: defaultConfigUrl)
+@MainActor private func bootstrapConfiguration() {
+    let result = ConfigurationApplication.shared.reload(from: defaultConfigUrl)
     let msg = """
         Can't load default config. Your installation is probably corrupted.
         Please don't modify \(defaultConfigUrl.description.singleQuoted)
 
-        \(result.stdout)
+        \(result.diagnostics ?? "")
         """
     check(result.isOk, msg)
 }

@@ -10,14 +10,14 @@ func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableR
     _ = Task { @MainActor in
         guard let token: RunSessionGuard = .isEnabled else { return }
         guard let windowId, let window = Window.get(byId: windowId), try await isManipulatedWithMouse(window) else {
-            scheduleCancellableCompleteRefreshSession(.ax(notif))
+            ActionExecution.shared.scheduleRefresh(.ax(notif))
             return
         }
         moveWithMouseTask?.cancel()
         moveWithMouseTask = Task {
             try checkCancellation()
-            try await runLightSession(.ax(notif), token) {
-                try await moveWithMouse(window)
+            try await ActionExecution.shared.runSession(.ax(notif), token) {
+                try await DisplayLayoutState.shared.changeLayout { try await moveWithMouse(window) }
             }
         }
     }
@@ -25,7 +25,6 @@ func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableR
 
 @MainActor
 private func moveWithMouse(_ window: Window) async throws {  // todo cover with tests
-    resetClosedWindowsCache()
     switch window.windowParentCases {
     case .floatingWindowsContainer:
         try await moveFloatingWindow(window)

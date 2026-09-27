@@ -3,7 +3,7 @@ import Common
 
 struct ResizeCommand: Command {
     let grow: Bool
-    let shouldResetClosedWindowsCache = true
+    let invalidatesRestoration = true
 
     func run(_ io: CmdIo) -> BinaryExitCode {
         guard let window = focus.windowOrNil, let parent = window.parent as? TilingContainer else {

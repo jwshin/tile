@@ -15,20 +15,26 @@ final class MacosHiddenAppsWindowsContainer: TreeNode, NonLeafTreeNodeObject {
     }
 }
 
-@MainActor let macosMinimizedWindowsContainer = MacosMinimizedWindowsContainer()
+@MainActor var macosMinimizedWindowsContainer: MacosMinimizedWindowsContainer {
+    DisplayLayoutState.shared.minimizedWindows
+}
 final class MacosMinimizedWindowsContainer: TreeNode, NonLeafTreeNodeObject {
+    unowned let state: DisplayLayoutState
     @MainActor
-    fileprivate init() {
+    init(state: DisplayLayoutState) {
+        self.state = state
         super.init(parent: NilTreeNode.instance, adaptiveWeight: 1, index: INDEX_BIND_LAST)
     }
 }
 
-@MainActor let macosPopupWindowsContainer = MacosPopupWindowsContainer()
+@MainActor var macosPopupWindowsContainer: MacosPopupWindowsContainer { DisplayLayoutState.shared.popupWindows }
 /// The container for macOS objects that are windows from AX perspective but from human perspective they are not even
 /// dialogs. E.g. Sonoma (macOS 14) keyboard layout switch
 final class MacosPopupWindowsContainer: TreeNode, NonLeafTreeNodeObject {
+    unowned let state: DisplayLayoutState
     @MainActor
-    fileprivate init() {
+    init(state: DisplayLayoutState) {
+        self.state = state
         super.init(parent: NilTreeNode.instance, adaptiveWeight: 1, index: INDEX_BIND_LAST)
     }
 }

@@ -20,7 +20,7 @@ extension CoreTests {
             }
 
             await Action.balanceSizes
-                .run()
+                .applyToModel()
 
             for window in workspace.rootTilingContainer.children {
                 assertEquals(window.getWeight(workspace.rootTilingContainer.orientation), 1)

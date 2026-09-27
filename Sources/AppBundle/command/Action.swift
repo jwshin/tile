@@ -41,7 +41,7 @@ enum Action: String, CaseIterable, Sendable {
     case shrink = "shrink"
     case grow = "grow"
 
-    private var command: any Command {
+    var command: any Command {
         switch self {
         case .focusLeft: FocusCommand(direction: .left)
         case .focusDown: FocusCommand(direction: .down)
@@ -84,6 +84,4 @@ enum Action: String, CaseIterable, Sendable {
         }
     }
 
-    @MainActor @discardableResult
-    func run() async -> CmdResult { await command.run() }
 }

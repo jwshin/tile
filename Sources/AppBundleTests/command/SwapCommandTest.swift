@@ -19,7 +19,7 @@ extension CoreTests {
                 TestWindow.new(id: 3, parent: $0)
             }
 
-            await Action.swapRight.run()
+            await Action.swapRight.applyToModel()
             assertEquals(
                 root.layoutDescription,
                 .h_tiles([
@@ -29,7 +29,7 @@ extension CoreTests {
             assertEquals(focus.windowOrNil?.windowId, 1)
             assertEquals(root.mostRecentWindowRecursive?.windowId, 1)
 
-            await Action.swapLeft.run()
+            await Action.swapLeft.applyToModel()
             assertEquals(
                 root.layoutDescription,
                 .h_tiles([
@@ -39,7 +39,7 @@ extension CoreTests {
             assertEquals(focus.windowOrNil?.windowId, 1)
             assertEquals(root.mostRecentWindowRecursive?.windowId, 1)
 
-            await Action.swapDown.run()
+            await Action.swapDown.applyToModel()
             assertEquals(
                 root.layoutDescription,
                 .h_tiles([
@@ -49,7 +49,7 @@ extension CoreTests {
             assertEquals(focus.windowOrNil?.windowId, 1)
             assertEquals(root.mostRecentWindowRecursive?.windowId, 1)
 
-            await Action.swapUp.run()
+            await Action.swapUp.applyToModel()
             assertEquals(
                 root.layoutDescription,
                 .h_tiles([

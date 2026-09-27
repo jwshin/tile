@@ -6,7 +6,7 @@ public final class TrayMenuModel {
     public static let shared = TrayMenuModel()
     private init() {}
     var trayText = "tile"
-    var isEnabled = true
+    var isEnabled: Bool { ConfigurationApplication.shared.isEnabled }
     var axPermissionStatus: AxPermissionStatus = .waitingWithPrompt
     var secureInput = false
 }

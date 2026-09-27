@@ -22,7 +22,7 @@ extension CoreTests {
             }
             assertEquals(workspace.focusWorkspace(), true)
 
-            await Action.flattenLayout.run()
+            await Action.flattenLayout.applyToModel()
             workspace.normalizeContainers()
             assertEquals(
                 workspace.layoutDescription,

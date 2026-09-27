@@ -15,13 +15,14 @@ final class MacWindow: Window {
             index: index)
     }
 
-    @MainActor static var allWindowsMap: [UInt32: MacWindow] = [:]
-    @MainActor static var allWindows: [MacWindow] { Array(allWindowsMap.values) }
+    @MainActor static var allWindows: [MacWindow] {
+        DisplayLayoutState.shared.allWindows.compactMap { $0 as? MacWindow }
+    }
 
     @MainActor
     @discardableResult
     static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow {
-        if let existing = allWindowsMap[windowId] { return existing }
+        if let existing = Window.get(byId: windowId) as? MacWindow { return existing }
         let rect = try await macApp.getAxRect(windowId, .cancellable)
         let data = try await unbindAndGetBindingDataForNewWindow(
             windowId,
@@ -32,13 +33,12 @@ final class MacWindow: Window {
         )
 
         // atomic synchronous section
-        if let existing = allWindowsMap[windowId] { return existing }
+        if let existing = Window.get(byId: windowId) as? MacWindow { return existing }
         let window = MacWindow(
             windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight,
             index: data.index)
-        allWindowsMap[windowId] = window
 
-        _ = try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window)
+        _ = try await window.layoutState.restoreWindow(newlyDetectedWindow: window)
         return window
     }
 
@@ -50,31 +50,7 @@ final class MacWindow: Window {
     //                        If you are unsure, it's better to pass `false`
     @MainActor
     func garbageCollect(skipClosedWindowsCache: Bool) {
-        if MacWindow.allWindowsMap.removeValue(forKey: windowId) == nil {
-            return
-        }
-        if !skipClosedWindowsCache { cacheClosedWindowIfNeeded() }
-        let parent = unbindFromParent().parent
-        let deadWindowWorkspace = parent.nodeWorkspace
-        let focus = focus
-        if let deadWindowWorkspace, deadWindowWorkspace == focus.workspace {
-            switch parent.cases {
-            case .tilingContainer, .floatingWindowsContainer, .macosHiddenAppsWindowsContainer,
-                .macosFullscreenWindowsContainer:
-                let deadWindowFocus = deadWindowWorkspace.toLiveFocus()
-                _ = setFocus(to: deadWindowFocus)
-                // Guard against "Apple Reminders popup" bug: https://github.com/nikitabobko/AeroSpace/issues/201
-                if focus.windowOrNil?.app.pid != app.pid {
-                    // Force focus to fix macOS annoyance with focused apps without windows.
-                    //   https://github.com/nikitabobko/AeroSpace/issues/65
-                    deadWindowFocus.windowOrNil?.nativeFocus()
-                }
-            case .macosPopupWindowsContainer,  // Don't switch back on popup destruction
-                .workspace,  // Workspace is invalid parent for windows
-                .macosMinimizedWindowsContainer:  // Don't switch back on minimized windows destruction
-                break
-            }
-        }
+        layoutState.removeWindow(self, remember: !skipClosedWindowsCache)?.nativeFocus()
     }
 
     override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool {

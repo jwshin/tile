@@ -30,7 +30,7 @@ var defaultConfigUrl: URL {
     }
     return parsedConfig.config
 }()
-@MainActor var config: Config = defaultConfig  // todo move to Ctx?
+@MainActor var config: Config { ConfigurationApplication.shared.current }
 
 struct Config: ConvenienceMutable {
     var gap: Int = 8

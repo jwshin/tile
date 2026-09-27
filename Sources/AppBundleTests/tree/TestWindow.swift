@@ -4,7 +4,9 @@ import AppKit
 
 final class TestWindow: Window, CustomStringConvertible {
     private var _rect: Rect?
+    var beforeNextSizeRead: (@MainActor () async throws -> Void)?
     var isMacosFullscreenForTest = false
+    var isMacosMinimizedForTest = false
 
     @MainActor
     private init(_ id: UInt32, _ parent: NonLeafTreeNodeObject, _ adaptiveWeight: CGFloat, _ rect: Rect?) {
@@ -28,12 +30,11 @@ final class TestWindow: Window, CustomStringConvertible {
 
     @MainActor
     override func nativeFocus() {
-        appForTests = TestApp.shared
         TestApp.shared.focusedWindow = self
     }
 
     override func closeAxWindow() {
-        unbindFromParent()
+        layoutState.removeWindow(self, remember: false)
     }
 
     @MainActor override func getAxRect(_ cm: CancellationMode) async throws -> Rect? {  // todo change to not Optional
@@ -41,7 +42,10 @@ final class TestWindow: Window, CustomStringConvertible {
     }
 
     @MainActor override func getAxSize(_ cm: CancellationMode) async throws -> CGSize? {
-        _rect.map { CGSize(width: $0.width, height: $0.height) }
+        let beforeRead = beforeNextSizeRead
+        beforeNextSizeRead = nil
+        try await beforeRead?()
+        return _rect.map { CGSize(width: $0.width, height: $0.height) }
     }
 
     override func setAxFrame(_ point: CGPoint?, _ size: CGSize?) {
@@ -50,6 +54,8 @@ final class TestWindow: Window, CustomStringConvertible {
             topLeftX: point?.x ?? old.minX, topLeftY: point?.y ?? old.minY,
             width: size?.width ?? old.width, height: size?.height ?? old.height)
     }
+
+    override func isMacosMinimized(_ cm: CancellationMode) async throws -> Bool { isMacosMinimizedForTest }
 
     override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool { isMacosFullscreenForTest }
 }

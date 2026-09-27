@@ -2,7 +2,7 @@ import AppKit
 import Common
 
 struct FlattenWorkspaceTreeCommand: Command {
-    let shouldResetClosedWindowsCache: Bool = true
+    let invalidatesRestoration: Bool = true
 
     func run(_ io: CmdIo) -> BinaryExitCode {
         let target = focus

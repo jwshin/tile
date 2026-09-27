@@ -3,7 +3,7 @@ import Common
 
 enum GlobalObserver {
     private static func onNotif(_ notification: Notification) {
-        // Third line of defence against lock screen window. See: closedWindowsCache
+        // Third line of defence against lock screen window. See: DisplayLayoutState restoration
         // Second and third lines of defence are technically needed only to avoid potential flickering
         if (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
             == lockScreenAppBundleId
@@ -14,10 +14,10 @@ enum GlobalObserver {
         _ = Task { @MainActor in
             if !TrayMenuModel.shared.isEnabled { return }
             if notifName == NSWorkspace.didActivateApplicationNotification.rawValue {
-                scheduleCancellableCompleteRefreshSession(
+                ActionExecution.shared.scheduleRefresh(
                     .globalObserver(notifName), optimisticallyPreLayoutWorkspaces: true)
             } else {
-                scheduleCancellableCompleteRefreshSession(.globalObserver(notifName))
+                ActionExecution.shared.scheduleRefresh(.globalObserver(notifName))
             }
         }
     }
@@ -37,9 +37,9 @@ enum GlobalObserver {
             forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main, using: onNotif)
 
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { _ in
-            // todo reduce number of refreshSession in the callback
-            //  resetManipulatedWithMouseIfPossible might call its own refreshSession
-            //  The end of the callback calls refreshSession
+            // todo reduce number of refresh session in the callback
+            //  resetManipulatedWithMouseIfPossible might call its own refresh session
+            //  The end of the callback calls refresh session
             _ = Task { @MainActor in
                 guard let token: RunSessionGuard = .isEnabled else { return }
                 try await resetManipulatedWithMouseIfPossible()
@@ -49,13 +49,13 @@ enum GlobalObserver {
                 // Detect clicks on desktop of different monitors
                 case clickedMonitor.visibleRect.contains(mouseLocation)
                     && clickedMonitor.activeWorkspace != focus.workspace:
-                    _ = try await runLightSession(.globalObserverLeftMouseUp, token) {
+                    _ = try await ActionExecution.shared.runSession(.globalObserverLeftMouseUp, token) {
                         clickedMonitor.activeWorkspace.focusWorkspace()
                     }
                 // Detect close button clicks for unfocused windows. Yes, kAXUIElementDestroyedNotification is that unreliable
                 //  And trigger new window detection that could be delayed due to mouseDown event
                 default:
-                    scheduleCancellableCompleteRefreshSession(.globalObserverLeftMouseUp)
+                    ActionExecution.shared.scheduleRefresh(.globalObserverLeftMouseUp)
                 }
             }
         }

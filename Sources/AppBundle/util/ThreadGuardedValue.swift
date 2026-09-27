@@ -2,7 +2,8 @@ import Common
 
 final class ThreadGuardedValue<Value>: Sendable {
     nonisolated(unsafe) private var _threadGuarded: Value?
-    private let threadToken: AxAppThreadToken = axTaskLocalAppThreadToken ?? dieT("axTaskLocalAppThreadToken is not initialized")
+    private let threadToken: AxAppThreadToken =
+        axTaskLocalAppThreadToken ?? dieT("axTaskLocalAppThreadToken is not initialized")
     init(_ value: Value) { unsafe self._threadGuarded = value }
     var threadGuarded: Value {
         get {
@@ -19,6 +20,7 @@ final class ThreadGuardedValue<Value>: Sendable {
         unsafe _threadGuarded = nil
     }
     deinit {
-        unsafe check(_threadGuarded == nil, "The Value must be explicitly destroyed on the appropriate thread before deinit")
+        unsafe check(
+            _threadGuarded == nil, "The Value must be explicitly destroyed on the appropriate thread before deinit")
     }
 }

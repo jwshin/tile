@@ -2,7 +2,7 @@ import Common
 
 struct SwapCommand: Command {
     let direction: CardinalDirection
-    let shouldResetClosedWindowsCache = true
+    let invalidatesRestoration = true
 
     func run(_ io: CmdIo) -> BinaryExitCode {
         guard let window = focus.windowOrNil else { return .fail(io.err(noWindowIsFocused)) }

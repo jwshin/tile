@@ -7,7 +7,7 @@ struct LiveFocus: TileValue, Equatable {
     let windowOrNil: Window?
     var workspace: Workspace
 
-    @MainActor fileprivate var frozen: FrozenFocus {
+    @MainActor var frozen: FrozenFocus {
         return FrozenFocus(
             windowId: windowOrNil?.windowId,
             workspaceName: workspace.name,
@@ -15,56 +15,12 @@ struct LiveFocus: TileValue, Equatable {
     }
 }
 
-/// "old", "captured", "frozen in time" Focus
-/// It's safe to keep a hard reference to this object.
-/// Unlike in LiveFocus, information inside FrozenFocus isn't guaranteed to be self-consistent.
-/// window - workspace - monitor relation could change since the moment object was created
-private struct FrozenFocus: TileValue, Equatable, Sendable {
-    let windowId: UInt32?
-    let workspaceName: String
+@MainActor var focus: LiveFocus { DisplayLayoutState.shared.focus }
 
-    @MainActor var live: LiveFocus {
-        let window: Window? = windowId.flatMap { Window.get(byId: $0) }
-        let workspace = Workspace.get(byName: workspaceName)
-
-        let workspaceFocus = workspace.toLiveFocus()
-        let windowFocus = window?.toLiveFocusOrNil() ?? workspaceFocus
-
-        return workspaceFocus.workspace != windowFocus.workspace
-            ? workspaceFocus  // If window and workspace become separated prefer workspace
-            : windowFocus
-    }
-}
-
-@MainActor private var _focus: FrozenFocus = {
-    let monitor = mainMonitorInfo
-    return FrozenFocus(
-        windowId: nil, workspaceName: monitor.activeWorkspace.name)
-}()
-
-/// Global focus.
-/// Commands must be cautious about accessing this property directly. There are legitimate cases.
-/// Keyboard actions always operate on this current focus.
-@MainActor var focus: LiveFocus { _focus.live }
-
-@MainActor func setFocus(to newFocus: LiveFocus) -> Bool {
-    if _focus == newFocus.frozen { return true }
-    let oldFocus = focus
-    // Normalize mruWindow when focus away from a workspace
-    if oldFocus.workspace != newFocus.workspace {
-        oldFocus.windowOrNil?.markAsMostRecentChild()
-    }
-
-    _focus = newFocus.frozen
-    let status = newFocus.workspace.isVisible
-
-    newFocus.windowOrNil?.markAsMostRecentChild()
-    return status
-}
 extension Window {
     @MainActor func focusWindow() -> Bool {
         if let focus = toLiveFocusOrNil() {
-            return setFocus(to: focus)
+            return layoutState.setFocus(to: focus)
         } else {
             // todo We should also exit-native-hidden/unminimize[/exit-native-fullscreen?] window if we want to fix ID-B6E178F2
             //      and retry to focus the window. Otherwise, it's not possible to focus minimized/hidden windows
@@ -77,7 +33,7 @@ extension Window {
     }
 }
 extension Workspace {
-    @MainActor func focusWorkspace() -> Bool { setFocus(to: toLiveFocus()) }
+    @MainActor func focusWorkspace() -> Bool { state.setFocus(to: toLiveFocus()) }
 
     func toLiveFocus() -> LiveFocus {
         // todo unfortunately mostRecentWindowRecursive may recursively reach empty rootTilingContainer

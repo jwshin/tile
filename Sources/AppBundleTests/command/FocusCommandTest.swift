@@ -31,7 +31,7 @@ extension CoreTests {
             }
 
             assertEquals(focus.windowOrNil?.windowId, 2)
-            await Action.focusRight.run()
+            await Action.focusRight.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 3)
         }
 
@@ -42,7 +42,7 @@ extension CoreTests {
             }
 
             assertEquals(focus.windowOrNil?.windowId, 1)
-            await Action.focusRight.run()
+            await Action.focusRight.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 2)
         }
 
@@ -54,9 +54,9 @@ extension CoreTests {
             }
 
             assertEquals(focus.windowOrNil?.windowId, 2)
-            await Action.focusUp.run()
+            await Action.focusUp.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 2)
-            await Action.focusDown.run()
+            await Action.focusDown.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 2)
         }
 
@@ -79,18 +79,18 @@ extension CoreTests {
 
             assertEquals(workspace.mostRecentWindowRecursive?.windowId, 3)  // The latest bound
             _ = startWindow.focusWindow()
-            await Action.focusRight.run()
+            await Action.focusRight.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 3)
 
             window2.markAsMostRecentChild()
             _ = startWindow.focusWindow()
-            await Action.focusRight.run()
+            await Action.focusRight.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 2)
 
             window3.markAsMostRecentChild()
             unrelatedWindow.markAsMostRecentChild()
             _ = startWindow.focusWindow()
-            await Action.focusRight.run()
+            await Action.focusRight.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 2)
         }
 
@@ -102,7 +102,7 @@ extension CoreTests {
                 }
             }
 
-            await Action.focusLeft.run()
+            await Action.focusLeft.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 1)
         }
 
@@ -114,7 +114,7 @@ extension CoreTests {
                 }
             }
 
-            await Action.focusLeft.run()
+            await Action.focusLeft.applyToModel()
             assertEquals(focus.windowOrNil?.windowId, 1)
         }
 

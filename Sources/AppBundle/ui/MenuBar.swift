@@ -11,9 +11,8 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene {
             if viewModel.secureInput { Text("Secure Input is blocking keyboard shortcuts") }
             Button(viewModel.isEnabled ? "Disable tiling" : "Enable tiling") {
                 _ = Task {
-                    try await runLightSession(.menuBarButton, .forceRun) {
-                        _ = await Action.toggleTiling.run()
-                    }
+                    let result = try await ActionExecution.shared.execute(.toggleTiling, from: .menu)
+                    MessageModel.shared.present(result, for: .toggleTiling)
                 }
             }
             openConfigButton()
@@ -53,12 +52,10 @@ func openConfigButton(showShortcutGroup: Bool = false) -> some View {
 @MainActor @ViewBuilder
 func reloadConfigButton(showShortcutGroup: Bool = false) -> some View {
     do {
-        let token = RunSessionGuard.forceRun
         let button = Button("Reload config") {
             _ = Task {
-                try await runLightSession(.menuBarButton, token) {
-                    _ = await reloadConfig_nonCancellable()
-                }
+                let result = try await ActionExecution.shared.execute(.reloadConfig, from: .menu)
+                MessageModel.shared.present(result, for: .reloadConfig)
             }
         }.keyboardShortcut("R", modifiers: .command)
         switch showShortcutGroup {

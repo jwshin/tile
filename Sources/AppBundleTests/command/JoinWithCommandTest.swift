@@ -17,7 +17,7 @@ extension CoreTests {
                 TestWindow.new(id: 2, parent: $0)
             }
 
-            await Action.joinRight.run()
+            await Action.joinRight.applyToModel()
             assertEquals(
                 root.layoutDescription,
                 .h_tiles([

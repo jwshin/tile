@@ -1,11 +1,9 @@
 import Common
 
-protocol CmdIo: AnyObject {
-    var stdout: [String] { get set }
-    var stderr: [String] { get set }
-}
+final class CmdIo {
+    var stdout: [String] = []
+    var stderr: [String] = []
 
-extension CmdIo {
     @discardableResult func out(_ message: String) -> IoSideEffect {
         stdout.append(message)
         return .instance
@@ -14,11 +12,6 @@ extension CmdIo {
         stderr.append(message)
         return .instance
     }
-}
-
-final class CmdIoImpl: CmdIo {
-    var stdout: [String] = []
-    var stderr: [String] = []
 }
 
 struct CmdResult: Equatable {

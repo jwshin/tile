@@ -27,7 +27,7 @@ func initTerminationHandler() {
 
 private struct AppTerminationHandler: TerminationHandler {
     @MainActor
-    func beforeTermination() { resetHotKeys() }
+    func beforeTermination() { ConfigurationApplication.shared.stop() }
 }
 
 @MainActor

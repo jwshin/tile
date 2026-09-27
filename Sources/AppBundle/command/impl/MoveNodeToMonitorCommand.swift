@@ -3,7 +3,7 @@ import Common
 
 struct MoveNodeToMonitorCommand: Command {
     let target: MonitorTarget
-    let shouldResetClosedWindowsCache = true
+    let invalidatesRestoration = true
 
     func run(_ io: CmdIo) -> BinaryExitCode {
         guard let window = focus.windowOrNil else {

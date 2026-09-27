@@ -3,7 +3,7 @@ import Common
 import Foundation
 
 struct BalanceSizesCommand: Command {
-    let shouldResetClosedWindowsCache = true
+    let invalidatesRestoration = true
 
     func run(_ io: CmdIo) -> BinaryExitCode {
         let target = focus

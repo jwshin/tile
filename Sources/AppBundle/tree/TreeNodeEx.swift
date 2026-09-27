@@ -2,6 +2,13 @@ import AppKit
 import Common
 
 extension TreeNode {
+    @MainActor var displayLayoutState: DisplayLayoutState? {
+        if let workspace = self as? Workspace { return workspace.state }
+        if let minimized = self as? MacosMinimizedWindowsContainer { return minimized.state }
+        if let popups = self as? MacosPopupWindowsContainer { return popups.state }
+        return parent?.displayLayoutState
+    }
+
     private func visit(node: TreeNode, result: inout [Window]) {
         if let node = node as? Window {
             result.append(node)

@@ -4,14 +4,33 @@ The app is one process. Keyboard shortcuts invoke typed internal commands direct
 
 ```mermaid
 flowchart LR
-    Config["TOML bindings"] --> Keys["HotKey shortcuts"]
-    Keys --> Actions["Internal actions"]
-    Actions --> Tree["Window tree per monitor"]
-    Events["macOS notifications"] --> Refresh["Reconcile windows and monitors"]
-    Refresh --> Tree
-    Tree --> Layout["Calculate window frames"]
-    Layout --> AX["macOS Accessibility APIs"]
+    Config["Configuration application"] --> Keys["Shortcut registrar adapter"]
+    Keys --> Actions["Action execution"]
+    Menu["Menu"] --> Actions
+    Actions --> State["Display layout state"]
+    Events["macOS notifications"] --> Actions
+    State --> Layout["Window frames"]
+    Actions --> Native["Native desktop adapter"]
+    Layout --> AX["Native window adapter"]
 ```
+
+Domain terms are defined in [CONTEXT.md](../CONTEXT.md).
+
+`ConfigurationApplication` owns effective preferences, enabled state, and shortcut registration lifetime.
+Its internal `ShortcutRegistrar` seam has native HotKey and recording test adapters. Parsing errors preserve
+both preferences and registrations. Reload while disabled updates preferences without registering shortcuts;
+re-enabling registers the latest bindings. UI callers present returned diagnostics.
+
+`ActionExecution.execute` is the interface used by keyboard and menu callers. It owns native focus import,
+normalization, command execution, frame writes, native focus updates, and background refresh scheduling.
+Its internal desktop adapter supplies native observations and reconciliation; tests substitute observations
+while exercising the same session and layout implementation. Foreground sessions cancel background refresh.
+Mouse and startup sessions use the same owner. Tree algorithm tests keep a smaller test-only entry point.
+
+`DisplayLayoutState` owns display layouts, window identity, logical focus, native focus history, restoration
+snapshots, and the minimized/popup containers. Each test can create fresh state. Layout mutations invalidate
+restoration through the owner, and window disappearance/restoration uses the same lookup in production and tests.
+
 
 `Sources/tile/TileApp.swift` creates the menu and message scenes and calls `initAppBundle`.
 `Package.swift` defines the executable, internal AppBundle and Common modules, PrivateApi bridge, and tests.
@@ -26,19 +45,19 @@ floating windows, and native fullscreen/hidden windows into the main display. A 
 gets an empty tree. A transient zero-display snapshot does not destroy existing layouts.
 
 There is no inactive-workspace hiding. All registered display layouts are visible. Frozen focus resolves
-references to disconnected displays back to the main display. Monitor topology changes invalidate the
+references to disconnected displays back to the main display. Removing a display invalidates the
 closed-window restoration snapshot so unlocking cannot restore an obsolete display arrangement.
 
 ## Commands and configuration
 
 Bindings store a typed `Action` selected by exact name. `Action.swift` maps the finite action set to small
 internal commands; there is no argument parser, command sequence, window-ID target, or monitor-pattern matching.
-Commands operate on the current focus. The shared runner resets restoration caches when needed and refreshes
+Commands operate on the current focus. Action execution invalidates restoration when needed and normalizes
 the model after each action, including failures. Monitor navigation retains directions and wrapping next/previous;
 moving a window between monitors always follows it. Directional window focus stops at display edges.
 
 Configuration has only `gap`, `floating-apps`, and `[bindings]`. All displays use the same inner/outer gap,
-with 8 points as the default. Key names use fixed QWERTY positions. A custom binding table replaces the defaults.
+with 8 points as the default. Key names use fixed QWERTY positions. Omitting the binding table inherits defaults; an explicit table replaces them.
 Parsing collects diagnostics and rejects the entire reload on error. The config path is fixed to
 `~/.tile.toml`; the internal URL override exists only for bundled startup validation and tests.
 
@@ -48,13 +67,14 @@ to create groups. Tiling containers store orientation and sizing only. Resize ac
 along the immediate split. Fullscreen preserves outer spacing, close affects only the focused window, and layout
 actions toggle orientation or floating state.
 
-## macOS boundary
+## Native adapter seam
 
 MacApp serializes Accessibility operations on a dedicated run-loop thread per application. Main-actor
 refresh sessions reconcile native events with the mutable model. MacWindow bridges native window IDs
 and tree leaves. Keep cancellation, window classification, and lock-screen restoration when changing policy.
 Tests use TestWindow and injectable monitor snapshots to verify policy without operating the real desktop.
-All model suites are nested under one serialized Swift Testing suite because they share global state.
+Model suites remain serialized because application-level accessors and native test fixtures still share state.
+Configuration application and display layout state can also be constructed independently inside a test.
 
 ## Platform baseline
 

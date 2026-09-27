@@ -13,10 +13,10 @@ extension CoreTests {
             let second = TestWindow.new(id: 2, parent: root, adaptiveWeight: 200)
             let third = TestWindow.new(id: 3, parent: root, adaptiveWeight: 200)
             _ = first.focusWindow()
-            let grow = await Action.grow.run()
+            let grow = await Action.grow.applyToModel()
             #expect(grow.exitCode == .succ)
             #expect(first.hWeight == 250 && second.hWeight == 175 && third.hWeight == 175)
-            let shrink = await Action.shrink.run()
+            let shrink = await Action.shrink.applyToModel()
             #expect(shrink.exitCode == .succ)
             #expect(first.hWeight == 200 && second.hWeight == 200 && third.hWeight == 200)
         }
@@ -28,7 +28,7 @@ extension CoreTests {
             let second = TestWindow.new(id: 2, parent: vertical, adaptiveWeight: 200)
             let sibling = TestWindow.new(id: 3, parent: root, adaptiveWeight: 200)
             _ = first.focusWindow()
-            await Action.grow.run()
+            await Action.grow.applyToModel()
             #expect(first.vWeight == 250 && second.vWeight == 150)
             #expect(sibling.hWeight == 200 && vertical.hWeight == 200)
         }
@@ -37,11 +37,11 @@ extension CoreTests {
             let workspace = focus.workspace
             let window = TestWindow.new(id: 1, parent: workspace.rootTilingContainer, adaptiveWeight: 200)
             _ = window.focusWindow()
-            let single = await Action.grow.run()
+            let single = await Action.grow.applyToModel()
             #expect(single.exitCode == .fail)
             #expect(window.hWeight == 200)
             window.bindAsFloatingWindow(to: workspace)
-            let floating = await Action.shrink.run()
+            let floating = await Action.shrink.applyToModel()
             #expect(floating.exitCode == .fail)
             #expect(window.isFloating)
         }

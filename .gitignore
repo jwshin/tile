@@ -17,6 +17,7 @@
 !/.editorconfig
 !/.gitignore
 !/CONTRIBUTING.md
+!/CONTEXT.md
 !/Package.resolved
 !/Package.swift
 !/README.md

@@ -17,7 +17,7 @@ extension CoreTests {
             }
             assertEquals(root.orientation, .h)
 
-            await Action.toggleOrientation.run()
+            await Action.toggleOrientation.applyToModel()
             assertEquals(root.orientation, .v)
             assertEquals(root.layoutDescription, .v_tiles([.window(1), .window(2)]))
         }
@@ -27,7 +27,7 @@ extension CoreTests {
             assertTrue(workspace.isEffectivelyEmpty)
 
             let result = await Action.toggleOrientation
-                .run()
+                .applyToModel()
             assertEquals(result.exitCode.rawValue, 0)
             assertEquals(workspace.rootTilingContainer.orientation, .v)
         }
@@ -35,7 +35,7 @@ extension CoreTests {
         @Test func testEmptyWorkspace_floating_fails() async {
             let workspace = workspaceForTest(name)
             let result = await Action.toggleFloating
-                .run()
+                .applyToModel()
             assertEquals(result.exitCode.rawValue, 2)
             assertEquals(result.stderr, [noWindowIsFocused])
             assertTrue(workspace.isEffectivelyEmpty)
@@ -48,7 +48,7 @@ extension CoreTests {
                 TestWindow.new(id: 2, parent: $0)
             }
 
-            await Action.toggleFloating.run()
+            await Action.toggleFloating.applyToModel()
             assertEquals(root.layoutDescription, .h_tiles([.window(2)]))
             assertEquals(workspace.floatingWindows.map(\.windowId), [1])
             assertEquals(focus.windowOrNil?.windowId, 1)
@@ -61,7 +61,7 @@ extension CoreTests {
             }
             assertEquals(workspace.floatingWindows.map(\.windowId), [1])
 
-            await Action.toggleFloating.run()
+            await Action.toggleFloating.applyToModel()
             assertEquals(workspace.floatingWindows, [])
             assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.window(1)]))
         }
@@ -72,7 +72,7 @@ extension CoreTests {
                 assertEquals(TestWindow.new(id: 1, parent: $0).focusWindow(), true)
             }
 
-            let result = await Action.toggleOrientation.run()
+            let result = await Action.toggleOrientation.applyToModel()
             assertEquals(result.exitCode.rawValue, 2)
             assertEquals(result.stderr, ["The window is non-tiling"])
             assertEquals(workspace.floatingWindows.map(\.windowId), [1])
@@ -85,11 +85,11 @@ extension CoreTests {
             }
 
             // The window is floating, so [.floating, .tiling] picks .tiling
-            await Action.toggleFloating.run()
+            await Action.toggleFloating.applyToModel()
             assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.window(1)]))
 
             // Now it's tiled, so the same toggle picks .floating
-            await Action.toggleFloating.run()
+            await Action.toggleFloating.applyToModel()
             assertEquals(workspace.floatingWindows.map(\.windowId), [1])
         }
 

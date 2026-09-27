@@ -5,6 +5,7 @@ protocol AbstractApp: AnyObject, Hashable, TileValue {
 
     @MainActor func getFocusedWindow(_ cm: CancellationMode) async throws -> Window?
     var name: String? { get }
+    @MainActor var isHidden: Bool { get }
 }
 
 extension AbstractApp {
@@ -21,8 +22,4 @@ extension AbstractApp {
     func hash(into hasher: inout Hasher) {
         hasher.combine(pid)
     }
-}
-
-extension Window {
-    var macAppUnsafe: MacApp { app as! MacApp }
 }

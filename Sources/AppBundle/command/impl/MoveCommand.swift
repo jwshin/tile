@@ -3,7 +3,7 @@ import Common
 
 struct MoveCommand: Command {
     let direction: CardinalDirection
-    let shouldResetClosedWindowsCache = true
+    let invalidatesRestoration = true
 
     func run(_ io: CmdIo) async -> BinaryExitCode {
         let target = focus

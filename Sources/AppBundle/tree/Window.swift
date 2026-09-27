@@ -2,6 +2,7 @@ import AppKit
 import Common
 
 open class Window: TreeNode, Hashable {
+    unowned let layoutState: DisplayLayoutState
     let windowId: UInt32
     let app: any AbstractApp
     var lastFloatingSize: CGSize?
@@ -13,16 +14,16 @@ open class Window: TreeNode, Hashable {
         id: UInt32, _ app: any AbstractApp, lastFloatingSize: CGSize?, parent: NonLeafTreeNodeObject,
         adaptiveWeight: CGFloat, index: Int
     ) {
+        layoutState = parent.displayLayoutState.orDie()
         self.windowId = id
         self.app = app
         self.lastFloatingSize = lastFloatingSize
         super.init(parent: parent, adaptiveWeight: adaptiveWeight, index: index)
+        layoutState.register(self)
     }
 
-    @MainActor static func get(byId windowId: UInt32) -> Window? {  // todo make non optional
-        isUnitTest
-            ? Workspace.all.flatMap { $0.allLeafWindowsRecursive }.first(where: { $0.windowId == windowId })
-            : MacWindow.allWindowsMap[windowId]
+    @MainActor static func get(byId windowId: UInt32) -> Window? {
+        DisplayLayoutState.shared.window(for: windowId)
     }
 
     @MainActor

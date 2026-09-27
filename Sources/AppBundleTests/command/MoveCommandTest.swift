@@ -16,7 +16,7 @@ extension CoreTests {
                 TestWindow.new(id: 2, parent: $0)
             }
 
-            await Action.moveRight.run()
+            await Action.moveRight.applyToModel()
             assertEquals(root.layoutDescription, .h_tiles([.window(2), .window(1)]))
         }
 
@@ -31,7 +31,7 @@ extension CoreTests {
                 }
             }
 
-            await Action.moveRight.run()
+            await Action.moveRight.applyToModel()
             assertEquals(
                 root.layoutDescription,
                 .h_tiles([
@@ -59,7 +59,7 @@ extension CoreTests {
             }
             window3.markAsMostRecentChild()
 
-            await Action.moveRight.run()
+            await Action.moveRight.applyToModel()
             assertEquals(
                 root.layoutDescription,
                 .h_tiles([
@@ -82,7 +82,7 @@ extension CoreTests {
             let window2 = TestWindow.new(id: 2, parent: root, adaptiveWeight: 2)
             _ = window2.focusWindow()
 
-            await Action.moveLeft.run()
+            await Action.moveLeft.applyToModel()
             assertEquals(window2.hWeight, 2)
             assertEquals(window1.hWeight, 1)
         }
@@ -99,7 +99,7 @@ extension CoreTests {
             }
             _ = window1.focusWindow()
 
-            await Action.moveRight.run()
+            await Action.moveRight.applyToModel()
             assertEquals(window2.hWeight, 1)
             assertEquals(window2.vWeight, 1)
             assertEquals(window1.vWeight, 1)
@@ -114,7 +114,7 @@ extension CoreTests {
                 TestWindow.new(id: 3, parent: $0)
             }
 
-            let result = await Action.moveUp.run()
+            let result = await Action.moveUp.applyToModel()
             assertEquals(
                 workspace.layoutDescription,
                 .workspace([
@@ -137,7 +137,7 @@ extension CoreTests {
                 }
             }
 
-            await Action.moveLeft.run()
+            await Action.moveLeft.applyToModel()
             assertEquals(
                 root.layoutDescription,
                 .h_tiles([
@@ -158,7 +158,7 @@ extension CoreTests {
                 assertEquals(TestWindow.new(id: 2, parent: $0.rootTilingContainer).focusWindow(), true)
             }
 
-            await Action.moveRight.run()
+            await Action.moveRight.applyToModel()
             assertEquals(
                 workspace.rootTilingContainer.layoutDescription,
                 .h_tiles([
@@ -176,7 +176,7 @@ extension CoreTests {
                 TestWindow.new(id: 2, parent: $0.rootTilingContainer)
             }
 
-            await Action.moveLeft.run()
+            await Action.moveLeft.applyToModel()
             assertEquals(
                 workspace.rootTilingContainer.layoutDescription,
                 .h_tiles([

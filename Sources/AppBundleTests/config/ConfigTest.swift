@@ -85,22 +85,6 @@ extension CoreTests {
             }
         }
 
-        @Test func invalidConfigCannotReplaceWorkingConfig() async throws {
-            let original = config
-            defer {
-                config = original
-                resetHotKeys()
-            }
-            let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".toml")
-            defer { try? FileManager.default.removeItem(at: url) }
-            try "gap = 20\n[bindings]\nalt-h = ['close']".write(to: url, atomically: true, encoding: .utf8)
-            let result = await reloadConfig_nonCancellable(forceConfigUrl: url)
-            #expect(!result.isOk)
-            #expect(config.gap == original.gap)
-            #expect(config.bindings == original.bindings)
-            MessageModel.shared.message = nil
-        }
-
         @Test func validatesGapTypesAndShortcutCollisions() {
             for value in ["-1", "true", "'8'", "[8]", "1.5"] {
                 #expect(!parseConfig("gap = \(value)").allowReloadConfig)

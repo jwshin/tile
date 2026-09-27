@@ -3,7 +3,7 @@ import Common
 struct LayoutCommand: Command {
     enum Change: Sendable { case orientation, floating }
     let change: Change
-    let shouldResetClosedWindowsCache = true
+    let invalidatesRestoration = true
 
     func run(_ io: CmdIo) async -> BinaryExitCode {
         let target = focus

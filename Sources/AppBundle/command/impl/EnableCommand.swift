@@ -2,20 +2,19 @@ import AppKit
 import Common
 
 struct EnableCommand: Command {
-    let shouldResetClosedWindowsCache = false
+    let invalidatesRestoration = false
 
     func run(_ io: CmdIo) async -> BinaryExitCode {
-        let newState = !TrayMenuModel.shared.isEnabled
-        TrayMenuModel.shared.isEnabled = newState
+        let application = ConfigurationApplication.shared
+        let newState = !application.isEnabled
+        // Publish before an AX read can suspend, so a later toggle observes this transition.
+        application.setEnabled(newState)
         if newState {
-            for workspace in Workspace.all {
+            for workspace in DisplayLayoutState.shared.workspaces {
                 for window in workspace.allLeafWindowsRecursive where window.isFloating {
                     window.lastFloatingSize = (try? await window.getAxSize(.nonCancellable)) ?? window.lastFloatingSize
                 }
             }
-            syncHotkeys()
-        } else {
-            resetHotKeys()
         }
         return .succ
     }

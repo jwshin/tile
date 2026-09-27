@@ -3,7 +3,7 @@ import Common
 
 struct JoinWithCommand: Command {
     let direction: CardinalDirection
-    let shouldResetClosedWindowsCache = true
+    let invalidatesRestoration = true
 
     func run(_ io: CmdIo) -> BinaryExitCode {
         let target = focus

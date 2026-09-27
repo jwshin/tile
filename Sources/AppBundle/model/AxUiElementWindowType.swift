@@ -8,9 +8,9 @@ enum AxUiElementWindowType: String {
 
     static func new(isWindow: Bool, isDialog: () -> Bool) -> AxUiElementWindowType {
         switch true {
-            case !isWindow: .popup
-            case isDialog(): .dialog
-            default: .window
+        case !isWindow: .popup
+        case isDialog(): .dialog
+        default: .window
         }
     }
 }
@@ -40,8 +40,7 @@ extension AxUiElementMock {
         // - macOS native file picker (IntelliJ -> "Open...") (kAXDialogSubrole value)
         //
         // Minimized windows or windows of a hidden app have subrole "AXDialog"
-        if get(Ax.subroleAttr) != kAXStandardWindowSubrole &&
-            id != .qutebrowser // qutebrowser regular window has AXDialog subrole when decorations are disabled
+        if get(Ax.subroleAttr) != kAXStandardWindowSubrole && id != .qutebrowser  // qutebrowser regular window has AXDialog subrole when decorations are disabled
         {
             return true
         }
@@ -52,8 +51,8 @@ extension AxUiElementMock {
         }
         if id == .photoBooth { return true }
         if id == .ghostty {
-            return get(Ax.fullscreenButtonAttr)?.get(Ax.enabledAttr) != true &&
-                get(Ax.closeButtonAttr)?.get(Ax.enabledAttr) == true
+            return get(Ax.fullscreenButtonAttr)?.get(Ax.enabledAttr) != true
+                && get(Ax.closeButtonAttr)?.get(Ax.enabledAttr) == true
         }
         // Heuristic: float windows without fullscreen button (such windows are not designed to be big)
         // - IntelliJ various dialogs (Rebase..., Edit commit message, Settings, Project structure)
@@ -67,26 +66,23 @@ extension AxUiElementMock {
         // - Kap screen recorder https://github.com/wulkano/Kap
         // - flameshot? https://github.com/nikitabobko/AeroSpace/issues/112
         // - Drata Agent https://github.com/nikitabobko/AeroSpace/issues/134
-        if get(Ax.fullscreenButtonAttr)?.get(Ax.enabledAttr) != true &&
-            id != .gimp && // Gimp doesn't show fullscreen button
+        if get(Ax.fullscreenButtonAttr)?.get(Ax.enabledAttr) != true && id != .gimp  // Gimp doesn't show fullscreen button
 
             // "Drag out" a tab out of Chrome window. Technically, it shouldn't be necessary, but
             // apparently there is some sort of race condition between users releasing mouse up and
             // Chrome reactivating the fullscreen button
             // todo: consider checking for fullscreen cirteria periodically (downside: will affect performance)
-            id != .chrome &&
+            && id != .chrome
+            &&
 
-            id != .activityMonitor && // Activity Monitor doesn't show fullscreen button
+            id != .activityMonitor  // Activity Monitor doesn't show fullscreen button
 
             // Terminal apps and Emacs have an option to hide their title bars
-            id != .alacritty && // ~/.alacritty.toml: window.decorations = "Buttonless"
-            id != .kitty && // ~/.config/kitty/kitty.conf: hide_window_decorations titlebar-and-corners
-            id != .wezterm &&
-            id != .qutebrowser && // :set window.hide_decoration
-            id != .iterm2 &&
-            id != .emacs &&
-            id?.isVscode != true && // "window.nativeFullScreen": false
-            id != .steam
+            && id != .alacritty  // ~/.alacritty.toml: window.decorations = "Buttonless"
+            && id != .kitty  // ~/.config/kitty/kitty.conf: hide_window_decorations titlebar-and-corners
+            && id != .wezterm && id != .qutebrowser  // :set window.hide_decoration
+            && id != .iterm2 && id != .emacs && id?.isVscode != true  // "window.nativeFullScreen": false
+            && id != .steam
         {
             return true
         }
@@ -104,9 +100,10 @@ extension AxUiElementMock {
         _ activationPolicy: NSApplication.ActivationPolicy,
         _ windowLevel: MacOsWindowLevel?,
     ) -> Bool {
-        if windowLevel != .normalWindow &&
+        if windowLevel != .normalWindow
             // Slowly roll out windowLevel for applications for which we have the appropriate dumps
-            (id == .slack || id == .chrome || id?.isFirefox == true || id == .braveBrowser || id == .screenstudio || id == .cleanshotx || id == .iterm2 || id == .outlook || id == .codex || id == .wisprFlow)
+            && (id == .slack || id == .chrome || id?.isFirefox == true || id == .braveBrowser || id == .screenstudio
+                || id == .cleanshotx || id == .iterm2 || id == .outlook || id == .codex || id == .wisprFlow)
         {
             return false
         }
@@ -157,19 +154,18 @@ extension AxUiElementMock {
         // - telegram image viewer (subrole == kAXFloatingWindowSubrole)
         // - Finder preview (hit space) (subrole == "Quick Look")
         // - Firefox non-native video fullscreen (about:config -> full-screen-api.macos-native-full-screen -> false, subrole == AXUnknown)
-        return get(Ax.closeButtonAttr) != nil ||
-            fullscreenButton != nil ||
-            get(Ax.zoomButtonAttr) != nil ||
-            get(Ax.minimizeButtonAttr) != nil ||
+        return get(Ax.closeButtonAttr) != nil || fullscreenButton != nil || get(Ax.zoomButtonAttr) != nil
+            || get(Ax.minimizeButtonAttr) != nil
+            ||
 
-            get(Ax.isFocused) == true ||  // 3 different ways to detect if the window is focused
-            get(Ax.isMainAttr) == true ||
-            axApp.get(Ax.focusedWindowAttr)?.windowId == self.containingWindowId() ||
+            get(Ax.isFocused) == true  // 3 different ways to detect if the window is focused
+            || get(Ax.isMainAttr) == true || axApp.get(Ax.focusedWindowAttr)?.windowId == self.containingWindowId()
+            ||
 
             get(Ax.subroleAttr) == kAXStandardWindowSubrole
     }
 
-    private func isWindowHeuristicOld(axApp: AxUiElementMock, _ id: KnownBundleId?) -> Bool { // 0.18.3 hotfix
+    private func isWindowHeuristicOld(axApp: AxUiElementMock, _ id: KnownBundleId?) -> Bool {  // 0.18.3 hotfix
         lazy var subrole = get(Ax.subroleAttr)
         lazy var title = get(Ax.titleAttr) ?? ""
 
@@ -178,25 +174,23 @@ extension AxUiElementMock {
         // - Sonoma (macOS 14) keyboard layout switch
         // - IntelliJ context menu (right mouse click)
         // - Telegram context menu (right mouse click)
-        if get(Ax.closeButtonAttr) == nil &&
-            get(Ax.fullscreenButtonAttr) == nil &&
-            get(Ax.zoomButtonAttr) == nil &&
-            get(Ax.minimizeButtonAttr) == nil &&
+        if get(Ax.closeButtonAttr) == nil && get(Ax.fullscreenButtonAttr) == nil && get(Ax.zoomButtonAttr) == nil
+            && get(Ax.minimizeButtonAttr) == nil
+            &&
 
-            get(Ax.isFocused) == false &&  // Three different ways to detect if the window is not focused
-            get(Ax.isMainAttr) == false &&
-            axApp.get(Ax.focusedWindowAttr)?.windowId != containingWindowId() &&
+            get(Ax.isFocused) == false  // Three different ways to detect if the window is not focused
+            && get(Ax.isMainAttr) == false && axApp.get(Ax.focusedWindowAttr)?.windowId != containingWindowId()
+            &&
 
-            subrole != kAXStandardWindowSubrole &&
+            subrole != kAXStandardWindowSubrole
             // Share window purple "pill" indicator has "Window" title https://github.com/nikitabobko/AeroSpace/issues/1101
-            (title.isEmpty || title == "Window") // Maybe it doesn't work in non-English locale
+            && (title.isEmpty || title == "Window")  // Maybe it doesn't work in non-English locale
         {
             return false
         }
-        return subrole == kAXStandardWindowSubrole ||
-            subrole == kAXDialogSubrole || // macOS native file picker ("Open..." menu) (kAXDialogSubrole value)
-            subrole == kAXFloatingWindowSubrole || // telegram image viewer
-            id == .finder && subrole == "Quick Look" // Finder preview (hit space) is a floating window
+        return subrole == kAXStandardWindowSubrole || subrole == kAXDialogSubrole  // macOS native file picker ("Open..." menu) (kAXDialogSubrole value)
+            || subrole == kAXFloatingWindowSubrole  // telegram image viewer
+            || id == .finder && subrole == "Quick Look"  // Finder preview (hit space) is a floating window
     }
 
     func getWindowType(

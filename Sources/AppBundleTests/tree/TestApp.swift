@@ -4,6 +4,7 @@ import Common
 
 final class TestApp: AbstractApp {
     let pid: Int32
+    var isHidden = false
     let name: String?
     @MainActor
     static let shared = TestApp()

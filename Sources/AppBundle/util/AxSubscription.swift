@@ -5,7 +5,8 @@ import Common
 final class AxSubscription {
     let obs: AXObserver
     let ax: AXUIElement
-    let axThreadToken: AxAppThreadToken = axTaskLocalAppThreadToken ?? dieT("axTaskLocalAppThreadToken is not initialized")
+    let axThreadToken: AxAppThreadToken =
+        axTaskLocalAppThreadToken ?? dieT("axTaskLocalAppThreadToken is not initialized")
     var notifKeys: Set<String> = []
 
     private init(obs: AXObserver, ax: AXUIElement) {
