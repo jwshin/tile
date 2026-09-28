@@ -3,42 +3,29 @@ import Common
 
 final class MacWindow: Window {
     let macApp: MacApp
+    private var frameRequest: UInt64 = 0
 
-    @MainActor
-    private init(
-        _ id: UInt32, _ actor: MacApp, lastFloatingSize: CGSize?, parent: NonLeafTreeNodeObject,
-        adaptiveWeight: CGFloat, index: Int
-    ) {
-        self.macApp = actor
-        super.init(
-            id: id, actor, lastFloatingSize: lastFloatingSize, parent: parent, adaptiveWeight: adaptiveWeight,
-            index: index)
+    private init(_ id: UInt32, _ app: MacApp, workspace: Workspace, kind: WindowKind, size: CGSize?) {
+        macApp = app
+        super.init(id: id, app, workspace: workspace, kind: kind, lastFloatingSize: size)
     }
 
-    @MainActor static var allWindows: [MacWindow] {
-        DisplayLayoutState.shared.allWindows.compactMap { $0 as? MacWindow }
-    }
+    static var allWindows: [MacWindow] { DisplayLayoutState.shared.allWindows.compactMap { $0 as? MacWindow } }
 
-    @MainActor
     @discardableResult
     static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow {
         if let existing = Window.get(byId: windowId) as? MacWindow { return existing }
+        let destination = focus.workspace
         let rect = try await macApp.getAxRect(windowId, .cancellable)
-        let data = try await unbindAndGetBindingDataForNewWindow(
-            windowId,
-            macApp,
-            (rect?.center.monitorApproximation ?? focus.workspace.workspaceMonitor).activeWorkspace,
-            window: nil,
-            .cancellable,
-        )
-
-        // atomic synchronous section
+        var kind = try await classifyWindow(windowId, macApp, .cancellable)
+        let resizable = try await macApp.isResizable(windowId, .cancellable)
+        if kind == .tiled && !resizable { kind = .floating }
+        // AX reads suspend. Resolve identity and display membership again before publishing.
         if let existing = Window.get(byId: windowId) as? MacWindow { return existing }
-        let window = MacWindow(
-            windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight,
-            index: data.index)
-
-        _ = try await window.layoutState.restoreWindow(newlyDetectedWindow: window)
+        let workspace = destination.state.contains(destination) ? destination : focus.workspace
+        let window = MacWindow(windowId, macApp, workspace: workspace, kind: kind, size: rect?.size)
+        window.isResizable = resizable
+        window.layoutState.restoreWindow(newlyDetectedWindow: window)
         return window
     }
 
@@ -74,7 +61,14 @@ final class MacWindow: Window {
     }
 
     override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {
-        macApp.setAxFrame(windowId, topLeft, size)
+        frameRequest += 1
+        let request = frameRequest
+        macApp.setAxFrame(windowId, topLeft, size) { [weak self] actual in
+            guard let self, self.frameRequest == request, let size else { return }
+            if self.observeSizeConstraint(requested: size, actual: actual) {
+                ActionExecution.shared.scheduleRefresh(.ax("ObservedWindowMinimum"))
+            }
+        }
     }
 
     override func getAxRect(_ cm: CancellationMode) async throws -> Rect? {
@@ -82,53 +76,21 @@ final class MacWindow: Window {
     }
 }
 
-extension Window {
-    @MainActor
-    func relayoutWindow(on workspace: Workspace, _ cm: CancellationMode, forceTile: Bool = false) async throws {
-        let data =
-            forceTile
-            ? unbindAndGetBindingDataForNewTilingWindow(workspace, window: self)
-            : try await unbindAndGetBindingDataForNewWindow(
-                self.asMacWindow().windowId, self.asMacWindow().macApp, workspace, window: self, cm)
-        bind(to: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
+extension MacWindow {
+    func reclassify(on workspace: Workspace, _ cm: CancellationMode) async throws {
+        let kind = try await classifyWindow(windowId, macApp, cm)
+        let resizable = try await macApp.isResizable(windowId, cm)
+        guard isRegistered, self.kind == .popup else { return }
+        isResizable = resizable
+        layoutState.place(self, on: workspace, kind: kind)
     }
 }
 
-// The function is private because it's unsafe. It leaves the window in unbound state
-@MainActor
-private func unbindAndGetBindingDataForNewWindow(
-    _ windowId: UInt32, _ macApp: MacApp, _ workspace: Workspace, window: Window?, _ cm: CancellationMode
-) async throws -> BindingData {
-    let windowLevel = getWindowLevel(for: windowId)
-    let type = try await macApp.getAxUiElementWindowType(windowId, windowLevel, cm)
-    if type != .popup, config.floatingApps.contains(macApp.rawAppBundleId ?? "") {
-        return BindingData(
-            parent: workspace.floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-    }
+@MainActor private func classifyWindow(_ id: UInt32, _ app: MacApp, _ cm: CancellationMode) async throws -> WindowKind {
+    let type = try await app.getAxUiElementWindowType(id, getWindowLevel(for: id), cm)
     return switch type {
-    case .popup: BindingData(parent: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-    case .dialog:
-        BindingData(parent: workspace.floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-    case .window: unbindAndGetBindingDataForNewTilingWindow(workspace, window: window)
-    }
-}
-
-// The function is private because it's unsafe. It leaves the window in unbound state
-@MainActor
-private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> BindingData {
-    window?.unbindFromParent()  // It's important to unbind to get correct data from below
-    let mruWindow = workspace.mostRecentWindowRecursive
-    if let mruWindow, let tilingParent = mruWindow.parent as? TilingContainer {
-        return BindingData(
-            parent: tilingParent,
-            adaptiveWeight: WEIGHT_AUTO,
-            index: mruWindow.ownIndex.orDie() + 1,
-        )
-    } else {
-        return BindingData(
-            parent: workspace.rootTilingContainer,
-            adaptiveWeight: WEIGHT_AUTO,
-            index: INDEX_BIND_LAST,
-        )
+    case .popup: .popup
+    case .dialog: .floating
+    case .window: .tiled
     }
 }

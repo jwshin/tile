@@ -146,12 +146,16 @@ final class MacApp: AbstractApp {
         }
     }
 
-    func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) {
+    func setAxFrame(
+        _ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?,
+        observedSize: (@MainActor @Sendable (CGSize) -> Void)? = nil
+    ) {
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         setFrameJobs[windowId] = withWindowAsync(windowId, .cancellable) { [axApp] window, job in
-            try disableAnimations(app: axApp.threadGuarded, job) {
+            let observed = try disableAnimations(app: axApp.threadGuarded, job) {
                 try setFrame(window, topLeft, size, job)
             }
+            if let observed, let observedSize { Task { @MainActor in observedSize(observed) } }
         }
     }
 
@@ -159,6 +163,14 @@ final class MacApp: AbstractApp {
         try await withWindow(windowId, cm) { window, job in
             try AppBundle.getAxRect(window: window, job: job)
         }
+    }
+
+    func isResizable(_ windowId: UInt32, _ cm: CancellationMode) async throws -> Bool {
+        try await withWindow(windowId, cm) { window, _ in
+            var settable = DarwinBoolean(false)
+            let result = unsafe AXUIElementIsAttributeSettable(window, kAXSizeAttribute as CFString, &settable)
+            return result == .success ? settable.boolValue : true
+        } ?? true
     }
 
     func isWindowHeuristic(_ windowId: UInt32, _ windowLevel: MacOsWindowLevel?, _ cm: CancellationMode) async throws
@@ -358,14 +370,17 @@ private func getAxRect(window: AXUIElement, job: RunLoopJob) throws -> Rect? {
     return Rect(topLeftX: topLeftCorner.x, topLeftY: topLeftCorner.y, width: size.width, height: size.height)
 }
 
-private func setFrame(_ window: AXUIElement, _ topLeft: CGPoint?, _ size: CGSize?, _ job: RunLoopJob) throws {
+private func setFrame(_ window: AXUIElement, _ topLeft: CGPoint?, _ size: CGSize?, _ job: RunLoopJob) throws -> CGSize?
+{
     // Set size and then the position. The order is important https://github.com/nikitabobko/AeroSpace/issues/143
     //                                                        https://github.com/nikitabobko/AeroSpace/issues/335
     if let size { window.set(Ax.sizeAttr, size) }
     try job.checkCancellation()
-    if let topLeft { window.set(Ax.topLeftCornerAttr, topLeft) } else { return }
+    if let topLeft { window.set(Ax.topLeftCornerAttr, topLeft) }
     try job.checkCancellation()
-    if let size { window.set(Ax.sizeAttr, size) }
+    guard let size, window.set(Ax.sizeAttr, size) else { return nil }
+    try job.checkCancellation()
+    return window.get(Ax.sizeAttr)
 }
 
 // Some undocumented magic

@@ -34,7 +34,7 @@
 <section class="panel"><h2>Current rules</h2><ul class="rules">
 <li>One window per leaf; exactly two children per split. Directions follow depth. New splits start 50/50; resizing retains their ratios.</li>
 <li>Every tiled insertion uses Outer / Inner. Windows that cannot fit float. The baseline minimum is 320 × 200, with larger known limits taking precedence.</li>
-<li>Within the parent, swap whole sibling sections. Beyond it, swap individual windows. Dividers stay put; swaps violating minimums are rejected.</li>
+<li>Within the parent, swap whole sibling sections. Beyond it, swap individual windows. Moves carry the window’s width or height; surrounding dividers adjust while respecting minimum sizes.</li>
 <li>Cross-screen transfers preview while hovering and commit on release. Source-screen swaps made during that gesture are discarded.</li>
 <li>Closing uses recent focus, including floats. Directional focus skips floats, crosses screens, and never wraps.</li>
 <li>Removal promotes the sibling. If a changed screen or rotation cannot fit, clamp ratios, then float the least recently focused tiles.</li>
@@ -152,13 +152,43 @@ const Layout = (() => {
     return {path,index,axis:split.axis,bounds:split.rect,region:split.children[1-index],windows:ids(parent.children[1-index]),direction:split.axis==='x'?(index?'left':'right'):(index?'up':'down')};
   }
   function swapWindows(n,a,b){return n==null?null:typeof n==='number'?(n===a?b:n===b?a:n):{...n,children:n.children.map(c=>swapWindows(c,a,b))};}
+  function crossingAxis(source,target,rootAxis) {
+    let depth=0;while(depth<source.path.length&&depth<target.path.length&&source.path[depth]===target.path[depth])depth++;
+    return depth%2===0?rootAxis:flip(rootAxis);
+  }
+  // Carry the selected window's allocation. Ancestor splits supply space; other
+  // ratios change only as needed to keep every leaf above its minimum.
+  function preserveLength(s,d,id,moveAxis,length) {
+    function bounds(n,a) {
+      if(!ids(n).includes(id)){const m=required(s,n,a);return {min:moveAxis==='x'?m.w:m.h,max:Infinity,cross:moveAxis==='x'?m.h:m.w};}
+      if(typeof n==='number'){const m=minimum(s,id);return {min:length,max:length,cross:moveAxis==='x'?m.h:m.w};}
+      const [u,v]=n.children.map(c=>bounds(c,flip(a)));
+      return a===moveAxis?{min:u.min+v.min+GAP,max:u.max+v.max+GAP,cross:Math.max(u.cross,v.cross)}
+        :{min:Math.max(u.min,v.min),max:Math.min(u.max,v.max),cross:u.cross+v.cross+GAP};
+    }
+    function arrange(n,r,a) {
+      if(!ids(n).includes(id))return fit(s,n,r,a);
+      const b=bounds(n,a),along=moveAxis==='x'?r.w:r.h,cross=moveAxis==='x'?r.h:r.w;
+      if(along+EPS<b.min||along-EPS>b.max||cross+EPS<b.cross)return false;
+      if(typeof n==='number')return true;
+      const [u,v]=n.children.map(c=>bounds(c,flip(a))),space=(a==='x'?r.w:r.h)-GAP;
+      const low=a===moveAxis?Math.max(u.min,space-v.max):u.cross;
+      const high=a===moveAxis?Math.min(u.max,space-v.min):space-v.cross;
+      if(low>high+EPS||space<=0)return false;
+      n.ratio=clamp(n.ratio*space,low,high)/space;
+      const parts=partition(r,a,n.ratio);return n.children.every((c,i)=>arrange(c,parts[i],flip(a)));
+    }
+    return arrange(d.root,area(d),axis(d));
+  }
   function swap(s,id,action) {
     const d=display(s,s.windows[id]?.display),before=d?.root;if(!d||!ids(before).includes(id))return false;
+    const source=frames(s).find(r=>r.id===id),p=peer(s,id);let moveAxis;
     d.root=clone(before);
-    if(action.type==='sectionSwap'){const p=peer(s,id);if(!p){d.root=before;return false;}nodeAt(d.root,p.path).children.reverse();}
-    else {if(!ids(before).includes(action.target)){d.root=before;return false;}d.root=swapWindows(d.root,id,action.target);}
-    if(!valid(s,d)){d.root=before;s.message='Swap rejected: a window would be below its minimum size.';return false;}
-    s.message=action.type==='sectionSwap'?'Swapped sibling sections; divider stayed put.':`Swapped W${id} and W${action.target}.`;return true;
+    if(action.type==='sectionSwap'){if(!p){d.root=before;return false;}moveAxis=p.axis;nodeAt(d.root,p.path).children.reverse();}
+    else {if(!ids(before).includes(action.target)){d.root=before;return false;}const target=frames(s).find(r=>r.id===action.target);moveAxis=action.axis??crossingAxis(source,target,axis(d));d.root=swapWindows(d.root,id,action.target);}
+    const length=moveAxis==='x'?source.w:source.h;
+    if(!preserveLength(s,d,id,moveAxis,length)||!valid(s,d)){d.root=before;s.message='Move unchanged: this tree cannot preserve the window’s allocation and all minimum sizes.';return false;}
+    s.message=`Moved W${id}; preserved its ${moveAxis==='x'?'width':'height'} (${Math.round(length)} points). Surrounding splits adjusted.`;return true;
   }
   function rank(source,candidates,direction) {
     const horizontal=['left','right'].includes(direction),positive=['right','down'].includes(direction);
@@ -170,7 +200,7 @@ const Layout = (() => {
   function moveAction(s,id,direction) {
     const p=peer(s,id);if(!p)return null;if(p.direction===direction)return {type:'sectionSwap'};
     const source=frames(s).find(r=>r.id===id),others=frames(s).filter(r=>!r.floating&&r.id!==id&&r.display===source.display&&!contains(p.bounds,{x:r.x+r.w/2,y:r.y+r.h/2}));
-    const hit=rank(source,others,direction)[0];return hit?{type:'windowSwap',target:hit.id}:null;
+    const hit=rank(source,others,direction)[0];return hit?{type:'windowSwap',target:hit.id,axis:['left','right'].includes(direction)?'x':'y'}:null;
   }
   function focusTarget(s,direction) {
     const source=frames(s).find(r=>r.id===s.focused),d=display(s);if(!d)return null;
@@ -287,10 +317,11 @@ const Layout = (() => {
 const $=id=>document.getElementById(id),copy=x=>structuredClone(x);
 let state=Layout.seed(),history=[],messages=[state.message],drag=null,scenarioIndex=null,stepIndex=0,world=null;
 const scenarios=[
-  {name:'Window & section swaps',note:'W3 moving left exchanges individual windows. W1 at the root can exchange places with the entire right section. Ratios stay attached to each split.',steps:[['W3 left',{type:'move',direction:'left'}],['Focus W1',{type:'focus',id:1}],['W1 left',{type:'move',direction:'left'}],['W1 right (whole section)',{type:'move',direction:'right'}]]},
+  {name:'Window & section swaps',note:'W3 moving left exchanges individual windows. W1 at the root can exchange places with the entire right section. Moves carry the selected width or height; surrounding dividers adjust.',steps:[['W3 left',{type:'move',direction:'left'}],['Focus W1',{type:'focus',id:1}],['W1 left',{type:'move',direction:'left'}],['W1 right (whole section)',{type:'move',direction:'right'}]]},
   {name:'All insertions',note:'Creation, retiling, and transfers all use the same Outer / Inner choice. Floating focus remembers the last focused tile.',steps:[['Focus W2',{type:'focus',id:2}],['Create outside (right)',{type:'create'}],['Float W4',{type:'float'}],['Choose Inner',{type:'placement',placement:'inner'}],['Retile W4 inside (left)',{type:'float'}],['Transfer to B',{type:'transfer',destination:'B'}],['Transfer back to A',{type:'transfer',destination:'A'}]]},
-  {name:'Resize & swap',note:'Resize W3 horizontally to adjust the whole right column; vertically to adjust only W2/W3. A root section swap keeps the 70/30 divider in place. You can also drag any divider.',steps:[['Grow right column',{type:'resize',axis:'x',amount:.1}],['Grow W3 height',{type:'resize',axis:'y',amount:.1}],['Set root to 70/30',{type:'ratio',display:'A',path:'',ratio:.7}],['Focus W1',{type:'focus',id:1}],['Swap sections, keep divider',{type:'move',direction:'right'}]]},
-  {name:'Minimum sizes',init:()=>{const s=Layout.seed();s.displays[0].root.ratio=.7;s.windows[1].minW=600;return s;},note:'W1 needs 600 points of width. Its large section cannot swap into the narrow right side. Creating in that narrow column floats the new window instead of disturbing existing tiles.',steps:[['Focus W1',{type:'focus',id:1}],['Attempt rejected section swap',{type:'move',direction:'right'}],['Focus W3',{type:'focus',id:3}],['Create: too small, so float',{type:'create'}],['Attempt retiling (still too small)',{type:'float'}]]},
+  {name:'Resize & swap',note:'Resize W3 horizontally to adjust the whole right column; vertically to adjust only W2/W3. Moving W1 to the right carries its width: a 70/30 root becomes 30/70. You can also drag any divider.',steps:[['Grow right column',{type:'resize',axis:'x',amount:.1}],['Grow W3 height',{type:'resize',axis:'y',amount:.1}],['Set root to 70/30',{type:'ratio',display:'A',path:'',ratio:.7}],['Focus W1',{type:'focus',id:1}],['Move W1 right, keep its width',{type:'move',direction:'right'}]]},
+  {name:'Minimum sizes',init:()=>{const s=Layout.seed();s.displays[0].root.ratio=.7;s.windows[1].minW=600;return s;},note:'Creating in the narrow column floats the new window. Moving W1 there instead carries its existing width and grows the destination; the former narrow column is not a fixed limit.',steps:[['Focus W3',{type:'focus',id:3}],['Create: too small, so float',{type:'create'}],['Attempt retiling (still too small)',{type:'float'}],['Focus W1',{type:'focus',id:1}],['Move right, preserve W1 width',{type:'move',direction:'right'}]]},
+  {name:'Nested size preservation',init:()=>{let s=Layout.reduce(Layout.seed(),{type:'screen',display:'A',w:1800});s=Layout.reduce(s,{type:'create'});return Layout.reduce(s,{type:'ratio',display:'A',path:'',ratio:.6});},note:'Move the wide W1 into W3’s nested section. Its immediate split and the screen-level split both adjust to preserve W1’s width. Moving it back also preserves that width.',steps:[['Focus W1',{type:'focus',id:1}],['Swap with nested W3',{type:'windowSwap',target:3,axis:'x'}],['Swap back, keep width',{type:'windowSwap',target:3,axis:'x'}]]},
   {name:'Recovery',init:()=>{const s=Layout.seed();s.displays[0].root.ratio=.7;return s;},note:'Shrinking first clamps the 70/30 ratio. Shrinking further floats the least recently used windows until the tree can fit. Growing again does not automatically retile floats.',steps:[['Shrink A to 900 × 600',{type:'screen',display:'A',w:900,h:600}],['Shrink A to 600 × 500',{type:'screen',display:'A',w:600,h:500}],['Grow A again',{type:'screen',display:'A',w:1440,h:900}]]},
   {name:'Recent focus',init:()=>{let s=Layout.reduce(Layout.seed(),{type:'create',kind:'dialog'});return Layout.reduce(s,{type:'focus',id:3});},note:'W4 is a floating dialog, focused immediately before W3. Closing W3 should focus W4. Directional focus then navigates only tiled windows.',steps:[['Close W3 → focus W4',{type:'delete'}],['Focus left (skip floats)',{type:'focusDirection',direction:'left'}],['Focus right',{type:'focusDirection',direction:'right'}]]},
   {name:'Cross-screen drag',note:'With All screens selected, drag W3 across W1, then drop on B. The source preview returns to its original arrangement minus W3. Hovering only previews; Escape cancels. The buttons below exercise the same transfer rule.',steps:[['Focus W3',{type:'focus',id:3}],['Transfer W3 to B',{type:'transfer',destination:'B'}],['Transfer back to A',{type:'transfer',destination:'A'}]]},

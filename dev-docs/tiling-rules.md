@@ -2,7 +2,7 @@
 
 Living decision document for tile’s tiling algorithm, incorporating the design interview completed on 2026-09-27. This is the authoritative record of accepted behavior. Smaller engineering defaults are identified separately so they are not mistaken for explicit user choices.
 
-The retained [layout prototype](layout-prototype.html) implements these layout decisions and simulates window and screen lifecycle events. Actual macOS observation, window classification, and native window manipulation remain application integration work. Open the HTML directly in Chrome; no server or dependencies are required.
+The retained [layout prototype](layout-prototype.html) implements these layout decisions and simulates window and screen lifecycle events. The native app now implements these policies through its binary model and macOS adapters; simulated coverage does not replace interactive native validation. Open the HTML directly in Chrome; no server or dependencies are required.
 
 **Maintenance rule:** whenever a tiling decision changes, update the relevant rule here and the prototype behavior in the same change. Add or revise a guided scenario that demonstrates the decision, exercise the affected controls, and update the coverage notes when simulation boundaries change. Keep undecided proposals distinct from accepted behavior. The prototype and this document should agree before the change is considered complete.
 
@@ -32,7 +32,7 @@ Every deeper level uses the opposite direction. Direction follows current depth 
 
 Every new split starts at **50/50** after accounting for the gap. Support keyboard and mouse resizing, retaining the resulting ratio for that split. Resizing adjusts the nearest ancestor split on the requested axis. In the example, resizing W3 horizontally adjusts the W1/right-column boundary; resizing it vertically adjusts the W2/W3 boundary.
 
-Ratios describe positions within a split. Swapping its two children leaves the divider in place: a 70% left / 30% right split remains 70/30. A moved subtree retains its internal splits and ratios, subject to the swap's minimum-size validation.
+A move carries the selected window’s allocation: horizontal moves preserve its actual width, and vertical moves preserve its actual height. Destination columns or rows and their ancestors adjust around it. Moving a wide window right in a 70% left / 30% right split makes it 30/70; moving a narrow window into the wide side likewise preserves the narrow window’s width. This supersedes the earlier decision to leave dividers fixed. Other ratios stay unchanged where possible and adjust as needed for minimum sizes.
 
 ## 3. One insertion rule
 
@@ -66,7 +66,7 @@ The initial minimum tile size is **320 × 200 logical points**. Larger window-sp
 
 - Clamp interactive resizing before any affected leaf falls below its minimum.
 - Float an arriving window when insertion cannot fit, including on an otherwise empty screen.
-- Reject an entire section or window swap if its resulting rectangles violate any affected window's minimum. Leave tree, ratios, and window positions unchanged.
+- When moving, redistribute space to preserve the selected window’s width or height and satisfy all window minimums. A narrower destination alone is not a reason to reject or float a window. Commit the structural swap and ratio changes together. If that tree structure cannot represent the required allocation, leave the whole layout unchanged; do not silently shrink the selected window or float other windows to complete the move.
 - For unavoidable changes, such as a shrinking screen or rotation after deletion, preserve ratios where possible; otherwise adjust them only enough to satisfy minimum sizes. If the layout still cannot fit, float its least recently focused tiled windows until the remaining tree can fit.
 
 There is no additional depth limit or general tree rebalancing in the initial design. Minimum sizes bound useful subdivision.
@@ -85,10 +85,10 @@ Distinguish those explicit lifecycle changes from transient observation failures
 
 There are two operations:
 
-- **Section swap:** exchange the two children of the window's immediate parent. Its sibling may be one window or a whole subdivided section. The parent divider stays put; the subtree moves with its internal structure and ratios.
-- **Window swap:** exchange two windows between existing leaves. The tree, divider positions, and section sizes stay unchanged; each window takes the other's rectangle.
+- **Section swap:** exchange the two children of the window's immediate parent. Its sibling may be one window or a whole subdivided section. The subtree moves with its internal structure. The parent divider adjusts so the selected window keeps its size along the movement axis; other ratios change only where required by minimum sizes.
+- **Window swap:** exchange two windows between existing leaves. The tree structure stays unchanged. Adjust destination and ancestor dividers to preserve the selected window’s width on a horizontal move or height on a vertical move. Other windows share the remaining space while respecting their minimums.
 
-Both operations must satisfy minimum sizes. Their difference is deliberately asymmetric:
+Both operations must preserve the selected dimension and satisfy minimum sizes. For mouse swaps, the split where the source and destination paths diverge determines the movement axis. Keyboard commands use their requested axis. Cross-screen transfers continue to use the separately agreed insertion rule. The structural distinction between the two swaps is deliberately asymmetric:
 
 ```text
 Starting layout       W1 moves right       W3 moves left
@@ -116,7 +116,7 @@ When the drop is on another screen, **discard all intermediate swaps made during
 
 ### Directional move commands
 
-Moving toward the immediate sibling performs a section swap. Otherwise choose a tiled window outside the immediate parent, on the same screen, in that direction and perform a window swap. Reject an invalid swap; do not substitute a different operation. With no target, the direction is unavailable. Screen transfer is a separate operation.
+Moving toward the immediate sibling performs a section swap. Otherwise choose a tiled window outside the immediate parent, on the same screen, in that direction and perform a window swap. Redistribute the existing space along with the swap; do not substitute a different structural operation. With no target, the direction is unavailable. Screen transfer is a separate operation.
 
 Retain the prototype's target ordering: perpendicular overlap first, then nearest center along the movement axis, then nearest perpendicular center, then stable window identifier. Each command is a fresh operation and has no drag-mode memory. An opposite command therefore need not undo a prior move if the window's parent has changed.
 
@@ -172,7 +172,7 @@ Keep the prototype as a small executable reference beside this specification: on
 | --- | --- |
 | Binary sections, depth-based directions, removal and promotion | Implemented |
 | Outer / Inner for creation, retiling, returning windows, and transfers | Implemented, including centered tie rule |
-| Live section/window swaps and drag cancellation | Implemented; invalid swaps leave the layout unchanged |
+| Live section/window swaps and drag cancellation | Implemented; moves preserve the selected width/height and redistribute space through ancestors |
 | Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at minimums |
 | Automatic floating and minimum-size recovery | Implemented; known per-window limits can be supplied in debug controls |
 | Recent-focus history and directional focus | Implemented; arrows skip floats, cross screens, and do not wrap |
@@ -194,8 +194,8 @@ Guided experiments cover insertion, section/window swaps, resizing, minimum-size
 ## 12. Acceptance scenarios
 
 - Retile and transfer at targets in each screen half: Outer / Inner must select the same side as new-window creation, for both axes.
-- Resize W3 in the example: width affects the entire right column; height affects only W2/W3. Swap a 70/30 pair and verify the parent divider stays put.
-- Attempt an insertion below the minimum: only the arriving window floats. Attempt an invalid swap: the complete layout remains unchanged.
+- Resize W3 in the example: width affects the entire right column; height affects only W2/W3. Move the wide window across a 70/30 split and verify the split becomes 30/70 while its width stays unchanged. Move a narrow window into a wider destination and verify that its width also stays unchanged.
+- Attempt an insertion below the minimum: only the arriving window floats. Move an existing wide window into the narrow destination: grow the destination to its previous width. Exercise a nested destination that needs both local and ancestor dividers adjusted, and verify exact width and every window’s minimum. If the required allocation cannot be represented, verify that the entire move remains unchanged.
 - Close a window whose promotion rotates a subtree, and shrink a screen: retain valid ratios, clamp when needed, then float least-recently-focused tiles only if necessary.
 - Close the focused window after visiting a float: focus returns to that float if it is the most recent surviving available window. Directional focus still skips floats.
 - Focus beyond an edge with an empty screen between populated screens: continue in the physical direction without wrapping.
@@ -205,3 +205,27 @@ Guided experiments cover insertion, section/window swaps, resizing, minimum-size
 - Launch a normal window with an initial rectangle on a different screen: insert on the screen that was focused when creation began.
 
 No further product decisions are blocking the initial implementation. Persistent layout storage, per-application rules, and general rebalancing are outside its scope.
+
+## 13. Native implementation and validation boundary
+
+The native app implements the accepted rules in `BinaryLayout`, `Workspace`, `DisplayLayoutState`, and
+`MouseTiling`. Direction follows depth; moves preserve the selected dimension through allocation bounds;
+all insertions share Outer/Inner and the same 50/50 fit check. Focus history includes floats, and native
+minimize/hide/fullscreen handling keeps unavailable windows outside the tree. Disconnect migrates leaves
+individually and preserves the focused window.
+
+Native engineering choices: `new-window-placement` defaults to `outer`; `root-orientation` defaults to
+`auto` and accepts `horizontal`/`vertical`. Flipping orientation gives the active screen an in-memory
+override. Keyboard width/height resize uses 50-point increments. A translucent outline previews screen
+transfer (blue for tiling, orange for floating). Fixed-window eligibility uses Accessibility's settable-size
+capability; unknown capability is allowed. Two matching successful native size writes exceeding the
+requested dimension by more than 32 points can teach a larger minimum. Smaller discrepancies are
+ignored to avoid mistaking terminal cell snapping for an application minimum. The adapter ignores stale requests and active manipulation.
+There is no persistent layout or minimum-size store.
+
+Swift acceptance tests cover moves in both axes and directions, nested allocation, atomic failures,
+minimum clamps/recovery, insertion, focus, transfers, cancellation, native-state transitions, screen
+migration, and transient observation restoration through test adapters. The retained prototype's guided
+controls and pointer handlers are also exercised through a DOM event simulation. These checks do **not**
+validate actual Accessibility timing, native preview rendering, or real monitor hardware. Real application
+drag/resize, unplug/reconnect, lock/unlock, and fullscreen smoke tests remain manual validation.

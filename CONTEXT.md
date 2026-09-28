@@ -19,7 +19,7 @@ _Avoid_: virtual workspace
 
 **Display layout state**: The current display layouts, logical focus, and restoration history taken together.
 
-### Layout prototype
+### Tiling model
 
 **Section**: A region of a display layout occupied by one tiled window or subdivided into two child sections.
 

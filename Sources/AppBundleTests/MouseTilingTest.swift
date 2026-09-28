@@ -1,0 +1,191 @@
+import AppKit
+import Testing
+
+@testable import AppBundle
+
+extension CoreTests {
+    @MainActor struct MouseTilingTest {
+        init() { setUpWorkspacesForTests() }
+        private func setupThree() -> (Workspace, TestWindow, TestWindow, TestWindow) {
+            let workspace = focus.workspace
+            let a = TestWindow.new(id: 1, workspace: workspace)
+            let b = TestWindow.new(id: 2, workspace: workspace)
+            let c = TestWindow.new(id: 3, workspace: workspace)
+            return (workspace, a, b, c)
+        }
+        private func secondScreen() -> Workspace {
+            let side = TestMonitor(displayId: "side", name: "Side", x: 1920)
+            unsafe testMonitors = monitorInfos + [side]
+            DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
+            return side.activeWorkspace
+        }
+
+        @Test func localDragMovesWholeSiblingAndLatchesItsEntireRegion() throws {
+            let (workspace, a, _, _) = setupThree()
+            workspace.layout.resize(1, by: 200, in: workspace.layoutRect, gap: 8)
+            let before = workspace.tiledFrames
+            let mouse = MouseTiling()
+            defer { mouse.cancel() }
+            mouse.observe(a, frame: try #require(before[1]), resizing: false)
+            mouse.drag(at: before[2]!.center, on: workspace)
+            #expect(workspace.layout.windowIds == [2, 3, 1])
+            #expect(abs(workspace.tiledFrames[1]!.width - before[1]!.width) < 0.001)
+            let swapped = workspace.layout
+            mouse.drag(at: before[3]!.center, on: workspace)
+            #expect(workspace.layout == swapped)
+            mouse.finish(at: before[3]!.center, on: workspace)
+            #expect(workspace.layout == swapped)
+            #expect(currentlyManipulatedWithMouseWindowId == nil)
+        }
+
+        @Test func crossingParentSwapsWindowsAndKeepsThatModeForRestOfGesture() throws {
+            let (workspace, _, _, c) = setupThree()
+            let mouse = MouseTiling()
+            defer { mouse.cancel() }
+            let before = workspace.tiledFrames
+            mouse.observe(c, frame: try #require(before[3]), resizing: false)
+            mouse.drag(at: before[1]!.center, on: workspace)
+            #expect(workspace.layout.windowIds == [3, 2, 1])
+            let next = try #require(workspace.tiledFrames[2])
+            mouse.drag(at: next.center, on: workspace)
+            #expect(workspace.layout.windowIds == [2, 3, 1])
+            mouse.finish(at: next.center, on: workspace)
+            #expect(focus.windowOrNil === c)
+        }
+
+        @Test func crossScreenHoverPreviewsAndDropDiscardsSourceSwaps() throws {
+            let (source, a, _, _) = setupThree()
+            let destination = secondScreen()
+            TestWindow.new(id: 4, workspace: destination)
+            let original = source.layout
+            let mouse = MouseTiling()
+            let frame = try #require(source.tiledFrames[1])
+            mouse.observe(a, frame: frame, resizing: false)
+            mouse.drag(at: source.tiledFrames[2]!.center, on: source)
+            #expect(source.layout != original)
+            let sourceBeforeHover = source.layout
+            let targetBeforeHover = destination.layout
+            mouse.drag(at: destination.layoutRect.center, on: destination)
+            #expect(source.layout == sourceBeforeHover && destination.layout == targetBeforeHover)
+            #expect(a.workspace === source)
+            #expect(mouse.preview?.workspace === destination)
+            mouse.finish(at: destination.layoutRect.center, on: destination)
+            var expected = original
+            expected.remove(1)
+            #expect(source.layout == expected)
+            #expect(a.workspace === destination && destination.layout.windowIds == [4, 1])
+            #expect(focus.windowOrNil === a)
+            #expect(mouse.preview == nil)
+        }
+
+        @Test func cancellationRestoresSourceAndNeverChangesDestination() throws {
+            let (source, a, _, _) = setupThree()
+            let destination = secondScreen()
+            let before = source.layout
+            let mouse = MouseTiling()
+            mouse.observe(a, frame: try #require(source.tiledFrames[1]), resizing: false)
+            mouse.drag(at: source.tiledFrames[2]!.center, on: source)
+            mouse.drag(at: destination.layoutRect.center, on: destination)
+            mouse.cancel()
+            #expect(source.layout == before)
+            #expect(destination.layout.windowIds.isEmpty)
+            #expect(a.workspace === source && currentlyManipulatedWithMouseWindowId == nil)
+        }
+
+        @Test func independentCreationCancelsSharedGestureBeforeInserting() throws {
+            let (workspace, a, _, _) = setupThree()
+            let original = workspace.layout
+            let mouse = MouseTiling.shared
+            mouse.observe(a, frame: try #require(workspace.tiledFrames[1]), resizing: false)
+            mouse.drag(at: workspace.tiledFrames[2]!.center, on: workspace)
+            let newcomer = TestWindow.new(id: 4, workspace: workspace)
+            var expected = original
+            expected.insert(4, beside: 1, in: workspace.layoutRect, gap: 8)
+            #expect(workspace.layout == expected)
+            mouse.cancel()
+            #expect(newcomer.isRegistered && workspace.layout.windowIds.contains(4))
+        }
+
+        @Test func staleGestureCannotResurrectClosedWindowOrOverwriteExternalEdit() throws {
+            let (workspace, a, _, _) = setupThree()
+            let mouse = MouseTiling()
+            let original = try #require(workspace.tiledFrames[1])
+            mouse.observe(a, frame: original, resizing: false)
+            workspace.flipOrientation()
+            let external = workspace.layout
+            mouse.cancel()
+            #expect(workspace.layout == external)
+            mouse.observe(a, frame: original, resizing: false)
+            workspace.state.removeWindow(a, remember: false)
+            mouse.finish(at: workspace.layoutRect.center, on: workspace)
+            #expect(!workspace.layout.windowIds.contains(1))
+            #expect(Set(workspace.layout.windowIds) == [2, 3])
+        }
+
+        @Test func liveDragWritesNeighborsAndReleaseWritesDraggedWindow() async throws {
+            let (workspace, a, b, _) = setupThree()
+            try await workspace.layoutWorkspace()
+            let first = try #require(await a.getAxRect(.nonCancellable))
+            let target = try #require(await b.getAxRect(.nonCancellable))
+            let mouse = MouseTiling()
+            mouse.observe(a, frame: first, resizing: false)
+            mouse.drag(at: target.center, on: workspace)
+            try await workspace.layoutWorkspace()
+            #expect(try await a.getAxRect(.nonCancellable)?.topLeftCorner == first.topLeftCorner)
+            #expect(try await b.getAxRect(.nonCancellable)?.minX == first.minX)
+            mouse.finish(at: target.center, on: workspace)
+            try await workspace.layoutWorkspace()
+            #expect(try await a.getAxRect(.nonCancellable)?.minX == target.minX)
+        }
+
+        @Test func resizeUsesAbsoluteDeltaClampsAndDoesNotBecomeMove() throws {
+            let (workspace, a, _, _) = setupThree()
+            let original = try #require(workspace.tiledFrames[1])
+            let mouse = MouseTiling()
+            var frame = original
+            frame.width += 40
+            mouse.observe(a, frame: frame, resizing: true)
+            frame.width += 30
+            mouse.observe(a, frame: frame, resizing: true)
+            #expect(abs(workspace.tiledFrames[1]!.width - original.width - 70) < 0.001)
+            let resized = workspace.layout
+            mouse.drag(at: workspace.tiledFrames[2]!.center, on: workspace)
+            #expect(workspace.layout == resized)
+            mouse.finish(at: frame.center, on: workspace)
+            #expect(workspace.layout == resized)
+        }
+
+        @Test func floatingTransferIsDeferredAndRemainsFloating() throws {
+            let source = focus.workspace
+            let destination = secondScreen()
+            let frame = Rect(topLeftX: 100, topLeftY: 100, width: 450, height: 300)
+            let floating = TestWindow.new(id: 1, workspace: source, kind: .floating, rect: frame)
+            let mouse = MouseTiling()
+            mouse.observe(floating, frame: frame, resizing: false)
+            mouse.drag(at: destination.layoutRect.center, on: destination)
+            #expect(floating.workspace === source && mouse.preview?.floating == true)
+            mouse.finish(at: destination.layoutRect.center, on: destination)
+            #expect(floating.workspace === destination && floating.kind == .floating)
+            #expect(source.layout.windowIds.isEmpty && destination.layout.windowIds.isEmpty)
+        }
+
+        @Test func ordinaryMouseReleaseDoesNotInvalidateObservationRestoration() async throws {
+            let workspace = focus.workspace
+            let a = TestWindow.new(id: 1, workspace: workspace)
+            workspace.state.removeWindow(a, remember: true)
+            try await resetManipulatedWithMouseIfPossible()
+            let returned = TestWindow.new(id: 1, workspace: workspace)
+            #expect(workspace.state.restoreWindow(newlyDetectedWindow: returned))
+        }
+
+        @Test func displayGeometryChangeInvalidatesPendingDrop() throws {
+            let (workspace, a, _, _) = setupThree()
+            let mouse = MouseTiling()
+            mouse.observe(a, frame: try #require(workspace.tiledFrames[1]), resizing: false)
+            workspace.workspaceMonitor = TestMonitor(displayId: workspace.name, name: "Moved", x: 100)
+            let before = workspace.layout
+            mouse.finish(at: workspace.tiledFrames[2]!.center, on: workspace)
+            #expect(workspace.layout == before && currentlyManipulatedWithMouseWindowId == nil)
+        }
+    }
+}

@@ -16,11 +16,6 @@ enum MonitorTarget: Sendable {
     case direction(CardinalDirection)
     case relative(NextPrev)
 
-    var directionOrNil: CardinalDirection? {
-        if case .direction(let direction) = self { return direction }
-        return nil
-    }
-
     @MainActor func resolve(_ currentMonitor: MonitorInfo) -> Result<MonitorInfo, String> {
         switch self {
         case .direction(let direction):

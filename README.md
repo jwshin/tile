@@ -1,119 +1,145 @@
 # tile
 
-A reduced, keyboard-driven fork of [the upstream project](https://github.com/nikitabobko/AeroSpace).
-Each connected monitor has one permanent tiling layout. There are no virtual workspace switches,
-hidden desktops, CLI server, external automation callbacks, or binding modes.
+A personal, keyboard-driven fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace).
+Each connected monitor has one permanent layout. There are no virtual workspace switches,
+CLI server, external automation callbacks, or binding modes.
 
-## Behavior
+## Layout
 
-- Tile windows horizontally or vertically, with nested splits.
-- Focus, rearrange, resize, balance, float, or expand windows using keyboard shortcuts.
-- Focus another monitor or move the focused window to it.
-- Keep each display's layout when displays are rearranged.
-- When a display disconnects, merge its windows into the main display, retaining tiling groups.
-- When a display connects, create an empty layout. Windows are not automatically moved back.
-- Preserve macOS dialog/popup classification, native fullscreen/minimize handling, and lock-screen recovery.
-- Allow normal mouse interaction with windows.
+Each section is one window or two child sections. Split directions alternate by depth, starting
+left/right on a wide screen and top/bottom on a portrait screen. New splits start at 50/50 and can
+be resized. New windows split the remembered tiled target using **Outer** (toward the nearer screen
+edge) or **Inner** placement. Floating focus does not replace that tiled target.
+
+Moves carry the selected window's width for horizontal moves or height for vertical moves.
+For example, moving the wide window across a 70/30 split produces 30/70. Neighboring dividers adjust
+to preserve the allocation. Moving toward the immediate sibling swaps the whole sibling section;
+moving beyond the parent swaps individual windows. Closing or floating a window promotes its sibling,
+with split directions following the new depth.
+
+Tiles have a 320 × 200 point baseline minimum, raised when an application demonstrates a larger limit.
+A new window floats if its insertion cannot fit. Resizing clamps at minimums. Screen changes and collapse
+adjust ratios as needed, then float the least recently focused tiles only if necessary.
+
+Focus follows per-screen history, including floats. Directional focus visits tiles, crosses screens
+in their physical arrangement, skips empty screens, and does not wrap. Directional moves stay on the
+current screen; monitor transfer is a separate action. Disconnected-screen windows migrate individually
+to the most recently focused remaining screen, falling back to the main screen. Reconnected screens
+start empty. There is no persistent layout store.
+
+The [tiling rules](dev-docs/tiling-rules.md) are the authoritative specification.
+Open the retained [interactive prototype](dev-docs/layout-prototype.html) directly in Chrome to experiment
+with layouts, minimums, screen changes, and window lifecycle events. It needs no server or dependencies.
 
 ## Build and run
 
-Requires macOS 27 or later and the macOS 27 SDK. Use the Swift toolchain in `.swift-version` (6.4). Open `Package.swift` in Xcode or your Swift editor.
+Requires macOS 27, the macOS 27 SDK, and Swift 6.4 (see `.swift-version`). Open `Package.swift` in Xcode.
 
 ```sh
-./test.sh          # Swift Testing regression suite and warnings-as-errors app build
-./run-debug.sh     # Build and run from the terminal
-./build-release.sh # Build .release/tile.app; no installation
+./test.sh          # Swift Testing suite and warnings-as-errors app build
+./run-debug.sh     # Build and run; manages real desktop windows
+./build-release.sh # Build/sign .release/tile.app without installing or launching
 ```
 
-Grant Accessibility permission when prompted. Quit other window managers before running tile;
-the app checks for another tile or upstream instance at startup. If running multiple unbundled debug
-executables, stop the old process first. The release bundle has its own identity, `local.jwshin.tile`.
-The release script uses ad-hoc signing by default. Set `TILE_CODESIGN_IDENTITY` to your own
-code-signing certificate to use it instead. Ad-hoc rebuilds may require renewing Accessibility permission.
+Grant Accessibility permission when prompted. Quit other window managers before starting tile.
+The release bundle ID is `local.jwshin.tile`; debug is `local.jwshin.tile.debug`.
+The release script uses ad-hoc signing unless `TILE_CODESIGN_IDENTITY` is set; ad-hoc rebuilds may
+require renewing Accessibility permission. Stop any older unbundled debug process before launching.
 
 ## Configuration
 
-New layouts start horizontally on landscape displays and vertically on portrait displays. Redundant
-single-child groups are removed automatically, and nested groups alternate orientation. These behaviors
-are fixed; remove `default-root-container-orientation` and both `enable-normalization-*` keys from older
-personal configs. Use `join-left`, `join-down`, `join-up`, or `join-right` to form groups; `split` is no longer supported.
-
-The personal config is `~/.tile.toml`.
-Use **Open config** in the menu to create a copy of [the defaults](resources/default-config.toml).
-Reload manually from the menu or with `alt-shift-r`. Invalid configuration leaves the current settings intact.
-Configuration has just three fields:
+Use **Open config** in the menu to create `~/.tile.toml` from [the defaults](resources/default-config.toml).
+Reload from the menu or with `alt-shift-r`. Invalid configuration preserves the working configuration.
 
 ```toml
 gap = 8
-floating-apps = []
+new-window-placement = 'outer' # outer | inner
+root-orientation = 'auto'     # auto | horizontal | vertical
+```
 
+`gap` controls all inner and outer spacing. Root orientation follows usable screen shape in Auto;
+`toggle-orientation` sets an in-memory override for the selected screen. Disconnecting discards that override.
+Placement affects future insertions, including retiling, returning windows, and transfers.
+
+Omit `[bindings]` to keep the default shortcuts. An explicit table replaces the whole set; an empty
+one disables shortcuts. Keys use fixed QWERTY positions, and each shortcut names one action:
+
+```toml
 [bindings]
 alt-h = 'focus-left'
-alt-minus = 'shrink'
+alt-equal = 'grow-width'
 alt-tab = 'next-monitor'
 alt-shift-tab = 'move-to-next-monitor'
 ```
 
-`gap` is one non-negative integer, used for all inner and outer spacing on every monitor.
-It defaults to 8. Key names refer to fixed QWERTY key positions; shortcuts remain editable.
-`floating-apps` accepts application bundle IDs whose windows should float. Dialogs and popups
-still receive automatic native classification. Omitting `[bindings]` keeps all bundled shortcuts.
-An explicit `[bindings]` table replaces the entire shortcut set; an empty table disables all shortcuts.
+**Migration:** remove `floating-apps` and replace `join-*` or `flatten-layout` bindings. Manual floating
+and native dialog classification remain. Configuration is intentionally incompatible with the old
+container model; unknown settings or actions reject the reload as a whole.
 
-Each shortcut names exactly one action. Command arguments, arrays, monitor-name patterns,
-window IDs, key-mapping presets, per-monitor gaps, and `--config-path` are unsupported.
-Older command strings must be replaced with the names below; old `[gaps]` tables become `gap = 8`.
-Unknown fields or actions reject the entire reload, preserving the working configuration.
-
-| Action names | Fixed behavior |
-|---|---|
-| `focus-left`, `focus-down`, `focus-up`, `focus-right` | Focus a neighboring window, including floating windows; stop at monitor edges |
-| `move-left`, `move-down`, `move-up`, `move-right` | Move the focused tiled window; form a group at layout edges when needed |
-| `join-left`, `join-down`, `join-up`, `join-right` | Group with a neighboring window/container |
-| `swap-left`, `swap-down`, `swap-up`, `swap-right` | Exchange neighboring window positions, keeping focus on the original window |
-| `next-monitor`, `previous-monitor` | Cycle monitors, wrapping at either end |
-| `left-monitor`, `down-monitor`, `up-monitor`, `right-monitor` | Focus a monitor in that direction; stop at edges |
-| `move-to-next-monitor`, `move-to-previous-monitor` | Cycle the focused window to a monitor and follow it, wrapping at either end |
-| `move-to-monitor-left`, `move-to-monitor-down`, `move-to-monitor-up`, `move-to-monitor-right` | Move the focused window to a monitor in that direction and follow it |
-| `grow`, `shrink` | Resize by 50 points along the immediate split's orientation |
-| `toggle-orientation` | Toggle the focused split between horizontal and vertical |
-| `toggle-floating` | Toggle the focused window between floating and tiling |
-| `fullscreen` | Toggle filling the monitor's available area, keeping the gap |
-| `balance-sizes`, `flatten-layout` | Equalize sizes or remove nested groups on the focused monitor |
+| Actions | Behavior |
+| --- | --- |
+| `focus-left/down/up/right` | Directional tile focus, including across screens |
+| `move-left/down/up/right` | Section/window move with size preservation; nudge a float |
+| `swap-left/down/up/right` | Individual-window swap, preserving the selected dimension |
+| `grow-width`, `shrink-width`, `grow-height`, `shrink-height` | Resize the nearest split on that axis by 50 points, clamped to minimums |
+| `grow`, `shrink` | Resize the immediate split by 50 points |
+| `toggle-orientation` | Flip the screen root and all alternating subdivisions |
+| `toggle-floating` | Float/retile an eligible window through normal insertion |
+| `balance-sizes` | Reset splits to 50/50, then enforce minimums |
+| `fullscreen` | Toggle filling the monitor's available area, retaining its tile |
 | `close` | Close the focused window |
-| `toggle-tiling` | Enable/disable window management |
-| `reload-config` | Apply the personal configuration if valid |
+| `next-monitor`, `previous-monitor` | Cycle screens with wrapping |
+| `left/down/up/right-monitor` | Select a screen in that physical direction |
+| `move-to-next-monitor`, `move-to-previous-monitor` | Transfer and focus, cycling with wrapping |
+| `move-to-monitor-left/down/up/right` | Transfer and focus in that physical direction |
+| `toggle-tiling`, `reload-config` | Enable/disable management; reload preferences |
 
-Default shortcuts:
+The slash-separated names in the table denote individual actions (for example, `focus-left`).
 
-| Shortcut | Action |
-|---|---|
+| Default shortcut | Action |
+| --- | --- |
 | `alt-h/j/k/l` | Focus left/down/up/right |
-| `alt-shift-h/j/k/l` | Move the window left/down/up/right |
-| `alt-ctrl-h/j/k/l` | Join with a neighboring window |
-| `alt-minus/equal` | Shrink/grow along the current split |
-| `alt-shift-equal` | Balance window sizes |
-| `alt-slash` | Toggle horizontal/vertical split |
-| `alt-shift-space` | Toggle floating/tiling |
-| `alt-f` | Toggle filling the monitor's available area |
-| `alt-tab` | Focus the next monitor, wrapping around |
-| `alt-shift-tab` | Move the window to the next monitor and follow it |
-| `alt-shift-r` | Reload configuration |
+| `alt-shift-h/j/k/l` | Move left/down/up/right |
+| `alt-ctrl-h/j/k/l` | Swap individual windows |
+| `alt-minus/equal` | Shrink/grow width |
+| `alt-ctrl-minus/equal` | Shrink/grow height |
+| `alt-shift-equal` | Balance split sizes |
+| `alt-slash` | Flip screen orientation |
+| `alt-shift-space` | Toggle floating |
+| `alt-f` | Toggle filling the available screen area |
+| `alt-tab` | Focus next monitor |
+| `alt-shift-tab` | Transfer to next monitor |
+| `alt-shift-r` | Reload config |
 
-The menu provides enable/disable, config access, permission status, and quit. When disabled, shortcuts
-are unregistered; re-enable from the menu. Quitting leaves window positions as they are.
+## Mouse and native lifecycle
+
+Drag within the immediate parent to swap sibling sections; cross its boundary to swap individual windows.
+Changes are live. Once a drag crosses a parent boundary, it keeps swapping individual windows until release.
+The pointer must leave a target region before another swap. Escape cancels the gesture.
+
+Hovering another screen shows an outline; releasing transfers using normal insertion. Source-screen swaps
+made during that gesture are discarded on a cross-screen drop. Floating windows remain freely draggable
+and resizable. Native tiled resizing adjusts the corresponding binary dividers.
+
+Minimized, hidden, and native fullscreen windows leave the tree and reinsert on return. Floating windows
+remain floating. In-memory snapshots support recovery from temporary Accessibility observation loss.
+Restart rebuilds from discovered windows rather than writing layouts to disk.
+
+The menu provides enable/disable, config access, permission status, and quit. Disabled shortcuts are
+unregistered; re-enable from the menu. Quitting leaves window positions as they are.
 
 ## Source map
 
-- `Sources/tile`: SwiftUI application entry point.
-- `Sources/AppBundle/tree`: window/container model and macOS app adapters. `Workspace` now means a display's layout.
-- `Sources/AppBundle/layout`: reconciliation and recursive tiling geometry.
-- `Sources/AppBundle/command`: the small internal keyboard-action set.
-- `Sources/AppBundle/config`: TOML parsing, keybindings, one gap value, and floating-app exceptions.
-- `Sources/AppBundle/ui`: minimal menu and error messages.
-- `Sources/Common`: shared geometry, result types, and utilities; no command parser, network protocol, or executable client.
-- `Sources/AppBundleTests`: serialized Swift Testing suites, including monitor lifecycle tests.
-- `axDumps`: accessibility fixtures used by window-classification tests.
+- `Sources/tile`: SwiftUI app entry point.
+- `Sources/AppBundle/tree`: pure binary layout, display/window state, native app/window adapters.
+- `Sources/AppBundle/layout`: action sessions, reconciliation, native frame application.
+- `Sources/AppBundle/mouse`: drag/resize transactions and destination preview.
+- `Sources/AppBundle/command`: keyboard and menu actions.
+- `Sources/AppBundle/config`: TOML preferences and shortcut registration.
+- `Sources/AppBundle/ui`: menu and error messages.
+- `Sources/Common`: geometry and small shared utilities.
+- `Sources/AppBundleTests`: layout, focus, gesture, lifecycle, configuration, and adapter tests.
+- `axDumps`: native window-classification fixtures.
 
 See [architecture](dev-docs/architecture.md) and [development](dev-docs/development.md).
-Original copyright and third-party licenses are retained in `LICENSE.txt` and `legal/`.
+Original copyright and third-party licenses remain in `LICENSE.txt` and `legal/`.

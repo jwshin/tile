@@ -23,6 +23,7 @@ enum ActionInput { case shortcut, menu }
         guard ConfigurationApplication.shared.isEnabled || allowedWhileDisabled else {
             return CmdResult(stdout: [], stderr: [], exitCode: .fail)
         }
+        MouseTiling.shared.cancel()
         return try await runSession(input == .menu ? .menuBarButton : .hotkeyBinding, .forceRun) {
             let command = action.command
             let io = CmdIo()
@@ -64,7 +65,10 @@ enum ActionInput { case shortcut, menu }
                 try await desktop.refreshWindows()
                 DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
                 desktop.updateStatus()
-                try await normalizeLayoutReason()
+                if try await normalizeLayoutReason() {
+                    // A native-focused window may only become focusable after its state returns.
+                    DisplayLayoutState.shared.importNativeFocus(try await desktop.focusedWindow())
+                }
                 try await desktop.validatePopups()
                 if shouldLayout { try await layoutWorkspaces() }
             }
@@ -97,11 +101,10 @@ enum ActionInput { case shortcut, menu }
 
     private func refreshModel() {
         DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
-        DisplayLayoutState.shared.normalize()
     }
 
     private func layoutWorkspaces() async throws {
-        guard ConfigurationApplication.shared.isEnabled else { return }
+        guard ConfigurationApplication.shared.isEnabled, !monitorInfos.isEmpty else { return }
         for workspace in DisplayLayoutState.shared.workspaces { try await workspace.layoutWorkspace() }
     }
 }
