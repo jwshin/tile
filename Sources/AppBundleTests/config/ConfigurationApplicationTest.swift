@@ -46,6 +46,18 @@ extension CoreTests {
             #expect(shortcuts.replacements == 1)
         }
 
+        @Test func invalidFloatingAppsPreserveCurrentConfigAndShortcuts() {
+            let application = ConfigurationApplication(defaults: defaultConfig, shortcuts: shortcuts)
+            #expect(application.apply("floating-apps = ['com.example.player']").isOk)
+            let previous = shortcuts.bindings
+            let invalid = application.apply("floating-apps = [123]\n[bindings]\nalt-h = 'close'")
+            #expect(!invalid.isOk)
+            #expect(application.current.floatingApps == ["com.example.player"])
+            #expect(shortcuts.bindings == previous && shortcuts.replacements == 1)
+            #expect(application.apply("floating-apps = []").isOk)
+            #expect(application.current.floatingApps.isEmpty)
+        }
+
         @Test func disabledReloadDefersRegistrationUntilEnabled() {
             let application = ConfigurationApplication(defaults: defaultConfig, shortcuts: shortcuts)
             application.apply("")

@@ -17,11 +17,11 @@ let projectRoot: URL = {
 
 @MainActor
 func setUpWorkspacesForTests() {
+    MouseTiling.shared.cancel()
     ActionExecution.shared.cancelRefresh()
     ActionExecution.shared = ActionExecution(desktop: TestDesktopSessionAdapter())
     ConfigurationApplication.shared = ConfigurationApplication(
         defaults: defaultConfig, shortcuts: RecordingShortcutRegistrar())
-    testWorkspaceAliases = [:]
     unsafe testMonitors = [TestMonitor(displayId: "test-main", name: "Main", x: 0, isMain: true)]
     DisplayLayoutState.shared = DisplayLayoutState(monitors: monitorInfos)
     _ = mainMonitorInfo.activeWorkspace.focusWorkspace()
@@ -42,24 +42,6 @@ struct TestMonitor: MonitorInfo {
     var visibleRect: Rect { rect }
 }
 
-@MainActor private var testWorkspaceAliases: [String: Workspace] = [:]
-
-/// Map legacy tree fixtures to real display layouts rather than named virtual workspaces.
-@MainActor func workspaceForTest(_ name: String) -> Workspace {
-    if let existing = testWorkspaceAliases[name] { return existing }
-    let workspace: Workspace
-    if testWorkspaceAliases.isEmpty {
-        workspace = mainMonitorInfo.activeWorkspace
-    } else {
-        let monitor = TestMonitor(displayId: name, name: name, x: Double(monitorInfos.count) * 1920)
-        unsafe testMonitors = monitorInfos + [monitor]
-        DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
-        workspace = monitor.activeWorkspace
-    }
-    testWorkspaceAliases[name] = workspace
-    return workspace
-}
-
 extension Command {
     @MainActor @discardableResult
     // Used by algorithm tests; input callers use ActionExecution for the complete session.
@@ -70,7 +52,6 @@ extension Command {
             ? await DisplayLayoutState.shared.changeLayout { await run(io) }
             : await run(io)
         DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
-        DisplayLayoutState.shared.normalize()
         return CmdResult(stdout: io.stdout, stderr: io.stderr, exitCode: result)
     }
 }

@@ -12,13 +12,14 @@ extension CoreTests {
             let result = parseConfig(try String(contentsOf: defaultConfigUrl, encoding: .utf8))
             #expect(result.errors.isEmpty)
             #expect(result.config.gap == 8)
-            #expect(result.config.bindings.count == 21)
+            #expect(result.config.floatingApps.isEmpty)
+            #expect(result.config.bindings.count == 23)
             #expect(result.config.bindings["alt-h"]?.action == .focusLeft)
             #expect(result.config.bindings["alt-shift-tab"]?.action == .moveToNextMonitor)
         }
 
         @Test func omittedBindingsKeepDefaultShortcuts() {
-            for contents in ["", "gap = 12", "floating-apps = ['com.example.tool']"] {
+            for contents in ["", "gap = 12", "new-window-placement = 'inner'"] {
                 let result = parseConfig(contents)
                 #expect(result.errors.isEmpty)
                 #expect(result.config.bindings == defaultConfig.bindings)
@@ -26,7 +27,7 @@ extension CoreTests {
                 #expect(result.config.bindings["alt-shift-r"]?.action == .reloadConfig)
             }
             #expect(parseConfig("gap = 12").config.gap == 12)
-            #expect(parseConfig("floating-apps = ['com.example.tool']").config.floatingApps == ["com.example.tool"])
+            #expect(parseConfig("new-window-placement = 'inner'").config.newWindowPlacement == .inner)
         }
 
         @Test func explicitBindingsReplaceDefaultShortcuts() {
@@ -43,13 +44,13 @@ extension CoreTests {
             let result = parseConfig(
                 """
                 gap = 12
-                floating-apps = ['com.example.tool']
+                new-window-placement = 'inner'
                 [bindings]
                 ctrl-alt-h = 'focus-left'
                 """)
             #expect(result.errors.isEmpty)
             #expect(result.config.gap == 12)
-            #expect(result.config.floatingApps == ["com.example.tool"])
+            #expect(result.config.newWindowPlacement == .inner)
             let binding = result.config.bindings["alt-ctrl-h"]
             #expect(binding?.keyCode == .h)
             #expect(binding?.action == .focusLeft)
@@ -61,6 +62,29 @@ extension CoreTests {
                 #expect(result.errors.isEmpty)
                 #expect(result.config.bindings["alt-h"]?.action == action)
             }
+        }
+
+        @Test func floatingAppsAcceptBundleIdsAndExplicitEmptyList() {
+            let result = parseConfig("floating-apps = ['com.apple.finder', 'com.example.player']")
+            #expect(result.errors.isEmpty)
+            #expect(result.config.floatingApps == ["com.apple.finder", "com.example.player"])
+            #expect(result.config.bindings == defaultConfig.bindings)
+            var defaults = defaultConfig
+            defaults.floatingApps = ["com.example.player"]
+            #expect(parseConfig("", defaults: defaults).config.floatingApps == defaults.floatingApps)
+            let empty = parseConfig("floating-apps = []", defaults: defaults)
+            #expect(empty.errors.isEmpty && empty.config.floatingApps.isEmpty)
+        }
+
+        @Test func floatingAppsRejectNonStringEntriesWithTheirConfigPath() {
+            for value in ["'com.apple.finder'", "true", "42", "{app = 'com.apple.finder'}"] {
+                let result = parseConfig("floating-apps = \(value)")
+                #expect(!result.allowReloadConfig)
+                #expect(result.errors.first?.backtrace.description == "floating-apps")
+            }
+            let mixed = parseConfig("floating-apps = ['com.apple.finder', 42]")
+            #expect(!mixed.allowReloadConfig)
+            #expect(mixed.errors.first?.backtrace.description == "floating-apps[1]")
         }
 
         @Test func retiredSettingsAreRejected() {
@@ -91,7 +115,9 @@ extension CoreTests {
             }
             #expect(parseConfig("gap = 0").config.gap == 0)
             #expect(parseConfig("").config.gap == 8)
-            #expect(!parseConfig("floating-apps = [1]").allowReloadConfig)
+            #expect(!parseConfig("new-window-placement = 'left'").allowReloadConfig)
+            #expect(!parseConfig("root-orientation = 'diagonal'").allowReloadConfig)
+            #expect(parseConfig("root-orientation = 'vertical'").config.rootOrientation == .vertical)
             #expect(!parseConfig("[bindings]\nalt-unicorn = 'close'").allowReloadConfig)
             #expect(!parseConfig("[bindings]\nalt-ctrl-h = 'close'\nctrl-alt-h = 'grow'").allowReloadConfig)
             #expect(!parseConfig("[bindings").allowReloadConfig)

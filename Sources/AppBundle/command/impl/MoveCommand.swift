@@ -6,116 +6,27 @@ struct MoveCommand: Command {
     let invalidatesRestoration = true
 
     func run(_ io: CmdIo) async -> BinaryExitCode {
-        let target = focus
-        guard let currentWindow = target.windowOrNil else {
-            return .fail(io.err(noWindowIsFocused))
+        guard let window = focus.windowOrNil, let workspace = window.workspace else { return .fail }
+        if window.kind == .floating {
+            guard let rect = try? await window.getAxRect(.nonCancellable), window.isRegistered,
+                window.workspace === workspace, window.kind == .floating
+            else { return .fail }
+            let amount: CGFloat = direction.isPositive ? 50 : -50
+            let bounds = workspace.workspaceMonitor.visibleRect
+            let point = CGPoint(
+                x: min(
+                    max(bounds.minX, rect.minX + (direction.orientation == .h ? amount : 0)),
+                    max(bounds.minX, bounds.maxX - rect.width)),
+                y: min(
+                    max(bounds.minY, rect.minY + (direction.orientation == .v ? amount : 0)),
+                    max(bounds.minY, bounds.maxY - rect.height)))
+            window.setAxFrame(point, nil)
+            return .succ
         }
-        switch currentWindow.windowParentCases {
-        case .unbound: return .fail
-        case .tilingContainer(let parent):
-            guard let indexOfCurrent = currentWindow.ownIndex else { return .fail(io.err(bugPrompt())) }
-            let indexOfSiblingTarget = indexOfCurrent + direction.focusOffset
-            if parent.orientation == direction.orientation && parent.children.indices.contains(indexOfSiblingTarget) {
-                switch parent.children[indexOfSiblingTarget].tilingTreeNodeCasesOrDie() {
-                case .tilingContainer(let topLevelSiblingTargetContainer):
-                    return deepMoveIn(
-                        window: currentWindow, into: topLevelSiblingTargetContainer, moveDirection: direction, io)
-                case .window:  // "swap windows"
-                    let prevBinding = currentWindow.unbindFromParent()
-                    currentWindow.bind(
-                        to: parent, adaptiveWeight: prevBinding.adaptiveWeight, index: indexOfSiblingTarget)
-                    return .succ
-                }
-            } else {
-                return moveOut(tilingWindow: currentWindow, direction: direction, io)
-            }
-        case .floatingWindowsContainer:  // floating window
-            return .fail(io.err("moving floating windows isn't yet supported"))  // todo
-        case .macosMinimizedWindowsContainer, .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer:
-            return .fail(io.err(moveOutMacosUnconventionalWindow))
-        case .macosPopupWindowsContainer:
-            return .fail(io.err(bugPrompt()))  // Impossible
-        }
-    }
-}
-
-private let moveOutMacosUnconventionalWindow =
-    "moving macOS fullscreen, minimized windows and windows of hidden apps isn't yet supported. This behavior is subject to change"
-
-@MainActor private func moveOut(
-    tilingWindow window: Window,
-    direction: CardinalDirection,
-    _ io: CmdIo,
-) -> BinaryExitCode {
-    let innerMostTilingContainer =
-        window.parents.first(where: {
-            return switch $0.parent?.cases {
-            case .tilingContainer(let parent): parent.orientation == direction.orientation
-            // Stop searching: we have hit the workspace
-            case nil, .workspace: true
-            // Impossible: tilingContainer's parent can only be a workspace or tilingContainer
-            case .floatingWindowsContainer,
-                .macosMinimizedWindowsContainer,
-                .macosFullscreenWindowsContainer,
-                .macosHiddenAppsWindowsContainer,
-                .macosPopupWindowsContainer:
-                true
-            }
-        }) as? TilingContainer
-    guard let innerMostTilingContainer else { return .fail(io.err(bugPrompt())) }  // Impossible
-    switch innerMostTilingContainer.tilingContainerParentCases {
-    case .unbound: return .fail
-    case .tilingContainer(let parent):
-        check(parent.orientation == direction.orientation)
-        guard let ownIndex = innerMostTilingContainer.ownIndex else { return .fail(io.err(bugPrompt())) }
-        window.bind(to: parent, adaptiveWeight: WEIGHT_AUTO, index: ownIndex + direction.insertionOffset)
-        return .succ
-    case .workspace(let parent):
-        createImplicitContainerAndMoveWindow(window, parent, direction)
-        return .succ
-    }
-}
-
-@MainActor private func createImplicitContainerAndMoveWindow(
-    _ window: Window,
-    _ workspace: Workspace,
-    _ direction: CardinalDirection,
-) {
-    let prevRoot = workspace.rootTilingContainer
-    prevRoot.unbindFromParent()
-    // Force tiles layout
-    _ = TilingContainer(parent: workspace, adaptiveWeight: WEIGHT_AUTO, direction.orientation, index: 0)
-    check(prevRoot != workspace.rootTilingContainer)
-    prevRoot.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: 0)
-    window.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: direction.insertionOffset)
-}
-
-@MainActor private func deepMoveIn(
-    window: Window, into container: TilingContainer, moveDirection: CardinalDirection, _ io: CmdIo
-) -> BinaryExitCode {
-    let deepTarget = container.tilingTreeNodeCasesOrDie().findDeepMoveInTargetRecursive(moveDirection.orientation)
-    switch deepTarget {
-    case .tilingContainer(let deepTarget):
-        window.bind(to: deepTarget, adaptiveWeight: WEIGHT_AUTO, index: 0)
-    case .window(let deepTarget):
-        guard let parent = deepTarget.parent as? TilingContainer else { return .fail(io.err(bugPrompt())) }
-        guard let deepTargetIndex = deepTarget.ownIndex else { return .fail(io.err(bugPrompt())) }
-        window.bind(to: parent, adaptiveWeight: WEIGHT_AUTO, index: deepTargetIndex + 1)
-    }
-    return .succ
-}
-
-extension TilingTreeNodeCases {
-    @MainActor fileprivate func findDeepMoveInTargetRecursive(_ orientation: Orientation) -> TilingTreeNodeCases {
-        switch self {
-        case .window:
-            self
-        case .tilingContainer(let container) where container.orientation == orientation:
-            .tilingContainer(container)
-        case .tilingContainer(let container):
-            container.mostRecentChild.orDie("Empty containers must be detached during normalization")
-                .tilingTreeNodeCasesOrDie()
-                .findDeepMoveInTargetRecursive(orientation)
-        }
+        guard window.kind == .tiled else { return .fail }
+        workspace.layout.move(
+            window.windowId, direction: direction, in: workspace.layoutRect,
+            gap: CGFloat(config.gap), minimums: workspace.minimums)
+        return .from(bool: window.focusWindow())
     }
 }

@@ -18,3 +18,23 @@ _Avoid_: virtual workspace
 **Restoration snapshot**: A saved arrangement used when windows disappear temporarily, such as while the screen is locked.
 
 **Display layout state**: The current display layouts, logical focus, and restoration history taken together.
+
+### Tiling model
+
+**Section**: A region of a display layout occupied by one tiled window or subdivided into two child sections.
+
+**Sibling section**: The other section sharing the same immediate parent.
+
+**Section swap**: An exchange of two sibling sections, including any windows and subdivisions they contain.
+
+**Window swap**: An exchange of individual windows between existing tiled sections.
+
+**Outer placement**: Placement of a new window toward the nearer screen edge along the split direction.
+
+**Inner placement**: Placement of a new window on the opposite side from outer placement, toward the screen center.
+
+**Tiled insertion target**: The existing tile selected to share its section with an arriving tiled window.
+
+**Minimum tile size**: The smallest permitted tiled rectangle for a window, combining tile's baseline size with larger known application limits.
+
+**Screen focus history**: The recent ordering of focused windows on one screen, including tiled and floating windows.

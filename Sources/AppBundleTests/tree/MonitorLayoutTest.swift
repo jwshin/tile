@@ -16,13 +16,15 @@ extension CoreTests {
             DisplayLayoutState.shared.reconcileMonitors(monitors)
         }
 
-        @Test func newLayoutsFollowDisplayAspectRatio() {
+        @Test func initialRootFollowsUsableScreenShape() {
             let portrait = TestMonitor(displayId: "portrait", name: "Portrait", x: 1920, width: 1080, height: 1920)
-            let square = TestMonitor(displayId: "square", name: "Square", x: 3000, width: 1200, height: 1200)
-            connect([main, portrait, square])
-            #expect(main.activeWorkspace.rootTilingContainer.orientation == .h)
-            #expect(portrait.activeWorkspace.rootTilingContainer.orientation == .v)
-            #expect(square.activeWorkspace.rootTilingContainer.orientation == .h)
+            connect([main, portrait])
+            for (monitor, base) in [(main, UInt32(1)), (portrait, UInt32(3))] {
+                TestWindow.new(id: base, workspace: monitor.activeWorkspace)
+                TestWindow.new(id: base + 1, workspace: monitor.activeWorkspace)
+            }
+            #expect(main.activeWorkspace.tiledFrames[1]?.height == main.activeWorkspace.layoutRect.height)
+            #expect(portrait.activeWorkspace.tiledFrames[3]?.width == portrait.activeWorkspace.layoutRect.width)
         }
 
         @Test func onePermanentLayoutPerMonitor() {
@@ -43,73 +45,57 @@ extension CoreTests {
         @Test func rearrangingDisplaysPreservesTheirTrees() {
             connect([main, side])
             let original = side.activeWorkspace
-            let window = TestWindow.new(id: 1, parent: original.rootTilingContainer)
+            let window = TestWindow.new(id: 1, workspace: original)
             let moved = TestMonitor(displayId: "side", name: "Side", x: -1920)
             connect([main, moved])
             #expect(moved.activeWorkspace === original)
-            #expect(window.nodeWorkspace === original)
+            #expect(window.workspace === original)
             #expect(original.workspaceMonitor.rect.minX == -1920)
         }
 
-        @Test func disconnectMergesSubtreeAndReconnectStartsEmpty() {
+        @Test func disconnectInsertsIndividuallyAndReconnectStartsEmpty() {
             connect([main, side])
+            let destination = main.activeWorkspace
+            TestWindow.new(id: 1, workspace: destination)
+            TestWindow.new(id: 2, workspace: destination)
             let source = side.activeWorkspace
-            let root = source.rootTilingContainer
-            root.changeOrientation(.v)
-            let a = TestWindow.new(id: 1, parent: root, adaptiveWeight: 3)
-            let b = TestWindow.new(id: 2, parent: root, adaptiveWeight: 1)
-            let floating = TestWindow.new(id: 3, parent: source.floatingWindowsContainer)
-            let nativeFullscreen = TestWindow.new(id: 4, parent: source.macOsNativeFullscreenWindowsContainer)
-            let hidden = TestWindow.new(id: 5, parent: source.macOsNativeHiddenAppsWindowsContainer)
+            let a = TestWindow.new(id: 3, workspace: source)
+            let b = TestWindow.new(id: 4, workspace: source)
+            source.flipOrientation()
+            source.layout.resize(3, by: 100, in: source.layoutRect, gap: 8)
+            let floating = TestWindow.new(id: 5, workspace: source, kind: .floating)
+            let fullscreen = TestWindow.new(id: 6, workspace: source, kind: .nativeFullscreen)
+            let minimized = TestWindow.new(id: 7, workspace: source, kind: .minimized)
+            var expected = destination.layout
+            expected.insert(3, beside: destination.insertionTarget, in: destination.layoutRect, gap: 8)
+            expected.insert(4, beside: 3, in: destination.layoutRect, gap: 8)
             _ = b.focusWindow()
             connect([main])
-            #expect(DisplayLayoutState.shared.workspaces.count == 1)
-            #expect(root === main.activeWorkspace.rootTilingContainer)
-            #expect(root.children == [a, b])
-            #expect(root.orientation == .v)
-            #expect(a.vWeight == 3 && b.vWeight == 1)
-            #expect(floating.nodeWorkspace === main.activeWorkspace)
-            #expect(nativeFullscreen.nodeWorkspace === main.activeWorkspace)
-            #expect(hidden.nodeWorkspace === main.activeWorkspace)
+            #expect(destination.layout == expected)
+            for window in [a, b, floating, fullscreen, minimized] { #expect(window.workspace === destination) }
             #expect(focus.windowOrNil === b)
             connect([main, side])
-            #expect(side.activeWorkspace !== source)
-            #expect(side.activeWorkspace.isEffectivelyEmpty)
-            #expect(a.nodeWorkspace === main.activeWorkspace)
-        }
-
-        @Test func mergingPopulatedDisplaysSurvivesNormalization() {
-            connect([main, side])
-            let a = TestWindow.new(id: 1, parent: main.activeWorkspace.rootTilingContainer)
-            let b = TestWindow.new(id: 2, parent: main.activeWorkspace.rootTilingContainer)
-            let c = TestWindow.new(id: 3, parent: side.activeWorkspace.rootTilingContainer)
-            let d = TestWindow.new(id: 4, parent: side.activeWorkspace.rootTilingContainer)
-            connect([main])
-            main.activeWorkspace.normalizeContainers()
-            #expect(a.parent === b.parent)
-            #expect(c.parent === d.parent)
-            #expect((a.parent as? TilingContainer)?.orientation == .h)
-            #expect((c.parent as? TilingContainer)?.orientation == .h)
-            #expect(main.activeWorkspace.rootTilingContainer.orientation == .v)
+            #expect(side.activeWorkspace !== source && side.activeWorkspace.isEffectivelyEmpty)
+            #expect(destination.layout == expected)
         }
 
         @Test func noScreensDuringReconfigurationDoesNotDiscardLayouts() {
             connect([main, side])
-            let window = TestWindow.new(id: 1, parent: side.activeWorkspace.rootTilingContainer)
+            let window = TestWindow.new(id: 1, workspace: side.activeWorkspace)
             connect([])
             #expect(DisplayLayoutState.shared.workspaces.count == 2)
-            #expect(window.parent != nil)
+            #expect(window.isRegistered)
             connect([main, side])
-            #expect(window.nodeWorkspace === side.activeWorkspace)
+            #expect(window.workspace === side.activeWorkspace)
         }
 
         @Test func monitorCommandsMoveAndFocusWithoutCreatingWorkspaces() async {
             connect([main, side])
-            let window = TestWindow.new(id: 1, parent: main.activeWorkspace.rootTilingContainer)
+            let window = TestWindow.new(id: 1, workspace: main.activeWorkspace)
             _ = window.focusWindow()
             let move = await Action.moveToMonitorRight.applyToModel()
             #expect(move.exitCode.rawValue == 0)
-            #expect(window.nodeWorkspace === side.activeWorkspace)
+            #expect(window.workspace === side.activeWorkspace)
             #expect(focus.windowOrNil === window)
             let focusResult = await Action.leftMonitor.applyToModel()
             #expect(focusResult.exitCode.rawValue == 0)
@@ -119,28 +105,28 @@ extension CoreTests {
 
         @Test func monitorCyclingWrapsAndMovingAlwaysFollowsWindow() async {
             connect([main, side])
-            let window = TestWindow.new(id: 1, parent: main.activeWorkspace.rootTilingContainer)
+            let window = TestWindow.new(id: 1, workspace: main.activeWorkspace)
             _ = window.focusWindow()
             await Action.previousMonitor.applyToModel()
             #expect(focus.workspace === side.activeWorkspace)
             await Action.nextMonitor.applyToModel()
             #expect(focus.windowOrNil === window)
             await Action.moveToPreviousMonitor.applyToModel()
-            #expect(window.nodeWorkspace === side.activeWorkspace)
+            #expect(window.workspace === side.activeWorkspace)
             #expect(focus.windowOrNil === window)
             await Action.moveToNextMonitor.applyToModel()
-            #expect(window.nodeWorkspace === main.activeWorkspace)
+            #expect(window.workspace === main.activeWorkspace)
             #expect(focus.windowOrNil === window)
         }
 
-        @Test func directionalFocusStopsAtMonitorEdge() async {
+        @Test func directionalFocusCrossesScreensWithoutWrapping() async {
             connect([main, side])
-            let first = TestWindow.new(id: 1, parent: main.activeWorkspace.rootTilingContainer)
-            let last = TestWindow.new(id: 2, parent: main.activeWorkspace.rootTilingContainer)
-            TestWindow.new(id: 3, parent: side.activeWorkspace.rootTilingContainer)
+            let first = TestWindow.new(id: 1, workspace: main.activeWorkspace)
+            let last = TestWindow.new(id: 2, workspace: main.activeWorkspace)
+            TestWindow.new(id: 3, workspace: side.activeWorkspace)
             _ = last.focusWindow()
             await Action.focusRight.applyToModel()
-            #expect(focus.windowOrNil === last)
+            #expect(focus.windowOrNil?.windowId == 3)
             _ = first.focusWindow()
             await Action.focusLeft.applyToModel()
             #expect(focus.windowOrNil === first)
@@ -151,16 +137,17 @@ extension CoreTests {
 
         @Test func cyclingOneMonitorLeavesLayoutAndFocusIntact() async {
             connect([main])
-            let root = main.activeWorkspace.rootTilingContainer
-            let a = TestWindow.new(id: 1, parent: root, adaptiveWeight: 200)
-            let b = TestWindow.new(id: 2, parent: root, adaptiveWeight: 100)
+            let workspace = main.activeWorkspace
+            let a = TestWindow.new(id: 1, workspace: workspace)
+            TestWindow.new(id: 2, workspace: workspace)
+            workspace.layout.resize(1, by: 100, in: workspace.layoutRect, gap: 8)
+            let original = workspace.layout
             _ = a.focusWindow()
             for action in [Action.nextMonitor, .previousMonitor, .moveToNextMonitor, .moveToPreviousMonitor] {
                 let result = await action.applyToModel()
                 #expect(result.exitCode == .succ)
-                #expect(root.children == [a, b])
+                #expect(workspace.layout == original)
                 #expect(focus.windowOrNil === a)
-                #expect(a.hWeight == 200 && b.hWeight == 100)
             }
         }
 
@@ -169,8 +156,8 @@ extension CoreTests {
             ConfigurationApplication.shared.apply("gap = 12")
             for monitor in [main, side] {
                 let workspace = monitor.activeWorkspace
-                let a = TestWindow.new(id: monitor.isMain ? 1 : 3, parent: workspace.rootTilingContainer)
-                let b = TestWindow.new(id: monitor.isMain ? 2 : 4, parent: workspace.rootTilingContainer)
+                let a = TestWindow.new(id: monitor.isMain ? 1 : 3, workspace: workspace)
+                let b = TestWindow.new(id: monitor.isMain ? 2 : 4, workspace: workspace)
                 try await workspace.layoutWorkspace()
                 let first = try #require(await a.getAxRect(.nonCancellable))
                 let second = try #require(await b.getAxRect(.nonCancellable))
@@ -193,7 +180,7 @@ extension CoreTests {
         @Test func disconnectedFloatingWindowIsBroughtOnScreen() async throws {
             connect([main, side])
             let window = TestWindow.new(
-                id: 1, parent: side.activeWorkspace.floatingWindowsContainer,
+                id: 1, workspace: side.activeWorkspace, kind: .floating,
                 rect: Rect(topLeftX: 2200, topLeftY: 100, width: 400, height: 300))
             connect([main])
             try await main.activeWorkspace.layoutWorkspace()

@@ -34,6 +34,19 @@ var defaultConfigUrl: URL {
 
 struct Config: ConvenienceMutable {
     var gap: Int = 8
-    var bindings: [String: HotkeyBinding] = [:]
     var floatingApps: [String] = []
+    var bindings: [String: HotkeyBinding] = [:]
+    var newWindowPlacement: BinaryLayout.Placement = .outer
+    var rootOrientation: RootOrientation = .auto
+}
+
+enum RootOrientation: String {
+    case auto, horizontal, vertical
+    var axis: Orientation? {
+        switch self {
+        case .auto: nil
+        case .horizontal: .h
+        case .vertical: .v
+        }
+    }
 }

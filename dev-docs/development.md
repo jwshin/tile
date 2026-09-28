@@ -32,3 +32,27 @@ The app bundle is `tile.app`, its executable is `tile`, and its release bundle I
 The debug bundle ID is `local.jwshin.tile.debug`. The personal configuration is `~/.tile.toml`.
 When upgrading from an earlier name, copy the existing personal configuration to this path before launching
 tile, stop the previous app, and grant Accessibility access to tile if macOS prompts.
+
+## Native validation record: 2026-09-28
+
+The P2 fixes have automated regression coverage for recent-focus recovery after native close/minimize/fullscreen,
+interrupted reconciliation, leading-edge resizing, and returning from cross-screen hover. These are adapter/model
+checks, not a completed desktop smoke test. Re-run `./test.sh` and the prototype's guided controls for code validation.
+
+A read-only AppKit/Accessibility probe in this session reported **one connected display** and
+**Accessibility trusted: false** for the probe process. The installed release app has its own permission grant;
+this probe does not report that app's grant. No desktop-control tool is available in this session.
+The required native validation remains open until the following checks are performed with a current build:
+
+| Check | Action and expected result | Status |
+| --- | --- | --- |
+| Recent focus | Focus a floating window, then a tile. Close/minimize the tile with native controls; the float receives keyboard input. Repeat with the float in another app. | Not run |
+| Leading-edge resize | Expand a right-hand tile from its left edge, then a bottom tile from its top edge. Use a small gap and slow initial movements. The split changes; window positions do not exchange. Also drag a terminal window normally after cell-size rounding. | Not run |
+| Return from hover | With narrow W1 / wide W2, drag W1 onto W2, hover a second display, then return over W2 near the original divider. Swap back immediately; release on the source display. | Not run |
+| Multi-display movement | Move and focus windows across two displays, then change their physical arrangement. Focus and tiling follow the new geometry. | Not run |
+| Disconnect/reconnect | Disconnect a populated display. Windows migrate individually; reconnecting starts an empty layout. | Not run |
+| Lock/unlock | Lock and unlock with tiles and floats present. Temporary observation loss does not lose windows or corrupt the layout. | Not run |
+| Native lifecycle | Minimize/restore, hide/show, and enter/exit native fullscreen. Excluded windows leave the tree; return uses ordinary insertion. Verify dialogs still float. | Not run |
+| Configuration lifecycle | Disable/re-enable tiling and reload valid configuration. Shortcuts and layout remain operational. | Not run |
+
+Record the build/commit, displays, application names, results, and any reproduction details when completing these checks.

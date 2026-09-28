@@ -87,6 +87,18 @@ struct ParseConfigResult {
             if let apps = parseArrayOfStrings(value, path).getOrNil(appendErrorTo: &errors) {
                 parsed.floatingApps = apps
             }
+        case "new-window-placement":
+            if let raw = value.asStringOrNil, let placement = BinaryLayout.Placement(rawValue: raw) {
+                parsed.newWindowPlacement = placement
+            } else {
+                errors.append(.init(path, "Expected outer or inner"))
+            }
+        case "root-orientation":
+            if let raw = value.asStringOrNil, let orientation = RootOrientation(rawValue: raw) {
+                parsed.rootOrientation = orientation
+            } else {
+                errors.append(.init(path, "Expected auto, horizontal, or vertical"))
+            }
         case "bindings":
             parsed.bindings = parseBindings(value, path, &errors)
         default: errors.append(.init(path, "Unknown top-level key"))
@@ -108,12 +120,11 @@ func parseTomlArray(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrCo
 private func parseArrayOfStrings(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<
     [String]
 > {
-    parseTomlArray(raw, backtrace)
-        .flatMap { arr in
-            arr.enumerated().mapAllOrFailure { (index, elem) in
-                parseString(elem, backtrace + .index(index))
-            }
+    parseTomlArray(raw, backtrace).flatMap { array in
+        array.enumerated().mapAllOrFailure { index, element in
+            parseString(element, backtrace + .index(index))
         }
+    }
 }
 
 struct ConfigBacktrace: CustomStringConvertible, Equatable {

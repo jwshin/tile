@@ -22,13 +22,13 @@ both preferences and registrations. Reload while disabled updates preferences wi
 re-enabling registers the latest bindings. UI callers present returned diagnostics.
 
 `ActionExecution.execute` is the interface used by keyboard and menu callers. It owns native focus import,
-normalization, command execution, frame writes, native focus updates, and background refresh scheduling.
+command execution, frame writes, native focus updates, and background refresh scheduling.
 Its internal desktop adapter supplies native observations and reconciliation; tests substitute observations
 while exercising the same session and layout implementation. Foreground sessions cancel background refresh.
 Mouse and startup sessions use the same owner. Tree algorithm tests keep a smaller test-only entry point.
 
 `DisplayLayoutState` owns display layouts, window identity, logical focus, native focus history, restoration
-snapshots, and the minimized/popup containers. Each test can create fresh state. Layout mutations invalidate
+snapshots, and native window kinds (floating, popup, minimized, hidden, fullscreen). Each test can create fresh state. Layout mutations invalidate
 restoration through the owner, and window disappearance/restoration uses the same lookup in production and tests.
 
 
@@ -40,8 +40,8 @@ The release script packages the executable and default configuration into a loca
 
 `Workspace` is retained as an internal layout container. There is one per connected display, indexed by
 macOS display ID rather than screen coordinates or user-specified workspace names. Display movement
-updates geometry without exchanging trees. Disconnecting merges the missing display's tiling subtree,
-floating windows, and native fullscreen/hidden windows into the main display. A newly connected display
+updates geometry without exchanging trees. Disconnecting inserts its tiled windows individually on the most recently focused remaining screen
+(or the main screen), moving floating and unavailable windows to that screen as well. A newly connected display
 gets an empty tree. A transient zero-display snapshot does not destroy existing layouts.
 
 There is no inactive-workspace hiding. All registered display layouts are visible. Frozen focus resolves
@@ -52,26 +52,68 @@ closed-window restoration snapshot so unlocking cannot restore an obsolete displ
 
 Bindings store a typed `Action` selected by exact name. `Action.swift` maps the finite action set to small
 internal commands; there is no argument parser, command sequence, window-ID target, or monitor-pattern matching.
-Commands operate on the current focus. Action execution invalidates restoration when needed and normalizes
-the model after each action, including failures. Monitor navigation retains directions and wrapping next/previous;
-moving a window between monitors always follows it. Directional window focus stops at display edges.
+Commands operate on the current focus. Action execution invalidates restoration when needed and applies
+frames after each action, including failures. Monitor navigation retains directions and wrapping next/previous;
+moving a window between monitors always follows it. Directional tile focus crosses screens in their physical arrangement without wrapping.
 
-Configuration has only `gap`, `floating-apps`, and `[bindings]`. All displays use the same inner/outer gap,
+Configuration has `gap`, `floating-apps`, `new-window-placement`, `root-orientation`, and `[bindings]`. All displays use the same inner/outer gap,
 with 8 points as the default. Key names use fixed QWERTY positions. Omitting the binding table inherits defaults; an explicit table replaces them.
 Parsing collects diagnostics and rejects the entire reload on error. The config path is fixed to
 `~/.tile.toml`; the internal URL override exists only for bundled startup validation and tests.
 
-New root layouts use horizontal orientation on landscape displays and vertical on portrait displays.
-Single-child groups are always flattened, and nested groups always alternate orientation. Use `join-*` actions
-to create groups. Tiling containers store orientation and sizing only. Resize actions use a fixed 50-point step
-along the immediate split. Fullscreen preserves outer spacing, close affects only the focused window, and layout
-actions toggle orientation or floating state.
+## Binary layout module
+
+`BinaryLayout` is a value type with a private recursive node: a window ID, or a ratio and exactly
+two children. The root orientation determines each split's direction by depth. Callers can insert,
+remove, swap, move, resize, recover, balance, or request geometry without editing nodes. Empty layouts
+have no root; removal promotes a sibling. There are no parent pointers, adaptive weights, or normalization passes.
+Parent and sibling-region queries belong to this module, so gesture handling does not interpret tree paths.
+
+Insertion checks a local 50/50 split using Outer/Inner placement. Failure leaves the tree unchanged;
+the owner floats the arriving window. Minimum section dimensions are calculated bottom-up. Interactive
+resize clamps the nearest matching divider while retaining child ratios. Recovery after unavoidable
+geometry/topology changes keeps valid ratios, clamps the rest, then removes least-recently-focused tiles
+until the tree fits. `Workspace` turns those removals into floating membership.
+
+Moves perform a structural exchange and solve for an exact selected width/height as one transaction.
+Bounds propagate upward from that leaf; allocation proceeds downward, adjusting destination and ancestor
+dividers. Other subtrees retain ratios unless their minimums require adjustment. If no valid allocation
+exists, the original value tree is retained. Both the native model and prototype implement this rule.
+
+`Workspace` owns the tree, per-screen root override, and recent-focus history. `Window` is a registered
+native/test object with a kind, minimum size, assigned screen, and focus timestamp. `DisplayLayoutState.place`
+is the shared insertion path for creation, retiling, native return, and screen transfer. Minimized/hidden/
+native fullscreen windows keep their assigned screen and resume kind outside the tree.
+
+Restoration keeps in-memory layout values and window kinds. Returning identities reconstruct the saved
+tree with missing leaves pruned; additional windows are retained. Explicit layout edits and monitor removal
+invalidate snapshots. Startup rebuilds discovered windows; no persistent layout store is added.
+
+Focus ranks tile rectangles by perpendicular overlap, forward distance, perpendicular distance, then ID.
+Floating windows can supply a focus origin but are not directional targets. Move prefers the immediate
+sibling section, otherwise an individual tile outside the parent on the same screen. Explicit swap always
+exchanges individual windows. The `join-*` and `flatten-layout` actions are removed.
+
+`MouseTiling` owns a gesture's original and expected layouts. Native resize deltas apply to the original
+snapshot. Same-screen swaps update live, with a target-region latch and sticky individual-window mode
+once a parent boundary is crossed. Another screen receives only a preview until release. A cross-screen
+drop restores the original source tree before transferring once. Escape or an independent lifecycle/action
+change cancels before mutation. Stale gestures never overwrite unrelated edits or resurrect closed windows.
+A non-activating `NSPanel` renders the destination outline. Input continues through the normal native window.
+
+The retained [prototype](layout-prototype.html) and [tiling rules](tiling-rules.md) are the executable reference
+and authoritative policy document. Keep both synchronized with native policy changes.
 
 ## Native adapter seam
 
 MacApp serializes Accessibility operations on a dedicated run-loop thread per application. Main-actor
 refresh sessions reconcile native events with the mutable model. MacWindow bridges native window IDs
-and tree leaves. Keep cancellation, window classification, and lock-screen restoration when changing policy.
+and registered window objects. Keep cancellation, window classification, and lock-screen restoration when changing policy.
+Initial classification checks `floating-apps` against the raw bundle identifier after popup filtering. The list is a default for newly detected windows; reload does not rewrite existing membership, and manual tiling survives transfers and temporary exclusion.
+Resizable capability is queried through Accessibility, with unknown capability allowed. After successful
+size writes, two consistent returned sizes more than 32 points larger can raise a window's minimum;
+smaller discrepancies, such as cell snapping, are ignored; stale requests, floating
+windows, active drags, and expanded windows are ignored. These limits are learned only in memory.
 Tests use TestWindow and injectable monitor snapshots to verify policy without operating the real desktop.
 Model suites remain serialized because application-level accessors and native test fixtures still share state.
 Configuration application and display layout state can also be constructed independently inside a test.

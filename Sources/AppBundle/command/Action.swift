@@ -10,10 +10,6 @@ enum Action: String, CaseIterable, Sendable {
     case moveDown = "move-down"
     case moveUp = "move-up"
     case moveRight = "move-right"
-    case joinLeft = "join-left"
-    case joinDown = "join-down"
-    case joinUp = "join-up"
-    case joinRight = "join-right"
     case swapLeft = "swap-left"
     case swapDown = "swap-down"
     case swapUp = "swap-up"
@@ -33,11 +29,14 @@ enum Action: String, CaseIterable, Sendable {
     case balanceSizes = "balance-sizes"
     case close = "close"
     case toggleTiling = "toggle-tiling"
-    case flattenLayout = "flatten-layout"
     case fullscreen = "fullscreen"
     case toggleOrientation = "toggle-orientation"
     case toggleFloating = "toggle-floating"
     case reloadConfig = "reload-config"
+    case shrinkWidth = "shrink-width"
+    case growWidth = "grow-width"
+    case shrinkHeight = "shrink-height"
+    case growHeight = "grow-height"
     case shrink = "shrink"
     case grow = "grow"
 
@@ -51,10 +50,6 @@ enum Action: String, CaseIterable, Sendable {
         case .moveDown: MoveCommand(direction: .down)
         case .moveUp: MoveCommand(direction: .up)
         case .moveRight: MoveCommand(direction: .right)
-        case .joinLeft: JoinWithCommand(direction: .left)
-        case .joinDown: JoinWithCommand(direction: .down)
-        case .joinUp: JoinWithCommand(direction: .up)
-        case .joinRight: JoinWithCommand(direction: .right)
         case .swapLeft: SwapCommand(direction: .left)
         case .swapDown: SwapCommand(direction: .down)
         case .swapUp: SwapCommand(direction: .up)
@@ -74,11 +69,14 @@ enum Action: String, CaseIterable, Sendable {
         case .balanceSizes: BalanceSizesCommand()
         case .close: CloseCommand()
         case .toggleTiling: EnableCommand()
-        case .flattenLayout: FlattenWorkspaceTreeCommand()
         case .fullscreen: FullscreenCommand()
         case .toggleOrientation: LayoutCommand(change: .orientation)
         case .toggleFloating: LayoutCommand(change: .floating)
         case .reloadConfig: ReloadConfigCommand()
+        case .shrinkWidth: ResizeCommand(grow: false, axis: .h)
+        case .growWidth: ResizeCommand(grow: true, axis: .h)
+        case .shrinkHeight: ResizeCommand(grow: false, axis: .v)
+        case .growHeight: ResizeCommand(grow: true, axis: .v)
         case .shrink: ResizeCommand(grow: false)
         case .grow: ResizeCommand(grow: true)
         }

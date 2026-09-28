@@ -36,6 +36,14 @@ enum GlobalObserver {
         nc.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main, using: onNotif)
 
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
+            guard event.keyCode == 53 else { return }
+            Task { @MainActor in
+                MouseTiling.shared.cancel()
+                ActionExecution.shared.scheduleRefresh(.resetManipulatedWithMouse)
+            }
+        }
+
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { _ in
             // todo reduce number of refresh session in the callback
             //  resetManipulatedWithMouseIfPossible might call its own refresh session
