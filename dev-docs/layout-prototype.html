@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>tile · binary layout prototype</title>
+<style>
+:root{font:14px/1.5 system-ui,sans-serif;color:#202631;background:#f6f7f9;--accent:#3565d9;--line:#dce1e8}
+*{box-sizing:border-box}body{max-width:1440px;margin:0 auto;padding:24px}h1{font-size:24px;letter-spacing:-.7px;margin:0}h2{font-size:14px;margin:0 0 10px}p{margin:6px 0 16px;color:#596273}button{font:inherit;border:1px solid #cbd2dd;background:white;color:inherit;padding:6px 12px;border-radius:5px;cursor:pointer}button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}button:disabled{opacity:.4;cursor:default}button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}button.primary{color:white;background:var(--accent);border-color:var(--accent)}.eyebrow{font-size:11px;letter-spacing:1.1px;color:#677184;text-transform:uppercase;margin-bottom:4px}.intro{max-width:950px}.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0 12px}.divider{width:1px;height:26px;background:var(--line);margin:0 6px}.caption{font-size:12px;color:#667083}.status{min-height:24px;font-size:13px;margin:0 0 10px}.board{display:flex;gap:18px;touch-action:none;user-select:none;overflow-x:auto;padding:3px 3px 10px}.display{flex:1;min-width:260px}.display-label{display:flex;justify-content:space-between;font-size:12px;color:#677184;margin-bottom:7px}.stage{position:relative;width:100%;aspect-ratio:16 / 10;background:#e7ebf1;outline:2px solid transparent;overflow:hidden}.display.active .stage{outline-color:#aab6cb}.tile{position:absolute;background:#bac3d0;color:#27364a;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:500;cursor:grab;touch-action:none}.tile.focused{background:var(--accent);color:white}.tile.dragged{visibility:hidden}.ghost{position:fixed;pointer-events:none;z-index:1000;display:flex;align-items:center;justify-content:center;background:var(--accent);color:white;opacity:.8;font-size:23px;font-weight:500}.empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;color:#687487;font-size:13px;pointer-events:none}.panels{display:grid;grid-template-columns:minmax(240px,1fr) minmax(300px,1.4fr);gap:16px;margin-top:18px}.panel{background:white;border:1px solid var(--line);padding:16px;border-radius:7px}pre{margin:0;font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.rules{margin:0;padding-left:18px;font-size:13px;color:#505c6f}.rules li{margin:6px 0}.log{font-size:12px;color:#687487;margin:12px 0 0;padding-left:18px}.experiments{margin-top:16px}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button[aria-selected=true]{background:#eaf0ff;border-color:var(--accent);color:var(--accent)}.steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.steps button.done{text-decoration:line-through}.scenario-note{font-size:13px;margin-top:12px}.footer{font-size:12px;color:#70798a;margin-top:16px}details{margin-top:12px}summary{cursor:pointer;font-size:12px;color:#667083}@media(max-width:760px){body{padding:16px}.panels{grid-template-columns:1fr}.controls{gap:6px}}
+.screen-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}.screen-controls button[aria-pressed=true]{background:#eaf0ff;border-color:var(--accent);color:var(--accent)}select{font:inherit;padding:5px;border:1px solid #cbd2dd;border-radius:4px;background:white}.board{max-width:100%;overflow:visible}.display{min-width:0;max-width:min(100%,100vh);margin:auto}.stage{outline:1px solid #ccd4df}.tile.floating{z-index:10}.tile.floating.focused{z-index:11}
+</style>
+</head>
+<body>
+<header class="intro"><div class="eyebrow">Throwaway prototype · experiment 01</div><h1>tile layout lab</h1><p>Chosen model: each leaf is one window; each split has exactly two children. Split directions alternate by depth, including after deletion. Floating windows live outside the tree. Use this sandbox to decide the remaining creation and movement rules.</p></header>
+<div class="controls" aria-label="Debug controls">
+<button id="create" class="primary">+ New window</button><button id="delete">Delete focused</button>
+<span class="divider"></span><span class="caption">Move focused</span>
+<button data-move="left" aria-label="Move focused window left">←</button><button data-move="down" aria-label="Move focused window down">↓</button><button data-move="up" aria-label="Move focused window up">↑</button><button data-move="right" aria-label="Move focused window right">→</button>
+<button id="transfer">Other screen</button><button id="float">Float focused</button><span class="divider"></span><button id="undo">Undo</button><button id="reset">Reset</button>
+</div>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+<div class="screen-controls"><span class="caption">Inspect screen</span><button data-screen="A">A</button><button data-screen="B">B</button><span class="divider"></span><label class="caption">Root split <select id="axis"><option value="x">Horizontal · left / right</option><option value="y">Vertical · top / bottom</option></select></label></div>
+<div id="board" class="board" aria-label="Simulated screen">
+<section class="display"><div class="display-label"><span id="screen-name">Screen A</span><span>1440 × 900</span></div><div class="stage"></div></section>
+</div>
+<div class="caption">Click to focus. Drag a tiled window over another to swap live. Drag floating windows freely. Blue = focused. Debug controls stay outside the windows. Escape cancels a drag.</div>
+<div class="panels">
+<section class="panel"><h2>Current model</h2><pre id="model"></pre><details><summary>Full state and calculated rectangles</summary><pre id="raw"></pre></details></section>
+<section class="panel"><h2>Chosen model &amp; working rules</h2><ul class="rules">
+<li><strong>Chosen structure:</strong> one window per leaf; exactly two children per split. The first window fills an empty screen. Directions alternate from the screen root and always follow current depth.</li>
+<li><strong>Create:</strong> split the focused tiled window 50/50. When focus is floating, split the most recently focused remaining tile.</li>
+<li><strong>Delete / float:</strong> remove the tile and promote its sibling. Directions follow depth, so promotion can rotate an existing subtree.</li>
+<li><strong>Move:</strong> buttons swap with the nearest tiled window in that direction. At an edge, nothing happens. Dragging swaps when entering another tile.</li>
+<li><strong>Floating:</strong> excluded from the tree. Drag freely or nudge with the move buttons. Tiling again splits the most recently focused tile.</li>
+<li><strong>Screens:</strong> independent trees and root directions. “Other screen” transfers the focused window and follows it. No minimum tile size or automatic rebalancing yet.</li>
+</ul><ol id="log" class="log"></ol></section>
+</div>
+<section class="panel experiments"><h2>Guided experiments</h2><div id="tabs" class="tabs" role="tablist" aria-label="Experiments"></div><div id="scenario" role="tabpanel"></div></section>
+<div class="footer">Plain HTML / CSS / JavaScript. No installation, network calls, storage, or connection to the macOS app. Reloading starts over.</div>
+<script id="layout-logic">
+// Design decisions: window leaves (option A); exactly two children per split; axes follow current depth.
+// Still experimental: split focused tile 50/50, swap-based movement, and floating reinsertion.
+// Prototype model: no DOM. Split axes are derived from screen direction and depth.
+const Layout = (() => {
+  const GAP=12, WIDTH=1440, HEIGHT=900;
+  const ids=n=>n==null?[]:typeof n==='number'?[n]:n.children.flatMap(ids);
+  const owner=(s,id)=>s.displays.find(d=>ids(d.root).includes(id)||d.floating.some(w=>w.id===id));
+  const isFloating=(s,id)=>owner(s,id)?.floating.some(w=>w.id===id)??false;
+  function replace(n,id,replacement){
+    if(n==null)return null;if(typeof n==='number')return n===id?replacement:n;
+    const children=n.children.map(c=>replace(c,id,replacement)).filter(c=>c!=null);
+    return children.length===2?{children}:children[0]??null;
+  }
+  const split=(root,target,id)=>root==null?id:replace(root,target,{children:[target,id]});
+  const target=d=>ids(d.root).includes(d.lastTiled)?d.lastTiled:ids(d.root).at(-1);
+  function frames(s){
+    const result=[];
+    function walk(n,r,axis,display,depth){
+      if(n==null)return;
+      if(typeof n==='number'){result.push({id:n,display,...r,depth,nextSplit:axis,floating:false});return;}
+      const length=axis==='x'?r.w:r.h,gap=Math.min(GAP,length),half=(length-gap)/2;
+      const first=axis==='x'?{...r,w:half}:{...r,h:half};
+      const second=axis==='x'?{...r,x:r.x+half+gap,w:half}:{...r,y:r.y+half+gap,h:half};
+      walk(n.children[0],first,axis==='x'?'y':'x',display,depth+1);
+      walk(n.children[1],second,axis==='x'?'y':'x',display,depth+1);
+    }
+    for(const d of s.displays){walk(d.root,{x:GAP,y:GAP,w:WIDTH-2*GAP,h:HEIGHT-2*GAP},d.axis,d.id,0);result.push(...d.floating.map(w=>({...w,display:d.id,floating:true})));}
+    return result;
+  }
+  function neighbor(s,id,direction){
+    const rects=frames(s).filter(r=>!r.floating),source=rects.find(r=>r.id===id);if(!source)return null;
+    const horizontal=['left','right'].includes(direction),positive=['right','down'].includes(direction);
+    const center=r=>horizontal?r.x+r.w/2:r.y+r.h/2,cross=r=>horizontal?r.y+r.h/2:r.x+r.w/2;
+    const overlap=r=>horizontal?Math.min(r.y+r.h,source.y+source.h)-Math.max(r.y,source.y)>0:Math.min(r.x+r.w,source.x+source.w)-Math.max(r.x,source.x)>0;
+    return rects.filter(r=>r.display===source.display&&r.id!==id&&(center(r)-center(source))*(positive?1:-1)>.01)
+      .sort((a,b)=>Number(overlap(b))-Number(overlap(a))||Math.abs(center(a)-center(source))-Math.abs(center(b)-center(source))||Math.abs(cross(a)-cross(source))-Math.abs(cross(b)-cross(source))||a.id-b.id)[0]?.id??null;
+  }
+  function swap(n,a,b){return n==null?null:typeof n==='number'?(n===a?b:n===b?a:n):{children:n.children.map(c=>swap(c,a,b))};}
+  const clamp=(v,low,high)=>Math.max(low,Math.min(high,v));
+  function detach(d,id){d.root=replace(d.root,id,null);d.floating=d.floating.filter(w=>w.id!==id);if(d.lastTiled===id)d.lastTiled=ids(d.root).at(-1)??null;}
+  function focus(s,id){const d=owner(s,id);if(!d)return;s.focused=id;s.activeDisplay=d.id;if(!isFloating(s,id))d.lastTiled=id;}
+  function seed(){return {displays:[{id:'A',axis:'x',root:{children:[1,{children:[2,3]}]},floating:[],lastTiled:3},{id:'B',axis:'x',root:null,floating:[],lastTiled:null}],focused:3,activeDisplay:'A',nextId:4};}
+  function reduce(state,action){
+    const s=structuredClone(state),id=s.focused,d=s.displays.find(d=>d.id===s.activeDisplay);
+    if(action.type==='focus')focus(s,action.id);
+    else if(action.type==='display'){const screen=s.displays.find(d=>d.id===action.display);if(screen){s.activeDisplay=screen.id;s.focused=target(screen)??screen.floating.at(-1)?.id??null;}}
+    else if(action.type==='axis')d.axis=action.axis;
+    else if(action.type==='create'){const added=s.nextId++;d.root=split(d.root,target(d),added);focus(s,added);}
+    else if(action.type==='delete'&&id!=null){const order=[...ids(d.root),...d.floating.map(w=>w.id)],index=order.indexOf(id);detach(d,id);const remaining=[...ids(d.root),...d.floating.map(w=>w.id)];s.focused=remaining[Math.min(index,remaining.length-1)]??null;if(s.focused!=null)focus(s,s.focused);}
+    else if(action.type==='move'&&id!=null){
+      const floating=d.floating.find(w=>w.id===id);
+      if(floating){floating.x=clamp(floating.x+(action.direction==='right'?40:action.direction==='left'?-40:0),0,WIDTH-floating.w);floating.y=clamp(floating.y+(action.direction==='down'?40:action.direction==='up'?-40:0),0,HEIGHT-floating.h);}
+      else {const next=neighbor(s,id,action.direction);if(next!=null)d.root=swap(d.root,id,next);}
+    } else if(action.type==='swap'&&id!=null){if(ids(d.root).includes(action.target))d.root=swap(d.root,id,action.target);}
+    else if(action.type==='float'&&id!=null){
+      const floating=d.floating.find(w=>w.id===id);
+      if(floating){d.floating=d.floating.filter(w=>w.id!==id);d.root=split(d.root,target(d),id);focus(s,id);}
+      else {const r=frames(s).find(r=>r.id===id),w=Math.min(600,Math.max(260,r.w*.8)),h=Math.min(420,Math.max(180,r.h*.8));detach(d,id);d.floating.push({id,x:clamp(r.x+(r.w-w)/2,0,WIDTH-w),y:clamp(r.y+(r.h-h)/2,0,HEIGHT-h),w,h});}
+    } else if(action.type==='floatMove'&&id!=null){const w=d.floating.find(w=>w.id===id);if(w){w.x=clamp(action.x,0,WIDTH-w.w);w.y=clamp(action.y,0,HEIGHT-w.h);}}
+    else if(action.type==='transfer'&&id!=null){const destination=s.displays.find(screen=>screen.id!==d.id),floating=d.floating.find(w=>w.id===id);detach(d,id);if(floating)destination.floating.push(floating);else destination.root=split(destination.root,target(destination),id);focus(s,id);}
+    return s;
+  }
+  return {seed,reduce,frames,ids,isFloating,WIDTH,HEIGHT};
+})();
+</script>
+<script id="prototype-ui">
+const $=id=>document.getElementById(id);
+let state=Layout.seed(),history=[],messages=['A horizontal root; its right child splits vertically.'],drag=null,scenarioIndex=null,stepIndex=0;
+const scenarios=[
+  {name:'Alternating splits',note:'W3 is a leaf at depth 2. Its next split is horizontal; the new child then splits vertically. Watch how each new window uses the opposite direction from its parent.',steps:[['Split W3: add W4',{type:'create'}],['Split W4: add W5',{type:'create'}],['Delete W5',{type:'delete'}]]},
+  {name:'Collapse & rotate',note:'Delete W1. The former right subtree becomes the root, so W2 and W3 change from top/bottom to left/right. This is the key consequence of directions following depth.',steps:[['Focus W1',{type:'focus',id:1}],['Delete W1',{type:'delete'}],['Create W4',{type:'create'}]]},
+  {name:'Floating',note:'Float W3, nudge it independently, then tile it again. Floating windows are not sections in the tree.',steps:[['Float W3',{type:'float'}],['Move it left',{type:'move',direction:'left'}],['Tile W3 again',{type:'float'}]]},
+  {name:'Two screens',note:'Each screen has its own tree and root direction. Move W3 to B, create another window, then change B’s root direction.',steps:[['Send W3 to B',{type:'transfer'}],['Create W4',{type:'create'}],['Vertical root on B',{type:'axis',axis:'y'}]]}
+];
+function describe(a){return ({focus:`Focused W${a.id}.`,display:`Selected screen ${a.display}.`,axis:`Changed the root to ${a.axis==='x'?'horizontal':'vertical'}.`,create:'Created a window by splitting a tile.',delete:'Deleted the focused window and collapsed its parent.',move:`Moved the focused window ${a.direction}.`,swap:`Swapped with W${a.target} while dragging.`,float:'Changed the focused window between floating and tiled.',floatMove:'Moved the floating window.',transfer:'Transferred the focused window to the other screen.'})[a.type];}
+function apply(action,record=true){
+  const next=Layout.reduce(state,action);if(JSON.stringify(next)===JSON.stringify(state)){$('status').textContent='No change: there is no window in that direction, or the window is already selected.';return false;}
+  if(record)history.push(structuredClone(state));state=next;if(action.type!=='floatMove'){messages.unshift(describe(action));messages=messages.slice(0,5);}render();return true;
+}
+function tree(n,axis,indent='',depth=0){
+  if(n==null)return indent+'(empty)';
+  if(typeof n==='number')return indent+`W${n}${n===state.focused?'  ← focused':''} · next split ${axis==='x'?'horizontal':'vertical'}`;
+  return indent+`${axis==='x'?'horizontal →':'vertical ↓'} · 50 / 50 · depth ${depth}\n`+n.children.map(c=>tree(c,axis==='x'?'y':'x',indent+'  ',depth+1)).join('\n');
+}
+function render(){
+  const rects=Layout.frames(state),screen=state.displays.find(d=>d.id===state.activeDisplay),stage=document.querySelector('.stage');
+  $('screen-name').textContent=`Screen ${screen.id}`;$('axis').value=screen.axis;
+  document.querySelectorAll('[data-screen]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.screen===screen.id));
+  stage.replaceChildren();
+  const items=rects.filter(r=>r.display===screen.id);
+  for(const r of items){const el=document.createElement('div');el.className='tile'+(r.id===state.focused?' focused':'')+(r.floating?' floating':'')+(drag?.moving&&!drag.floating&&drag.id===r.id?' dragged':'');el.dataset.window=r.id;el.textContent=`W${r.id}`;el.setAttribute('aria-label',`Window ${r.id}${r.floating?', floating':''}${r.id===state.focused?', focused':''}`);Object.assign(el.style,{left:r.x/Layout.WIDTH*100+'%',top:r.y/Layout.HEIGHT*100+'%',width:r.w/Layout.WIDTH*100+'%',height:r.h/Layout.HEIGHT*100+'%'});stage.append(el);}
+  if(!items.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Empty screen · New window fills it';stage.append(empty);}
+  $('status').textContent=`${state.focused==null?'No focused window':`Focused W${state.focused}${Layout.isFloating(state,state.focused)?' · floating':''}`} · Screen ${screen.id} · ${Layout.ids(screen.root).length} tiled / ${screen.floating.length} floating`;
+  $('model').textContent=state.displays.map(d=>`Screen ${d.id}${d.id===state.activeDisplay?' · active':''}\n${tree(d.root,d.axis)}\nFloating: ${d.floating.map(w=>`W${w.id}${w.id===state.focused?' (focused)':''} @ ${Math.round(w.x)},${Math.round(w.y)}`).join('; ')||'none'}`).join('\n\n');
+  $('raw').textContent=JSON.stringify({state,rectangles:rects},null,2);
+  $('log').replaceChildren(...messages.map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
+  for(const id of ['delete','transfer','float'])$(id).disabled=state.focused==null;
+  $('float').textContent=Layout.isFloating(state,state.focused)?'Tile focused':'Float focused';
+  document.querySelectorAll('[data-move]').forEach(b=>b.disabled=state.focused==null);$('undo').disabled=!history.length;renderScenario();
+}
+function freeAction(action){scenarioIndex=null;apply(action);renderScenario();}
+for(const type of ['create','delete','transfer','float'])$(type).onclick=()=>freeAction({type});
+document.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>freeAction({type:'move',direction:b.dataset.move}));
+document.querySelectorAll('[data-screen]').forEach(b=>b.onclick=()=>freeAction({type:'display',display:b.dataset.screen}));
+$('axis').onchange=e=>freeAction({type:'axis',axis:e.target.value});
+$('undo').onclick=()=>{if(history.length){state=history.pop();scenarioIndex=null;messages.unshift('Undid the last action.');render();}};
+$('reset').onclick=()=>{state=Layout.seed();history=[];messages=['Reset to the initial binary sections.'];scenarioIndex=null;render();};
+function renderScenario(){
+  $('tabs').replaceChildren(...scenarios.map((scenario,index)=>{const b=document.createElement('button');b.textContent=scenario.name;b.setAttribute('role','tab');b.setAttribute('aria-selected',index===scenarioIndex);b.onclick=()=>{state=Layout.seed();history=[];messages=[`Started experiment: ${scenario.name}.`];scenarioIndex=index;stepIndex=0;render();};return b;}));
+  const panel=$('scenario');panel.replaceChildren();const note=document.createElement('div');note.className='scenario-note';note.textContent=scenarioIndex==null?'Choose an experiment to reset the screen and step through it, or keep using the debug buttons.':scenarios[scenarioIndex].note;panel.append(note);if(scenarioIndex==null)return;
+  const steps=document.createElement('div');steps.className='steps';scenarios[scenarioIndex].steps.forEach(([label,action],index)=>{const b=document.createElement('button');b.textContent=`${index+1}. ${label}`;b.disabled=index!==stepIndex;b.classList.toggle('done',index<stepIndex);b.onclick=()=>{stepIndex++;apply(action);renderScenario();};steps.append(b);});panel.append(steps);
+}
+function point(e){const r=document.querySelector('.stage').getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*Layout.WIDTH,y:(e.clientY-r.top)/r.height*Layout.HEIGHT};}
+const contains=(r,p)=>p.x>=r.x&&p.x<r.x+r.w&&p.y>=r.y&&p.y<r.y+r.h;
+function liveMove(e){
+  const p=point(e);let action;
+  if(drag.floating){action={type:'floatMove',x:drag.frame.x+(e.clientX-drag.startX)*Layout.WIDTH/drag.stageWidth,y:drag.frame.y+(e.clientY-drag.startY)*Layout.HEIGHT/drag.stageHeight};}
+  else {if(drag.latch&&contains(drag.latch,p))return;drag.latch=null;const target=Layout.frames(state).find(r=>!r.floating&&r.display===state.activeDisplay&&r.id!==drag.id&&contains(r,p));if(!target)return;action={type:'swap',target:target.id};drag.latch=target;}
+  if(apply(action,false)&&!drag.recorded){history.push(drag.initial);drag.recorded=true;$('undo').disabled=false;}
+}
+$('board').addEventListener('pointerdown',e=>{
+  if(e.button!==0||drag)return;const tile=e.target.closest('[data-window]');if(!tile)return;scenarioIndex=null;
+  const r=tile.getBoundingClientRect(),stage=document.querySelector('.stage').getBoundingClientRect(),id=Number(tile.dataset.window);apply({type:'focus',id});
+  drag={id,pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,offsetX:e.clientX-r.left,offsetY:e.clientY-r.top,w:r.width,h:r.height,stageWidth:stage.width,stageHeight:stage.height,frame:Layout.frames(state).find(r=>r.id===id),floating:Layout.isFloating(state,id),initial:structuredClone(state),moving:false,recorded:false,latch:null};$('board').setPointerCapture(e.pointerId);e.preventDefault();
+});
+$('board').addEventListener('pointermove',e=>{
+  if(!drag||drag.pointerId!==e.pointerId)return;if(!drag.moving&&Math.hypot(e.clientX-drag.startX,e.clientY-drag.startY)<5)return;
+  if(!drag.moving){drag.moving=true;if(!drag.floating){const ghost=document.createElement('div');ghost.id='ghost';ghost.className='ghost';ghost.textContent=`W${drag.id}`;ghost.style.width=drag.w+'px';ghost.style.height=drag.h+'px';document.body.append(ghost);}render();}
+  const ghost=$('ghost');if(ghost){ghost.style.left=e.clientX-drag.offsetX+'px';ghost.style.top=e.clientY-drag.offsetY+'px';}liveMove(e);
+});
+function endDrag(e,cancel=false){if(!drag||drag.pointerId!==e.pointerId)return;if(cancel){state=drag.initial;if(drag.recorded)history.pop();messages.unshift('Cancelled the drag.');}else if(drag.moving)liveMove(e);const pointerId=drag.pointerId;drag=null;$('ghost')?.remove();if($('board').hasPointerCapture(pointerId))$('board').releasePointerCapture(pointerId);render();}
+$('board').addEventListener('pointerup',e=>endDrag(e));$('board').addEventListener('pointercancel',e=>endDrag(e,true));$('board').addEventListener('lostpointercapture',e=>{if(drag)endDrag(e,true);});window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drag)endDrag({pointerId:drag.pointerId},true);});
+window.LayoutPrototype={get state(){return structuredClone(state);},Layout};
+render();
+</script>
+</body>
+</html>
