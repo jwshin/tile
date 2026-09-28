@@ -23,15 +23,15 @@
 <div id="board" class="board" aria-label="Simulated screen">
 <section class="display"><div class="display-label"><span id="screen-name">Screen A</span><span>1440 × 900</span></div><div class="stage"></div></section>
 </div>
-<div class="caption">Click to focus. Drag a tile into its sibling’s area to swap live; a sibling section moves as a whole. Drag floating windows freely. Blue = focused. Debug controls stay outside the windows. Escape cancels a drag.</div>
+<div class="caption">Click to focus. Drag within the parent to swap sibling sections; cross its boundary to swap individual windows. Drag floating windows freely. Blue = focused. Debug controls stay outside the windows. Escape cancels a drag.</div>
 <div class="panels">
 <section class="panel"><h2>Current model</h2><pre id="model"></pre><details><summary>Full state and calculated rectangles</summary><pre id="raw"></pre></details></section>
 <section class="panel"><h2>Chosen model &amp; working rules</h2><ul class="rules">
 <li><strong>Chosen structure:</strong> one window per leaf; exactly two children per split. The first window fills an empty screen. Directions alternate from the screen root and always follow current depth.</li>
 <li><strong>Create:</strong> split the focused tiled window 50/50. New windows default to the left for horizontal splits or top for vertical splits. “New window placement” can reverse this to right / bottom; it affects future creation only. When focus is floating, split the most recently focused remaining tile.</li>
 <li><strong>Delete / float:</strong> remove the tile and promote its sibling. Directions follow depth, so promotion can rotate an existing subtree.</li>
-<li><strong>Drag:</strong> only swap the two children of the dragged window’s immediate parent. If its sibling contains several windows, move that entire section together. Dragging follows the parent’s split axis and cannot cross into another branch or change nesting.</li>
-<li><strong>Move buttons:</strong> use the same sibling swap as dragging. Only the direction toward the sibling is enabled. A vertical parent permits up/down movement; a horizontal parent permits left/right movement.</li>
+<li><strong>Drag:</strong> inside the immediate parent, swap with the whole sibling section. Outside that parent, swap individual windows without changing the split structure. After crossing the boundary, that drag stays in window-swap mode until release; dragging back reverses the swap.</li>
+<li><strong>Move buttons:</strong> swap the whole sibling section when moving toward it; otherwise swap with the nearest window outside the parent in that direction. Unavailable directions are disabled.</li>
 <li><strong>Floating:</strong> excluded from the tree. Drag freely or nudge with the move buttons. Tiling again splits the most recently focused tile.</li>
 <li><strong>Screens:</strong> independent trees and root directions. “Other screen” transfers the focused window and follows it. No minimum tile size or automatic rebalancing yet.</li>
 </ul><ol id="log" class="log"></ol></section>
@@ -41,7 +41,8 @@
 <script id="layout-logic">
 // Design decisions: window leaves (option A); exactly two children per split; axes follow current depth.
 // New-window placement is configurable: before (left/top, default) or after (right/bottom).
-// Tiled dragging and direction buttons swap immediate siblings only, including a whole sibling subtree.
+// Within the parent, move whole siblings. Across the parent boundary, swap individual window leaves.
+// A drag stays in individual-window mode after its first cross-parent swap, until release.
 // Still experimental: split focused tile 50/50 and floating reinsertion.
 // Prototype model: no DOM. Split axes are derived from screen direction and depth.
 const Layout = (() => {
@@ -70,6 +71,7 @@ const Layout = (() => {
     for(const d of s.displays){walk(d.root,{x:GAP,y:GAP,w:WIDTH-2*GAP,h:HEIGHT-2*GAP},d.axis,d.id,0);result.push(...d.floating.map(w=>({...w,display:d.id,floating:true})));}
     return result;
   }
+  function swapWindows(n,a,b){return n==null?null:typeof n==='number'?(n===a?b:n===b?a:n):{children:n.children.map(child=>swapWindows(child,a,b))};}
   function sibling(n,id){
     if(n==null||typeof n==='number')return null;
     const index=n.children.indexOf(id);if(index>=0)return n.children[1-index];
@@ -90,6 +92,27 @@ const Layout = (() => {
     const bounds={x:Math.min(x,source.x),y:Math.min(y,source.y),w:Math.max(x+w,source.x+source.w)-Math.min(x,source.x),h:Math.max(y+h,source.y+source.h)-Math.min(y,source.y)};
     return {windows,x,y,w,h,axis,bounds,direction:axis==='x'?(x<source.x?'left':'right'):(y<source.y?'up':'down')};
   }
+  const contains=(r,p)=>p.x>=r.x&&p.x<r.x+r.w&&p.y>=r.y&&p.y<r.y+r.h;
+  function dragAction(s,id,point,windowMode=false){
+    const peer=dragTarget(s,id);if(!peer)return null;
+    if(windowMode||!contains(peer.bounds,point)){
+      const hit=frames(s).find(r=>!r.floating&&r.display===owner(s,id).id&&r.id!==id&&contains(r,point));
+      return hit?{type:'swapWindows',target:hit.id,region:hit,point}:null;
+    }
+    const source=frames(s).find(r=>r.id===id);
+    const projected=peer.axis==='x'?{x:point.x,y:source.y+source.h/2}:{x:source.x+source.w/2,y:point.y};
+    return contains(peer,projected)?{type:'dragSwap',target:peer.windows[0],region:peer,point:projected}:null;
+  }
+  function moveAction(s,id,direction){
+    const peer=dragTarget(s,id);if(!peer)return null;
+    if(peer.direction===direction)return {type:'dragSwap',target:peer.windows[0]};
+    const all=frames(s),source=all.find(r=>r.id===id),horizontal=['left','right'].includes(direction),positive=['right','down'].includes(direction);
+    const center=r=>horizontal?r.x+r.w/2:r.y+r.h/2,cross=r=>horizontal?r.y+r.h/2:r.x+r.w/2;
+    const overlap=r=>horizontal?Math.min(r.y+r.h,source.y+source.h)-Math.max(r.y,source.y)>0:Math.min(r.x+r.w,source.x+source.w)-Math.max(r.x,source.x)>0;
+    const other=all.filter(r=>!r.floating&&r.display===source.display&&!contains(peer.bounds,{x:r.x+r.w/2,y:r.y+r.h/2})&&(center(r)-center(source))*(positive?1:-1)>.01)
+      .sort((a,b)=>Number(overlap(b))-Number(overlap(a))||Math.abs(center(a)-center(source))-Math.abs(center(b)-center(source))||Math.abs(cross(a)-cross(source))-Math.abs(cross(b)-cross(source))||a.id-b.id)[0];
+    return other?{type:'swapWindows',target:other.id}:null;
+  }
   const clamp=(v,low,high)=>Math.max(low,Math.min(high,v));
   function detach(d,id){d.root=replace(d.root,id,null);d.floating=d.floating.filter(w=>w.id!==id);if(d.lastTiled===id)d.lastTiled=ids(d.root).at(-1)??null;}
   function focus(s,id){const d=owner(s,id);if(!d)return;s.focused=id;s.activeDisplay=d.id;if(!isFloating(s,id))d.lastTiled=id;}
@@ -105,8 +128,9 @@ const Layout = (() => {
     else if(action.type==='move'&&id!=null){
       const floating=d.floating.find(w=>w.id===id);
       if(floating){floating.x=clamp(floating.x+(action.direction==='right'?40:action.direction==='left'?-40:0),0,WIDTH-floating.w);floating.y=clamp(floating.y+(action.direction==='down'?40:action.direction==='up'?-40:0),0,HEIGHT-floating.h);}
-      else {const peer=dragTarget(s,id);if(peer?.direction===action.direction)d.root=swapSibling(d.root,id);}
+      else {const move=moveAction(s,id,action.direction);if(move?.type==='dragSwap')d.root=swapSibling(d.root,id);else if(move)d.root=swapWindows(d.root,id,move.target);}
     } else if(action.type==='dragSwap'&&id!=null){const peer=sibling(d.root,id);if(peer!=null&&ids(peer).includes(action.target))d.root=swapSibling(d.root,id);}
+    else if(action.type==='swapWindows'&&id!=null){const windows=ids(d.root);if(windows.includes(id)&&windows.includes(action.target))d.root=swapWindows(d.root,id,action.target);}
     else if(action.type==='float'&&id!=null){
       const floating=d.floating.find(w=>w.id===id);
       if(floating){d.floating=d.floating.filter(w=>w.id!==id);d.root=split(d.root,target(d),id);focus(s,id);}
@@ -115,24 +139,25 @@ const Layout = (() => {
     else if(action.type==='transfer'&&id!=null){const destination=s.displays.find(screen=>screen.id!==d.id),floating=d.floating.find(w=>w.id===id);detach(d,id);if(floating)destination.floating.push(floating);else destination.root=split(destination.root,target(destination),id);focus(s,id);}
     return s;
   }
-  return {seed,reduce,frames,ids,isFloating,dragTarget,WIDTH,HEIGHT};
+  return {seed,reduce,frames,ids,isFloating,dragTarget,dragAction,moveAction,WIDTH,HEIGHT};
 })();
 </script>
 <script id="prototype-ui">
 const $=id=>document.getElementById(id);
 let state=Layout.seed(),history=[],messages=['A horizontal root; its right child splits vertically.'],drag=null,scenarioIndex=null,stepIndex=0;
 const scenarios=[
-  {name:'Which directions?',note:'W3 and W2 share a vertical parent, so W3 cannot move left. After swapping up, it can move down. W1 has a horizontal parent and swaps with the entire right section.',steps:[['Try W3 left (blocked)',{type:'move',direction:'left'}],['Move W3 up',{type:'move',direction:'up'}],['Move W3 down',{type:'move',direction:'down'}],['Focus W1',{type:'focus',id:1}],['Move W1 right',{type:'move',direction:'right'}]]},
-  {name:'Sibling-only drag',note:'These buttons simulate drag targets. W3 can swap with W2 but cannot reach W1. W1 can swap with the entire W2/W3 section; its internal order stays intact.',steps:[['Drag W3 over W2',{type:'dragSwap',target:2}],['Try W3 over W1 (blocked)',{type:'dragSwap',target:1}],['Focus W1',{type:'focus',id:1}],['Drag W1 over W2’s section',{type:'dragSwap',target:2}]]},
+  {name:'Swap windows',note:'Swap W3 with W1 across their parent boundary. W3 takes the full left half, W1 takes the bottom-right quarter, and W2 stays in place. The split structure stays exactly the same.',steps:[['Swap W3 with W1',{type:'swapWindows',target:1}],['Swap them back',{type:'swapWindows',target:1}]]},
+  {name:'Window & section moves',note:'Moving W3 left swaps only W3 and W1. Focus W1 in its new position and move it left to reverse that swap. Once W1 is back at the root level, moving it right swaps the whole W2/W3 section.',steps:[['Move W3 left',{type:'move',direction:'left'}],['Focus W1',{type:'focus',id:1}],['Move W1 left (swap back)',{type:'move',direction:'left'}],['Move W1 right (whole section)',{type:'move',direction:'right'}]]},
+  {name:'Sibling section',note:'Inside the parent, keep the sibling section together. W1 exchanges halves with W2 and W3 as a unit, preserving their internal order.',steps:[['Focus W1',{type:'focus',id:1}],['Drag W1 over W2’s section',{type:'dragSwap',target:2}],['Drag W1 back',{type:'dragSwap',target:3}]]},
   {name:'New window side',placement:'before',note:'First add W4 on the left, then W5 on top. Switch to After and the next vertical split puts W6 on the bottom. Existing windows do not move when the setting changes.',steps:[['Add W4 on the left',{type:'create'}],['Add W5 on top',{type:'create'}],['Choose After',{type:'placement',placement:'after'}],['Focus W3',{type:'focus',id:3}],['Add W6 on bottom',{type:'create'}]]},
   {name:'Alternating splits',note:'W3 is a leaf at depth 2. Its next split is horizontal; the new child then splits vertically. Watch how each new window uses the opposite direction from its parent.',steps:[['Split W3: add W4',{type:'create'}],['Split W4: add W5',{type:'create'}],['Delete W5',{type:'delete'}]]},
   {name:'Collapse & rotate',note:'Delete W1. The former right subtree becomes the root, so W2 and W3 change from top/bottom to left/right. This is the key consequence of directions following depth.',steps:[['Focus W1',{type:'focus',id:1}],['Delete W1',{type:'delete'}],['Create W4',{type:'create'}]]},
   {name:'Floating',note:'Float W3, nudge it independently, then tile it again. Floating windows are not sections in the tree.',steps:[['Float W3',{type:'float'}],['Move it left',{type:'move',direction:'left'}],['Tile W3 again',{type:'float'}]]},
   {name:'Two screens',note:'Each screen has its own tree and root direction. Move W3 to B, create another window, then change B’s root direction.',steps:[['Send W3 to B',{type:'transfer'}],['Create W4',{type:'create'}],['Vertical root on B',{type:'axis',axis:'y'}]]}
 ];
-function describe(a){return ({focus:`Focused W${a.id}.`,display:`Selected screen ${a.display}.`,axis:`Changed the root to ${a.axis==='x'?'horizontal':'vertical'}.`,placement:`New windows will open ${a.placement==='before'?'left / top':'right / bottom'}.`,create:`Created a window ${state.newWindowPlacement==='before'?'before (left / top)':'after (right / bottom)'} the previous tile.`,delete:'Deleted the focused window and collapsed its parent.',move:`Moved the focused window ${a.direction}.`,dragSwap:'Swapped the two children of the focused window’s parent.',float:'Changed the focused window between floating and tiled.',floatMove:'Moved the floating window.',transfer:'Transferred the focused window to the other screen.'})[a.type];}
+function describe(a){return ({focus:`Focused W${a.id}.`,display:`Selected screen ${a.display}.`,axis:`Changed the root to ${a.axis==='x'?'horizontal':'vertical'}.`,placement:`New windows will open ${a.placement==='before'?'left / top':'right / bottom'}.`,create:`Created a window ${state.newWindowPlacement==='before'?'before (left / top)':'after (right / bottom)'} the previous tile.`,delete:'Deleted the focused window and collapsed its parent.',move:`Moved the focused window ${a.direction}.`,swapWindows:`Swapped individual windows with W${a.target}.`,dragSwap:'Swapped the two children of the focused window’s parent.',float:'Changed the focused window between floating and tiled.',floatMove:'Moved the floating window.',transfer:'Transferred the focused window to the other screen.'})[a.type];}
 function apply(action,record=true){
-  const next=Layout.reduce(state,action);if(JSON.stringify(next)===JSON.stringify(state)){$('status').textContent=action.type==='dragSwap'?'Drag blocked: that window is outside the immediate sibling section.':action.type==='move'?(Layout.isFloating(state,state.focused)?'Move blocked: the floating window has reached the screen edge.':'Move blocked: only movement toward the immediate sibling is allowed.'):'No change: that option is already selected.';return false;}
+  const next=Layout.reduce(state,action);if(JSON.stringify(next)===JSON.stringify(state)){$('status').textContent=action.type==='dragSwap'?'Drag blocked: that window is outside the immediate sibling section.':action.type==='move'?(Layout.isFloating(state,state.focused)?'Move blocked: the floating window has reached the screen edge.':'Move blocked: no sibling or outside window exists in that direction.'):'No change: that option is already selected.';return false;}
   if(record)history.push(structuredClone(state));state=next;if(action.type!=='floatMove'){messages.unshift(describe(action));messages=messages.slice(0,5);}render();return true;
 }
 function tree(n,axis,indent='',depth=0){
@@ -149,14 +174,14 @@ function render(){
   for(const r of items){const el=document.createElement('div');el.className='tile'+(r.id===state.focused?' focused':'')+(r.floating?' floating':'')+(drag?.moving&&!drag.floating&&drag.id===r.id?' dragged':'');el.dataset.window=r.id;el.textContent=`W${r.id}`;el.setAttribute('aria-label',`Window ${r.id}${r.floating?', floating':''}${r.id===state.focused?', focused':''}`);Object.assign(el.style,{left:r.x/Layout.WIDTH*100+'%',top:r.y/Layout.HEIGHT*100+'%',width:r.w/Layout.WIDTH*100+'%',height:r.h/Layout.HEIGHT*100+'%'});stage.append(el);}
   if(!items.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Empty screen · New window fills it';stage.append(empty);}
   const peer=Layout.dragTarget(state,state.focused);
-  const dragScope=Layout.isFloating(state,state.focused)?'free floating drag':peer?`move ${peer.direction} to swap with ${peer.windows.length>1?'section ':''}${peer.windows.map(id=>'W'+id).join(' + ')}`:'no sibling to swap';
+  const dragScope=Layout.isFloating(state,state.focused)?'free floating drag':peer?['left','up','down','right'].map(direction=>{const move=Layout.moveAction(state,state.focused,direction);return move?`${direction}: ${move.type==='dragSwap'?'sibling':'window'} swap`:null;}).filter(Boolean).join(' · '):'no other tiles';
   $('status').textContent=`${state.focused==null?'No focused window':`Focused W${state.focused}${Layout.isFloating(state,state.focused)?' · floating':''}`} · Screen ${screen.id} · ${Layout.ids(screen.root).length} tiled / ${screen.floating.length} floating · ${dragScope}`;
   $('model').textContent=`New windows: ${state.newWindowPlacement==='before'?'before · left / top':'after · right / bottom'}\n\n`+state.displays.map(d=>`Screen ${d.id}${d.id===state.activeDisplay?' · active':''}\n${tree(d.root,d.axis)}\nFloating: ${d.floating.map(w=>`W${w.id}${w.id===state.focused?' (focused)':''} @ ${Math.round(w.x)},${Math.round(w.y)}`).join('; ')||'none'}`).join('\n\n');
   $('raw').textContent=JSON.stringify({state,rectangles:rects},null,2);
   $('log').replaceChildren(...messages.map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
   for(const id of ['delete','transfer','float'])$(id).disabled=state.focused==null;
   $('float').textContent=Layout.isFloating(state,state.focused)?'Tile focused':'Float focused';
-  document.querySelectorAll('[data-move]').forEach(b=>b.disabled=state.focused==null||(!Layout.isFloating(state,state.focused)&&b.dataset.move!==peer?.direction));$('undo').disabled=!history.length;renderScenario();
+  document.querySelectorAll('[data-move]').forEach(b=>b.disabled=state.focused==null||(!Layout.isFloating(state,state.focused)&&!Layout.moveAction(state,state.focused,b.dataset.move)));$('undo').disabled=!history.length;renderScenario();
 }
 function freeAction(action){scenarioIndex=null;apply(action);renderScenario();}
 for(const type of ['create','delete','transfer','float'])$(type).onclick=()=>freeAction({type});
@@ -176,24 +201,27 @@ const contains=(r,p)=>p.x>=r.x&&p.x<r.x+r.w&&p.y>=r.y&&p.y<r.y+r.h;
 function liveMove(e){
   const p=point(e);let action;
   if(drag.floating){action={type:'floatMove',x:drag.frame.x+(e.clientX-drag.startX)*Layout.WIDTH/drag.stageWidth,y:drag.frame.y+(e.clientY-drag.startY)*Layout.HEIGHT/drag.stageHeight};}
-  else {const target=Layout.dragTarget(state,drag.id);if(!target)return;if(target.axis==='x')p.y=drag.frame.y+drag.frame.h/2;else p.x=drag.frame.x+drag.frame.w/2;if(drag.latch&&contains(drag.latch,p))return;drag.latch=null;if(!contains(target,p))return;action={type:'dragSwap',target:target.windows[0]};drag.latch=target;}
+  else {if(drag.latch&&contains(drag.latch,p))return;const result=Layout.dragAction(state,drag.id,p,drag.windowMode);if(!result)return;if(drag.latch&&contains(drag.latch,result.point))return;action={type:result.type,target:result.target};drag.latch=result.region;if(result.type==='swapWindows')drag.windowMode=true;}
   if(apply(action,false)&&!drag.recorded){history.push(drag.initial);drag.recorded=true;$('undo').disabled=false;}
 }
 $('board').addEventListener('pointerdown',e=>{
   if(e.button!==0||drag)return;const tile=e.target.closest('[data-window]');if(!tile)return;scenarioIndex=null;
   const r=tile.getBoundingClientRect(),stage=document.querySelector('.stage').getBoundingClientRect(),id=Number(tile.dataset.window);apply({type:'focus',id});
-  drag={id,pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,offsetX:e.clientX-r.left,offsetY:e.clientY-r.top,w:r.width,h:r.height,stageWidth:stage.width,stageHeight:stage.height,frame:Layout.frames(state).find(r=>r.id===id),floating:Layout.isFloating(state,id),initial:structuredClone(state),moving:false,recorded:false,latch:null};$('board').setPointerCapture(e.pointerId);e.preventDefault();
+  drag={id,pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,offsetX:e.clientX-r.left,offsetY:e.clientY-r.top,w:r.width,h:r.height,stageWidth:stage.width,stageHeight:stage.height,frame:Layout.frames(state).find(r=>r.id===id),floating:Layout.isFloating(state,id),initial:structuredClone(state),moving:false,recorded:false,latch:null,windowMode:false};$('board').setPointerCapture(e.pointerId);e.preventDefault();
 });
 $('board').addEventListener('pointermove',e=>{
   if(!drag||drag.pointerId!==e.pointerId)return;if(!drag.moving&&Math.hypot(e.clientX-drag.startX,e.clientY-drag.startY)<5)return;
   if(!drag.moving){if(!drag.floating&&!Layout.dragTarget(state,drag.id))return;drag.moving=true;if(!drag.floating){const ghost=document.createElement('div');ghost.id='ghost';ghost.className='ghost';ghost.textContent=`W${drag.id}`;ghost.style.width=drag.w+'px';ghost.style.height=drag.h+'px';document.body.append(ghost);}render();}
+  liveMove(e);
   const ghost=$('ghost');if(ghost){
     const target=Layout.dragTarget(state,drag.id),stage=document.querySelector('.stage').getBoundingClientRect();
     let x=(e.clientX-drag.offsetX-stage.left)/stage.width*Layout.WIDTH,y=(e.clientY-drag.offsetY-stage.top)/stage.height*Layout.HEIGHT;
-    if(target.axis==='x'){y=drag.frame.y;x=Math.max(target.bounds.x,Math.min(target.bounds.x+target.bounds.w-drag.frame.w,x));}
-    else{x=drag.frame.x;y=Math.max(target.bounds.y,Math.min(target.bounds.y+target.bounds.h-drag.frame.h,y));}
+    if(!drag.windowMode&&contains(target.bounds,point(e))){
+      if(target.axis==='x'){y=drag.frame.y;x=Math.max(target.bounds.x,Math.min(target.bounds.x+target.bounds.w-drag.frame.w,x));}
+      else{x=drag.frame.x;y=Math.max(target.bounds.y,Math.min(target.bounds.y+target.bounds.h-drag.frame.h,y));}
+    }
     ghost.style.left=stage.left+x/Layout.WIDTH*stage.width+'px';ghost.style.top=stage.top+y/Layout.HEIGHT*stage.height+'px';
-  }liveMove(e);
+  }
 });
 function endDrag(e,cancel=false){if(!drag||drag.pointerId!==e.pointerId)return;if(cancel){state=drag.initial;if(drag.recorded)history.pop();messages.unshift('Cancelled the drag.');}else if(drag.moving)liveMove(e);const pointerId=drag.pointerId;drag=null;$('ghost')?.remove();if($('board').hasPointerCapture(pointerId))$('board').releasePointerCapture(pointerId);render();}
 $('board').addEventListener('pointerup',e=>endDrag(e));$('board').addEventListener('pointercancel',e=>endDrag(e,true));$('board').addEventListener('lostpointercapture',e=>{if(drag)endDrag(e,true);});window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drag)endDrag({pointerId:drag.pointerId},true);});
