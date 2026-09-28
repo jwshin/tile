@@ -46,6 +46,16 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
     func isMacosMinimized(_ cm: CancellationMode) async throws -> Bool { false }
     func getCenter(_ cm: CancellationMode) async throws -> CGPoint? { try await getAxRect(cm)?.center }
 
+    /// Keep the actual applied size as the next gesture's baseline, including app rounding/cell snapping.
+    @discardableResult func observeAppliedSize(requested: CGSize, actual: CGSize) -> Bool {
+        let learnedMinimum = observeSizeConstraint(requested: requested, actual: actual)
+        if lastAppliedLayoutPhysicalRect?.size == requested, currentlyManipulatedWithMouseWindowId != windowId {
+            lastAppliedLayoutPhysicalRect?.width = actual.width
+            lastAppliedLayoutPhysicalRect?.height = actual.height
+        }
+        return learnedMinimum
+    }
+
     /// Ignore small discrepancies (for example terminal cell snapping); require two matching
     /// successful native writes before learning a substantially larger application limit.
     @discardableResult func observeSizeConstraint(requested: CGSize, actual: CGSize) -> Bool {

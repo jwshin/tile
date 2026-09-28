@@ -10,6 +10,7 @@ import Testing
         set { TestApp.shared.focusedWindow = newValue }
     }
     var failFocusRead = false
+    var onRefreshWindows: (() throws -> Void)?
     private(set) var focusReads = 0
     private(set) var statusUpdates = 0
     private(set) var refreshes = 0
@@ -19,7 +20,10 @@ import Testing
         if failFocusRead { throw CancellationError() }
         return nativeFocus
     }
-    func refreshWindows() { refreshes += 1 }
+    func refreshWindows() throws {
+        refreshes += 1
+        try onRefreshWindows?()
+    }
     func validatePopups() {}
     func updateStatus() { statusUpdates += 1 }
 }
@@ -27,6 +31,122 @@ import Testing
 extension CoreTests {
     @MainActor struct ActionExecutionTest {
         init() { setUpWorkspacesForTests() }
+
+        private func recentFocusSequence() -> (TestWindow, TestWindow, TestWindow) {
+            let workspace = focus.workspace
+            let floating = TestWindow.new(id: 1, workspace: workspace, kind: .floating)
+            let departing = TestWindow.new(id: 2, workspace: workspace)
+            let other = TestWindow.new(id: 3, workspace: workspace)
+            for window in [other, floating, departing] {
+                DisplayLayoutState.shared.importNativeFocus(window)
+            }
+            return (floating, departing, other)
+        }
+
+        @Test(arguments: [false, true])
+        func nativeCloseRestoresRecentFloat(macOSSelectedReplacement: Bool) async {
+            let (floating, departing, other) = recentFocusSequence()
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = macOSSelectedReplacement ? other : departing
+            desktop.onRefreshWindows = { departing.layoutState.removeWindow(departing, remember: false) }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.startup, assumeCancellable: false)
+            #expect(!departing.isRegistered)
+            #expect(focus.windowOrNil === floating)
+            #expect(desktop.nativeFocus === floating)
+        }
+
+        @Test(arguments: [false, true], [false, true])
+        func nativeExclusionRestoresAndAppliesRecentFocus(fullscreen: Bool, macOSSelectedReplacement: Bool) async {
+            let (floating, departing, other) = recentFocusSequence()
+            departing.isMacosFullscreenForTest = fullscreen
+            departing.isMacosMinimizedForTest = !fullscreen
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = macOSSelectedReplacement ? other : departing
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.startup, assumeCancellable: false)
+            #expect(departing.kind == (fullscreen ? .nativeFullscreen : .minimized))
+            #expect(focus.windowOrNil === floating)
+            #expect(desktop.nativeFocus === floating)
+        }
+
+        @Test func cancelledReconciliationRetainsFocusRecoveryForNextRefresh() async {
+            let (floating, departing, other) = recentFocusSequence()
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = other
+            desktop.onRefreshWindows = {
+                departing.layoutState.removeWindow(departing, remember: false)
+                throw CancellationError()
+            }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.startup, assumeCancellable: true)
+            desktop.onRefreshWindows = nil
+            await execution.refresh(.startup, assumeCancellable: false)
+            #expect(focus.windowOrNil === floating)
+            #expect(desktop.nativeFocus === floating)
+        }
+
+        @Test func actionAfterInterruptedRefreshUsesRecoveredFocus() async throws {
+            let (floating, departing, other) = recentFocusSequence()
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = other
+            desktop.onRefreshWindows = {
+                departing.layoutState.removeWindow(departing, remember: false)
+                throw CancellationError()
+            }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.startup, assumeCancellable: true)
+            desktop.onRefreshWindows = nil
+            _ = try await execution.execute(.moveRight)
+            #expect(focus.windowOrNil === floating)
+            #expect(desktop.nativeFocus === floating)
+        }
+
+        @Test func closingUnfocusedWindowStillAcceptsNativeFocusChange() async {
+            let (_, departing, other) = recentFocusSequence()
+            _ = other.focusWindow()
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = other
+            desktop.onRefreshWindows = { departing.layoutState.removeWindow(departing, remember: false) }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.startup, assumeCancellable: false)
+            #expect(focus.windowOrNil === other && desktop.nativeFocus === other)
+        }
+
+        @Test func refreshAcceptsNativeFocusChangesWhilePreviousWindowRemainsAvailable() async {
+            let (_, _, other) = recentFocusSequence()
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = other
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.startup, assumeCancellable: false)
+            #expect(focus.windowOrNil === other)
+        }
+
+        @Test func closingLastWindowKeepsEmptyScreenSelected() async {
+            let source = focus.workspace
+            let departing = TestWindow.new(id: 1, workspace: source)
+            let side = TestMonitor(displayId: "side", name: "Side", x: 1920)
+            unsafe testMonitors = monitorInfos + [side]
+            source.state.reconcileMonitors(monitorInfos)
+            let other = TestWindow.new(id: 2, workspace: side.activeWorkspace)
+            source.state.importNativeFocus(departing)
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = other
+            desktop.onRefreshWindows = { source.state.removeWindow(departing, remember: false) }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.startup, assumeCancellable: false)
+            #expect(focus.workspace === source && focus.windowOrNil == nil)
+            // An unchanged automatic native selection must not steal the empty screen next refresh.
+            await execution.refresh(.startup, assumeCancellable: false)
+            #expect(focus.workspace === source && focus.windowOrNil == nil)
+        }
 
         @Test func importsNativeFocusThenAppliesFramesAndNativeFocus() async throws {
             let root = focus.workspace

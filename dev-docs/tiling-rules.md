@@ -30,7 +30,7 @@ Example: `[W1, [W2, W3]]` on a screen with a horizontal root:
 
 Every deeper level uses the opposite direction. Direction follows current depth rather than remaining attached to a section. Promoting a section after removal can therefore rotate its subdivisions.
 
-Every new split starts at **50/50** after accounting for the gap. Support keyboard and mouse resizing, retaining the resulting ratio for that split. Resizing adjusts the nearest ancestor split on the requested axis. In the example, resizing W3 horizontally adjusts the W1/right-column boundary; resizing it vertically adjusts the W2/W3 boundary.
+Every new split starts at **50/50** after accounting for the gap. Support keyboard and mouse resizing, retaining the resulting ratio for that split. Resizing a window edge must not exchange window positions, even when the edge changes both position and size. Resizing adjusts the nearest ancestor split on the requested axis. In the example, resizing W3 horizontally adjusts the W1/right-column boundary; resizing it vertically adjusts the W2/W3 boundary.
 
 A move carries the selected window’s allocation: horizontal moves preserve its actual width, and vertical moves preserve its actual height. Destination columns or rows and their ancestors adjust around it. Moving a wide window right in a 70% left / 30% right split makes it 30/70; moving a narrow window into the wide side likewise preserves the narrow window’s width. This supersedes the earlier decision to leave dividers fixed. Other ratios stay unchanged where possible and adjust as needed for minimum sizes.
 
@@ -105,7 +105,7 @@ Starting layout       W1 moves right       W3 moves left
 - Clicking focuses a window. Within its immediate parent, dragging into its sibling along the parent's split axis performs a section swap.
 - Outside that parent, dragging onto another tile performs a window swap. Gaps and empty space are not window targets.
 - Rearrange live during the drag. After the first cross-parent window swap, keep the gesture in window-swap mode until release, including when it returns to the original parent.
-- Keeping the pointer within the same target region does not repeatedly swap back and forth; it must leave before another swap can trigger.
+- Keeping the pointer within the same target region does not repeatedly swap back and forth; it must leave before another swap can trigger. Hovering another screen also clears that target region, so returning over a sibling can immediately swap again.
 - Release retains valid changes. Escape or pointer cancellation restores the pre-drag layout. The prototype treats a completed drag as one undo step; a native global undo feature is not required by this specification.
 
 ### Dragging between screens
@@ -124,7 +124,7 @@ Retain the prototype's target ordering: perpendicular overlap first, then neares
 
 Maintain recent-focus history per screen, including both tiled and floating windows.
 
-- Closing the focused window selects the most recently focused surviving, available window on that screen. An empty screen has no focused window.
+- Closing the focused window selects the most recently focused surviving, available window on that screen. An automatic replacement reported by macOS during that departure must not overwrite the prior recent-focus history. Apply the selected fallback to native focus as well. An empty screen has no focused window.
 - Clicking selects a window; moving, resizing, floating, or retiling it keeps focus with its identity.
 - Remember the most recently focused available tiled window as the insertion target. Focusing a float does not replace that target.
 - Directional focus considers **tiled windows only**. Floating windows remain reachable through clicking or macOS window switching.
@@ -134,7 +134,9 @@ Focus and movement are separate operations: focus can cross screens automaticall
 
 ## 8. Floating eligibility
 
-Normal, resizable application windows tile by default. Dialogs, palettes, and non-resizable windows retain appropriate floating or system-managed behavior. Use a manual float/tile toggle for eligible exceptions; no per-application rules are needed initially.
+Normal, resizable application windows tile by default. Dialogs, palettes, and non-resizable windows retain appropriate floating or system-managed behavior. The `floating-apps` configuration list selects apps whose newly detected managed windows float by default. Match exact, case-sensitive bundle IDs, including IDs outside the built-in compatibility list. The default is an empty list. Popups and overlays remain unmanaged even when their app matches.
+
+Reloading `floating-apps` affects future classifications, including fresh discovery after restarting tile; it does not retile or float existing windows. Manual float/tile toggles remain available, subject to resizability and minimum sizes. A manual choice survives transfers and minimize/hide/fullscreen return; it is not a persistent per-window preference across restarts.
 
 Floating windows consume no tiled space. They can be focused, dragged, resized through ordinary window interaction, nudged by move commands, transferred, or tiled again. A floating transfer keeps the window floating. Retiling follows normal insertion and remains floating if the attempted insertion cannot fit.
 
@@ -180,7 +182,7 @@ Keep the prototype as a small executable reference beside this specification: on
 | Cross-screen dragging | Implemented; preview on hover, transfer on release, discard source swaps |
 | Disconnection and reconnection | Simulated; migrate individually, support deferred placement with no screens, reconnect empty |
 | Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; actual native events need an adapter |
-| Window classification | Simulated normal/dialog/palette/non-resizable kinds; native classification remains app integration |
+| Window classification | Simulated normal/dialog/palette/non-resizable kinds plus exact bundle-ID floating preferences; native popup filtering and Accessibility metadata remain app integration |
 | Temporary observation loss and restart | Simulated; observation interruption retains state, restart demonstrates rebuilding without persistent layout storage |
 
 The simulator starts with two 1440 × 900 screens and 12-unit gaps. Screen sizes and positions can be changed independently. These are simulation settings, not requirements for real screens. Use **All screens** for cross-screen dragging or **Active screen** for a larger view of one layout.
@@ -189,7 +191,7 @@ The prototype's concrete input choices are engineering defaults: resize buttons 
 
 Independent controls and simulated lifecycle events cancel an in-progress gesture before applying their change. This prevents cancellation from resurrecting a deleted window or losing a new event. The native adapter must preserve the same outcome when observations arrive asynchronously.
 
-Guided experiments cover insertion, section/window swaps, resizing, minimum-size rejection, recovery, recent focus, screen transfers and disconnection, lifecycle events, orientation, window kinds, and the permitted restart fallback. Cross-screen pointer behavior can be exercised directly with both screens visible. All state stays in memory; the restart button simulates the chosen fallback rather than adding a storage layer.
+Guided experiments cover floating-app preferences and manual overrides, insertion, section/window swaps, resizing, minimum-size rejection, recovery, recent focus, screen transfers and disconnection, lifecycle events, orientation, window kinds, and the permitted restart fallback. Cross-screen pointer behavior can be exercised directly with both screens visible. All state stays in memory; the restart button simulates the chosen fallback rather than adding a storage layer.
 
 ## 12. Acceptance scenarios
 
@@ -199,12 +201,16 @@ Guided experiments cover insertion, section/window swaps, resizing, minimum-size
 - Close a window whose promotion rotates a subtree, and shrink a screen: retain valid ratios, clamp when needed, then float least-recently-focused tiles only if necessary.
 - Close the focused window after visiting a float: focus returns to that float if it is the most recent surviving available window. Directional focus still skips floats.
 - Focus beyond an edge with an empty screen between populated screens: continue in the physical direction without wrapping.
+- Swap unequal-width sections, hover another screen, and return over the sibling inside the former target region: permit a new swap without requiring an extra detour.
+- Resize a tile from its left or top edge: adjust the split while keeping window identities in place. Native move/resize notification order must not affect this outcome.
+- Close or minimize the focused tile after focusing a float: select the float, including when macOS initially reports another window as focused.
 - Drag through several source-screen swaps and release on another screen: discard intermediate source swaps and perform exactly one transfer. Cancel the same gesture: retain the original layout, accounting for independent lifecycle changes.
 - Disconnect a populated screen: migrate windows individually; reconnect a screen: do not restore or move them back.
 - Minimize, hide, or fullscreen a tiled window: collapse its old position; on return, use normal insertion rather than restoring a placeholder.
+- Add an app to `floating-apps`: its existing windows stay put; a new matching window floats. Tile it manually, transfer it, and minimize/restore it: retain the manual choice. Remove the rule: only future windows return to automatic classification. Matching must not turn unmanaged popups into managed floats.
 - Launch a normal window with an initial rectangle on a different screen: insert on the screen that was focused when creation began.
 
-No further product decisions are blocking the initial implementation. Persistent layout storage, per-application rules, and general rebalancing are outside its scope.
+No further product decisions are blocking the initial implementation. Persistent layout storage, general rule scripting, and general rebalancing are outside its scope; the `floating-apps` list is the supported app-level exception.
 
 ## 13. Native implementation and validation boundary
 
@@ -214,7 +220,9 @@ all insertions share Outer/Inner and the same 50/50 fit check. Focus history inc
 minimize/hide/fullscreen handling keeps unavailable windows outside the tree. Disconnect migrates leaves
 individually and preserves the focused window.
 
-Native engineering choices: `new-window-placement` defaults to `outer`; `root-orientation` defaults to
+Native focus reconciliation processes departures before importing the observed native focus. Pending fallback survives cancellation and is applied by the next completed refresh or action. Mouse gesture classification uses the observed frame delta against the last successfully applied native size, including application rounding. Move and resize notifications share the same path; even a small resize must not become a swap across a narrow gap.
+
+Native engineering choices: `floating-apps` is an array of bundle-ID strings and defaults to `[]`; invalid array entries reject the entire reload. `new-window-placement` defaults to `outer`; `root-orientation` defaults to
 `auto` and accepts `horizontal`/`vertical`. Flipping orientation gives the active screen an in-memory
 override. Keyboard width/height resize uses 50-point increments. A translucent outline previews screen
 transfer (blue for tiling, orange for floating). Fixed-window eligibility uses Accessibility's settable-size
@@ -225,7 +233,9 @@ There is no persistent layout or minimum-size store.
 
 Swift acceptance tests cover moves in both axes and directions, nested allocation, atomic failures,
 minimum clamps/recovery, insertion, focus, transfers, cancellation, native-state transitions, screen
-migration, and transient observation restoration through test adapters. The retained prototype's guided
+migration, and transient observation restoration through test adapters. Regression cases cover automatic replacement focus, cancelled reconciliation, leading-edge resizing across narrow gaps, ordinary dragging after application size rounding, and returning from cross-screen hover. The retained prototype's guided
 controls and pointer handlers are also exercised through a DOM event simulation. These checks do **not**
 validate actual Accessibility timing, native preview rendering, or real monitor hardware. Real application
 drag/resize, unplug/reconnect, lock/unlock, and fullscreen smoke tests remain manual validation.
+
+The [native validation record](development.md#native-validation-record-2026-09-28) lists the outstanding desktop checks and the local environment limitation. Prototype lifecycle controls and Swift adapters cannot validate macOS notification timing or physical display changes.

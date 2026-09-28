@@ -44,7 +44,7 @@ import Common
         if self === Self.shared { DragPreview.shared.hide() }
     }
 
-    func observe(_ window: Window, frame: Rect, resizing: Bool) {
+    func observe(_ window: Window, frame: Rect) {
         guard !blockedUntilRelease, window.isRegistered, window.kind == .tiled || window.kind == .floating,
             let workspace = window.workspace
         else { return }
@@ -56,17 +56,18 @@ import Common
         }
         guard var current = validGesture(), current.window === window else { return }
         currentlyManipulatedWithMouseWindowId = window.windowId
+        // Leading-edge resizing also moves the origin; AXMoved and AXResized may arrive in either order.
         current.resizing =
             current.resizing
-            || (!current.hasRearranged && resizing
-                && (abs(frame.width - current.frame.width) > 5 || abs(frame.height - current.frame.height) > 5))
+            || (!current.hasRearranged
+                && (abs(frame.width - current.frame.width) > 0.001 || abs(frame.height - current.frame.height) > 0.001))
         if current.resizing && current.kind == .tiled {
             var layout = current.original
             let edges: [(CardinalDirection, CGFloat)] = [
                 (.left, frame.minX - current.frame.minX), (.right, frame.maxX - current.frame.maxX),
                 (.up, frame.minY - current.frame.minY), (.down, frame.maxY - current.frame.maxY),
             ]
-            for (edge, delta) in edges where abs(delta) > 5 {
+            for (edge, delta) in edges where abs(delta) > 0.001 {
                 layout.resizeEdge(
                     window.windowId, edge: edge, by: delta, in: current.bounds,
                     gap: current.gap, minimums: workspace.minimums)
@@ -97,6 +98,8 @@ import Common
             current.window.layoutState.contains(destination)
         else { return }
         if destination !== current.workspace {
+            current.lastTargetRegion = nil
+            gesture = current
             var layout = destination.layout
             var minimums = destination.minimums
             minimums[current.window.windowId] = current.window.minimumSize
@@ -128,8 +131,8 @@ import Common
         let rect: Rect
         if section {
             guard let parent,
-                let sibling = siblingRegion(
-                    of: window.windowId, in: current.expected, bounds: current.bounds, gap: current.gap),
+                let sibling = destination.layout.siblingRegion(
+                    of: window.windowId, in: current.bounds, gap: current.gap),
                 let sourceFrame = destination.tiledFrames[window.windowId],
                 let siblingId = parent.ids.first(where: { $0 != window.windowId })
             else {
@@ -169,15 +172,6 @@ import Common
             _ = window.focusWindow()
         }
         gesture = current
-    }
-
-    private func siblingRegion(of id: UInt32, in layout: BinaryLayout, bounds: Rect, gap: CGFloat) -> Rect? {
-        let geometry = layout.geometry(in: bounds, gap: gap)
-        guard let leaf = geometry.leaves.first(where: { $0.id == id }), !leaf.path.isEmpty else { return nil }
-        var siblingPath = leaf.path
-        siblingPath[siblingPath.count - 1].toggle()
-        return geometry.sections.first { $0.path == siblingPath }?.rect
-            ?? geometry.leaves.first { $0.path == siblingPath }?.rect
     }
 
     func finish(at point: CGPoint, on destination: Workspace) {

@@ -110,6 +110,15 @@ struct BinaryLayout: Equatable {
         guard let path = geometry.leaves.first(where: { $0.id == id })?.path, !path.isEmpty else { return nil }
         return geometry.sections.first { $0.path == path.dropLast() }
     }
+    /// The immediate sibling's entire region, whether it contains one window or a subdivided section.
+    func siblingRegion(of id: UInt32, in rect: Rect, gap: CGFloat) -> Rect? {
+        let geometry = geometry(in: rect, gap: gap)
+        guard let leaf = geometry.leaves.first(where: { $0.id == id }), !leaf.path.isEmpty else { return nil }
+        var siblingPath = leaf.path
+        siblingPath[siblingPath.count - 1].toggle()
+        return geometry.sections.first { $0.path == siblingPath }?.rect
+            ?? geometry.leaves.first { $0.path == siblingPath }?.rect
+    }
     func isValid(in rect: Rect, gap: CGFloat, minimums: Minimums = [:]) -> Bool {
         geometry(in: rect, gap: gap).leaves.allSatisfy {
             let min = Self.minimum($0.id, minimums)

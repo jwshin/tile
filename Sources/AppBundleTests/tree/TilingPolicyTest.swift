@@ -145,6 +145,30 @@ extension CoreTests {
             #expect(window.minimumSize == actual)
         }
 
+        @Test func appliedSizeRecordsRoundingWithoutLosingMinimumDetection() {
+            let window = TestWindow.new(id: 1, workspace: focus.workspace)
+            let requested = Rect(topLeftX: 8, topLeftY: 8, width: 400, height: 300)
+            let snapped = CGSize(width: 412, height: 316)
+            window.lastAppliedLayoutPhysicalRect = requested
+            #expect(!window.observeAppliedSize(requested: requested.size, actual: snapped))
+            #expect(window.lastAppliedLayoutPhysicalRect?.size == snapped)
+            #expect(window.minimumSize == BinaryLayout.baseline)
+            // An obsolete callback cannot replace the newer observed baseline.
+            #expect(!window.observeAppliedSize(requested: requested.size, actual: CGSize(width: 800, height: 600)))
+            #expect(window.lastAppliedLayoutPhysicalRect?.size == snapped)
+            let constrained = CGSize(width: 600, height: 350)
+            window.lastAppliedLayoutPhysicalRect = requested
+            #expect(!window.observeAppliedSize(requested: requested.size, actual: constrained))
+            currentlyManipulatedWithMouseWindowId = window.windowId
+            #expect(!window.observeAppliedSize(requested: requested.size, actual: constrained))
+            currentlyManipulatedWithMouseWindowId = nil
+            window.lastAppliedLayoutPhysicalRect = requested
+            #expect(!window.observeAppliedSize(requested: requested.size, actual: constrained))
+            window.lastAppliedLayoutPhysicalRect = requested  // A second native layout write confirms the limit.
+            #expect(window.observeAppliedSize(requested: requested.size, actual: constrained))
+            #expect(window.minimumSize == constrained)
+        }
+
         @Test func returningNativeFocusedWindowReclaimsLogicalFocus() async {
             let workspace = focus.workspace
             let a = TestWindow.new(id: 1, workspace: workspace)
@@ -157,9 +181,55 @@ extension CoreTests {
             a.isMacosMinimizedForTest = true
             await execution.refresh(.startup, assumeCancellable: false)
             #expect(a.kind == .minimized && focus.windowOrNil === b)
+            #expect(desktop.nativeFocus === b)
             a.isMacosMinimizedForTest = false
+            desktop.nativeFocus = a  // Restoring through macOS also activates the restored window.
             await execution.refresh(.startup, assumeCancellable: false)
             #expect(a.kind == .tiled && focus.windowOrNil === a)
+        }
+
+        @Test func floatingAppRulesUseExactIdsAndKeepPopupsUnmanaged() {
+            let apps = ["com.example.player"]
+            #expect(AxUiElementWindowType.window.initialKind(bundleId: apps[0], floatingApps: apps) == .floating)
+            #expect(AxUiElementWindowType.dialog.initialKind(bundleId: apps[0], floatingApps: apps) == .floating)
+            #expect(AxUiElementWindowType.popup.initialKind(bundleId: apps[0], floatingApps: apps) == .popup)
+            for id in [nil, "com.example.player.helper", "com.example.Player"] {
+                #expect(AxUiElementWindowType.window.initialKind(bundleId: id, floatingApps: apps) == .tiled)
+            }
+            #expect(AxUiElementWindowType.dialog.initialKind(bundleId: nil, floatingApps: []) == .floating)
+        }
+
+        @Test func floatingAppReloadAffectsNewWindowsAndPreservesManualTiling() async throws {
+            let workspace = focus.workspace
+            let appId = "com.example.player"
+            func detect(_ id: UInt32) -> TestWindow {
+                TestWindow.new(
+                    id: id, workspace: workspace,
+                    kind: AxUiElementWindowType.window.initialKind(bundleId: appId, floatingApps: config.floatingApps))
+            }
+            let existing = detect(1)
+            #expect(ConfigurationApplication.shared.apply("floating-apps = ['com.example.player']").isOk)
+            let listed = detect(2)
+            #expect(existing.kind == .tiled && listed.kind == .floating)
+            _ = listed.focusWindow()
+            await Action.toggleFloating.applyToModel()
+            #expect(listed.kind == .tiled)
+            listed.isMacosMinimizedForTest = true
+            try await normalizeLayoutReason()
+            #expect(listed.kind == .minimized)
+            listed.isMacosMinimizedForTest = false
+            try await normalizeLayoutReason()
+            #expect(listed.kind == .tiled)
+            let side = TestMonitor(displayId: "side", name: "Side", x: 1920)
+            unsafe testMonitors = monitorInfos + [side]
+            workspace.state.reconcileMonitors(monitorInfos)
+            workspace.state.place(listed, on: side.activeWorkspace, kind: listed.kind)
+            #expect(listed.kind == .tiled && listed.workspace === side.activeWorkspace)
+            let stillListed = detect(3)
+            #expect(stillListed.kind == .floating)
+            #expect(ConfigurationApplication.shared.apply("floating-apps = []").isOk)
+            let unlisted = detect(4)
+            #expect(unlisted.kind == .tiled && stillListed.kind == .floating)
         }
 
         @Test func nonResizableWindowCannotBeRetiled() {

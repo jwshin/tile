@@ -9,6 +9,7 @@ import Common
     private var mainDisplayId: String?
     private var frozenFocus: FrozenFocus?
     private var lastKnownNativeFocusedWindowId: UInt32?
+    private var pendingFocusRecovery = false
     private var screenHistory: [String] = []
     private var focusSequence: UInt64 = 0
     private var restoration: [String: SavedLayout] = [:]
@@ -68,6 +69,7 @@ import Common
             setFocus(
                 to: window.isFocusable
                     ? LiveFocus(windowOrNil: window, workspace: destination) : destination.toLiveFocus())
+            if !window.isFocusable { pendingFocusRecovery = true }
         }
     }
 
@@ -92,10 +94,19 @@ import Common
             return
         }
         if window?.windowId != lastKnownNativeFocusedWindowId {
-            if let live = window?.toLiveFocusOrNil() { _ = setFocus(to: live) }
+            // Cache macOS's automatic replacement without overwriting the recent-focus fallback.
+            if !pendingFocusRecovery, let live = window?.toLiveFocusOrNil() { _ = setFocus(to: live) }
             lastKnownNativeFocusedWindowId = window?.windowId
         }
     }
+
+    /// Retain recovery across cancelled refreshes until an execution session can apply native focus.
+    func takeFocusRecovery() -> LiveFocus? {
+        guard pendingFocusRecovery else { return nil }
+        pendingFocusRecovery = false
+        return focus
+    }
+
     @discardableResult func setFocus(to newFocus: LiveFocus) -> Bool {
         frozenFocus = newFocus.frozen
         focusSequence += 1
@@ -158,6 +169,7 @@ import Common
         guard let workspace, previous.windowOrNil === window else { return nil }
         let replacement = workspace.toLiveFocus()
         setFocus(to: replacement)
+        pendingFocusRecovery = true
         return replacement.windowOrNil
     }
 

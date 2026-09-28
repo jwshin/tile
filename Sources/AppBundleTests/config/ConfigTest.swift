@@ -12,6 +12,7 @@ extension CoreTests {
             let result = parseConfig(try String(contentsOf: defaultConfigUrl, encoding: .utf8))
             #expect(result.errors.isEmpty)
             #expect(result.config.gap == 8)
+            #expect(result.config.floatingApps.isEmpty)
             #expect(result.config.bindings.count == 23)
             #expect(result.config.bindings["alt-h"]?.action == .focusLeft)
             #expect(result.config.bindings["alt-shift-tab"]?.action == .moveToNextMonitor)
@@ -63,9 +64,32 @@ extension CoreTests {
             }
         }
 
+        @Test func floatingAppsAcceptBundleIdsAndExplicitEmptyList() {
+            let result = parseConfig("floating-apps = ['com.apple.finder', 'com.example.player']")
+            #expect(result.errors.isEmpty)
+            #expect(result.config.floatingApps == ["com.apple.finder", "com.example.player"])
+            #expect(result.config.bindings == defaultConfig.bindings)
+            var defaults = defaultConfig
+            defaults.floatingApps = ["com.example.player"]
+            #expect(parseConfig("", defaults: defaults).config.floatingApps == defaults.floatingApps)
+            let empty = parseConfig("floating-apps = []", defaults: defaults)
+            #expect(empty.errors.isEmpty && empty.config.floatingApps.isEmpty)
+        }
+
+        @Test func floatingAppsRejectNonStringEntriesWithTheirConfigPath() {
+            for value in ["'com.apple.finder'", "true", "42", "{app = 'com.apple.finder'}"] {
+                let result = parseConfig("floating-apps = \(value)")
+                #expect(!result.allowReloadConfig)
+                #expect(result.errors.first?.backtrace.description == "floating-apps")
+            }
+            let mixed = parseConfig("floating-apps = ['com.apple.finder', 42]")
+            #expect(!mixed.allowReloadConfig)
+            #expect(mixed.errors.first?.backtrace.description == "floating-apps[1]")
+        }
+
         @Test func retiredSettingsAreRejected() {
             for key in [
-                "floating-apps", "gaps", "key-mapping", "mode", "on-window-detected", "after-startup-command",
+                "gaps", "key-mapping", "mode", "on-window-detected", "after-startup-command",
                 "persistent-workspaces", "auto-reload-config", "start-at-login",
                 "default-root-container-orientation", "enable-normalization-flatten-containers",
                 "enable-normalization-opposite-orientation-for-nested-containers",

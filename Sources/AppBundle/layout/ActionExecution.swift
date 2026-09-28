@@ -59,18 +59,22 @@ enum ActionInput { case shortcut, menu }
         guard ConfigurationApplication.shared.isEnabled else { return }
         do {
             try await $refreshSessionEvent.withValue(event) {
-                DisplayLayoutState.shared.importNativeFocus(try await desktop.focusedWindow())
+                // Reconcile departures before importing macOS's possibly automatic focus replacement.
+                let nativeFocus = try await desktop.focusedWindow()
                 if shouldLayout && optimisticallyPreLayoutWorkspaces { try await layoutWorkspaces() }
                 refreshModel()
                 try await desktop.refreshWindows()
                 DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
-                desktop.updateStatus()
                 if try await normalizeLayoutReason() {
                     // A native-focused window may only become focusable after its state returns.
                     DisplayLayoutState.shared.importNativeFocus(try await desktop.focusedWindow())
+                } else {
+                    DisplayLayoutState.shared.importNativeFocus(nativeFocus)
                 }
+                desktop.updateStatus()
                 try await desktop.validatePopups()
                 if shouldLayout { try await layoutWorkspaces() }
+                DisplayLayoutState.shared.takeFocusRecovery()?.windowOrNil?.nativeFocus()
             }
         } catch is CancellationError {
             check(assumeCancellable, "Non cancellable refresh session was canceled")
@@ -93,7 +97,8 @@ enum ActionInput { case shortcut, menu }
             let focusAfter = focus.windowOrNil
             desktop.updateStatus()
             try await layoutWorkspaces()
-            if focusBefore != focusAfter { focusAfter?.nativeFocus() }
+            let recovery = DisplayLayoutState.shared.takeFocusRecovery()
+            if recovery != nil || focusBefore != focusAfter { focusAfter?.nativeFocus() }
             scheduleRefresh(event)
             return result
         }

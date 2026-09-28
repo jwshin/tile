@@ -56,7 +56,7 @@ Commands operate on the current focus. Action execution invalidates restoration 
 frames after each action, including failures. Monitor navigation retains directions and wrapping next/previous;
 moving a window between monitors always follows it. Directional tile focus crosses screens in their physical arrangement without wrapping.
 
-Configuration has `gap`, `new-window-placement`, `root-orientation`, and `[bindings]`. All displays use the same inner/outer gap,
+Configuration has `gap`, `floating-apps`, `new-window-placement`, `root-orientation`, and `[bindings]`. All displays use the same inner/outer gap,
 with 8 points as the default. Key names use fixed QWERTY positions. Omitting the binding table inherits defaults; an explicit table replaces them.
 Parsing collects diagnostics and rejects the entire reload on error. The config path is fixed to
 `~/.tile.toml`; the internal URL override exists only for bundled startup validation and tests.
@@ -67,6 +67,7 @@ Parsing collects diagnostics and rejects the entire reload on error. The config 
 two children. The root orientation determines each split's direction by depth. Callers can insert,
 remove, swap, move, resize, recover, balance, or request geometry without editing nodes. Empty layouts
 have no root; removal promotes a sibling. There are no parent pointers, adaptive weights, or normalization passes.
+Parent and sibling-region queries belong to this module, so gesture handling does not interpret tree paths.
 
 Insertion checks a local 50/50 split using Outer/Inner placement. Failure leaves the tree unchanged;
 the owner floats the arriving window. Minimum section dimensions are calculated bottom-up. Interactive
@@ -108,6 +109,7 @@ and authoritative policy document. Keep both synchronized with native policy cha
 MacApp serializes Accessibility operations on a dedicated run-loop thread per application. Main-actor
 refresh sessions reconcile native events with the mutable model. MacWindow bridges native window IDs
 and registered window objects. Keep cancellation, window classification, and lock-screen restoration when changing policy.
+Initial classification checks `floating-apps` against the raw bundle identifier after popup filtering. The list is a default for newly detected windows; reload does not rewrite existing membership, and manual tiling survives transfers and temporary exclusion.
 Resizable capability is queried through Accessibility, with unknown capability allowed. After successful
 size writes, two consistent returned sizes more than 32 points larger can raise a window's minimum;
 smaller discrepancies, such as cell snapping, are ignored; stale requests, floating

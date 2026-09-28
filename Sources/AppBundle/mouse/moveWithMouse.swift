@@ -2,14 +2,14 @@ import AppKit
 import Common
 
 func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
-    observeMouseChange(windowId: ax.containingWindowId(), notification: notif as String, resizing: false)
+    observeMouseChange(windowId: ax.containingWindowId(), notification: notif as String)
 }
 
 func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
-    observeMouseChange(windowId: ax.containingWindowId(), notification: notif as String, resizing: true)
+    observeMouseChange(windowId: ax.containingWindowId(), notification: notif as String)
 }
 
-private func observeMouseChange(windowId: UInt32?, notification: String, resizing: Bool) {
+private func observeMouseChange(windowId: UInt32?, notification: String) {
     _ = Task { @MainActor in
         guard let token: RunSessionGuard = .isEnabled else { return }
         guard let windowId, let window = Window.get(byId: windowId), try await isManipulatedWithMouse(window) else {
@@ -21,7 +21,7 @@ private func observeMouseChange(windowId: UInt32?, notification: String, resizin
                 isLeftMouseButtonDown, ConfigurationApplication.shared.isEnabled
             else { return }
             await DisplayLayoutState.shared.changeLayout {
-                MouseTiling.shared.observe(window, frame: rect, resizing: resizing)
+                MouseTiling.shared.observe(window, frame: rect)
                 let point = mouseLocation
                 MouseTiling.shared.drag(at: point, on: point.monitorApproximation.activeWorkspace)
             }

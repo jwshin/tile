@@ -55,11 +55,18 @@ Reload from the menu or with `alt-shift-r`. Invalid configuration preserves the 
 gap = 8
 new-window-placement = 'outer' # outer | inner
 root-orientation = 'auto'     # auto | horizontal | vertical
+floating-apps = ['com.apple.finder'] # exact bundle IDs; default []
 ```
 
 `gap` controls all inner and outer spacing. Root orientation follows usable screen shape in Auto;
 `toggle-orientation` sets an in-memory override for the selected screen. Disconnecting discards that override.
 Placement affects future insertions, including retiling, returning windows, and transfers.
+
+`floating-apps` makes newly detected windows from matching apps float by default. Matching is exact
+and case-sensitive; use bundle IDs rather than display names or wildcard patterns. Put the list above
+`[bindings]`. Reload changes future classifications, including windows rediscovered after restarting tile;
+existing windows keep their layout. `toggle-floating` can still tile a matching resizable window when it fits,
+and that manual choice survives transfers and minimize/restore. Popups remain unmanaged.
 
 Omit `[bindings]` to keep the default shortcuts. An explicit table replaces the whole set; an empty
 one disables shortcuts. Keys use fixed QWERTY positions, and each shortcut names one action:
@@ -72,7 +79,7 @@ alt-tab = 'next-monitor'
 alt-shift-tab = 'move-to-next-monitor'
 ```
 
-**Migration:** remove `floating-apps` and replace `join-*` or `flatten-layout` bindings. Manual floating
+**Migration:** `floating-apps` remains supported. Replace `join-*` or `flatten-layout` bindings. Manual floating
 and native dialog classification remain. Configuration is intentionally incompatible with the old
 container model; unknown settings or actions reject the reload as a whole.
 

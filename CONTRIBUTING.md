@@ -4,8 +4,8 @@ This repository is tile, a reduced window manager for keyboard-driven tiling acr
 Read [the architecture](dev-docs/architecture.md) and [development guide](dev-docs/development.md)
 before changing window-management behavior.
 
-Keep configuration limited to shortcuts, one gap value, and floating-app exceptions. Bindings select
-named actions from `Sources/AppBundle/command/Action.swift`; there is no CLI or command server.
+Keep configuration limited to `gap`, `floating-apps`, `new-window-placement`, `root-orientation`, and `[bindings]`.
+Bindings select named actions from `Sources/AppBundle/command/Action.swift`; there is no CLI or command server.
 
 Run `./test.sh` before submitting changes. For changes to native window handling, also perform the
 multi-monitor desktop checks described in the development guide. Describe the behavior changed and

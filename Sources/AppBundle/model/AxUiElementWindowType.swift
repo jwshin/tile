@@ -6,6 +6,13 @@ enum AxUiElementWindowType: String {
     /// Not even a real window
     case popup
 
+    /// App rules choose a newly detected window's initial layout; explicit later choices remain independent.
+    func initialKind(bundleId: String?, floatingApps: [String]) -> WindowKind {
+        if self == .popup { return .popup }
+        if let bundleId, floatingApps.contains(bundleId) { return .floating }
+        return self == .dialog ? .floating : .tiled
+    }
+
     static func new(isWindow: Bool, isDialog: () -> Bool) -> AxUiElementWindowType {
         switch true {
         case !isWindow: .popup
@@ -40,8 +47,8 @@ extension AxUiElementMock {
         // - macOS native file picker (IntelliJ -> "Open...") (kAXDialogSubrole value)
         //
         // Minimized windows or windows of a hidden app have subrole "AXDialog"
-        if get(Ax.subroleAttr) != kAXStandardWindowSubrole && id != .qutebrowser  // qutebrowser regular window has AXDialog subrole when decorations are disabled
-        {
+        // qutebrowser uses AXDialog for regular windows when decorations are disabled.
+        if get(Ax.subroleAttr) != kAXStandardWindowSubrole && id != .qutebrowser {
             return true
         }
         // Firefox: Picture in Picture window doesn't have minimize button.
@@ -66,7 +73,8 @@ extension AxUiElementMock {
         // - Kap screen recorder https://github.com/wulkano/Kap
         // - flameshot? https://github.com/nikitabobko/AeroSpace/issues/112
         // - Drata Agent https://github.com/nikitabobko/AeroSpace/issues/134
-        if get(Ax.fullscreenButtonAttr)?.get(Ax.enabledAttr) != true && id != .gimp  // Gimp doesn't show fullscreen button
+        // Gimp doesn't show a fullscreen button.
+        if get(Ax.fullscreenButtonAttr)?.get(Ax.enabledAttr) != true && id != .gimp
 
             // "Drag out" a tab out of Chrome window. Technically, it shouldn't be necessary, but
             // apparently there is some sort of race condition between users releasing mouse up and
@@ -188,7 +196,8 @@ extension AxUiElementMock {
         {
             return false
         }
-        return subrole == kAXStandardWindowSubrole || subrole == kAXDialogSubrole  // macOS native file picker ("Open..." menu) (kAXDialogSubrole value)
+        // Native file pickers, such as the Open dialog, use kAXDialogSubrole.
+        return subrole == kAXStandardWindowSubrole || subrole == kAXDialogSubrole
             || subrole == kAXFloatingWindowSubrole  // telegram image viewer
             || id == .finder && subrole == "Quick Look"  // Finder preview (hit space) is a floating window
     }

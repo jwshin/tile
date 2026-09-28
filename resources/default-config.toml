@@ -4,6 +4,9 @@ root-orientation = 'auto'
 
 gap = 8
 
+# Exact bundle IDs whose newly detected windows should float, e.g. ['com.apple.finder'].
+floating-apps = []
+
 # Omit this table to keep default shortcuts. An explicit table replaces them all.
 [bindings]
 alt-h = 'focus-left'

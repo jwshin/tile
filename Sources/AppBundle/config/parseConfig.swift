@@ -83,6 +83,10 @@ struct ParseConfigResult {
             } else {
                 errors.append(.init(path, "Expected a non-negative integer"))
             }
+        case "floating-apps":
+            if let apps = parseArrayOfStrings(value, path).getOrNil(appendErrorTo: &errors) {
+                parsed.floatingApps = apps
+            }
         case "new-window-placement":
             if let raw = value.asStringOrNil, let placement = BinaryLayout.Placement(rawValue: raw) {
                 parsed.newWindowPlacement = placement
@@ -111,6 +115,16 @@ func parseTomlArray(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrCo
     OrderedJson.JsonArray
 > {
     raw.asArrayOrNil.toResult(expectedActualTypeDiagnostic(expected: .array, actual: raw.tomlType, backtrace))
+}
+
+private func parseArrayOfStrings(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<
+    [String]
+> {
+    parseTomlArray(raw, backtrace).flatMap { array in
+        array.enumerated().mapAllOrFailure { index, element in
+            parseString(element, backtrace + .index(index))
+        }
+    }
 }
 
 struct ConfigBacktrace: CustomStringConvertible, Equatable {

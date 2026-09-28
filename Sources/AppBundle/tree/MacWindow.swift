@@ -29,7 +29,8 @@ final class MacWindow: Window {
         return window
     }
 
-    func isWindowHeuristic(_ windowLevel: MacOsWindowLevel?, _ cm: CancellationMode) async throws -> Bool {  // todo cache
+    // todo cache
+    func isWindowHeuristic(_ windowLevel: MacOsWindowLevel?, _ cm: CancellationMode) async throws -> Bool {
         try await macApp.isWindowHeuristic(windowId, windowLevel, cm)
     }
 
@@ -37,7 +38,7 @@ final class MacWindow: Window {
     //                        If you are unsure, it's better to pass `false`
     @MainActor
     func garbageCollect(skipClosedWindowsCache: Bool) {
-        layoutState.removeWindow(self, remember: !skipClosedWindowsCache)?.nativeFocus()
+        layoutState.removeWindow(self, remember: !skipClosedWindowsCache)
     }
 
     override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool {
@@ -65,7 +66,7 @@ final class MacWindow: Window {
         let request = frameRequest
         macApp.setAxFrame(windowId, topLeft, size) { [weak self] actual in
             guard let self, self.frameRequest == request, let size else { return }
-            if self.observeSizeConstraint(requested: size, actual: actual) {
+            if self.observeAppliedSize(requested: size, actual: actual) {
                 ActionExecution.shared.scheduleRefresh(.ax("ObservedWindowMinimum"))
             }
         }
@@ -88,9 +89,5 @@ extension MacWindow {
 
 @MainActor private func classifyWindow(_ id: UInt32, _ app: MacApp, _ cm: CancellationMode) async throws -> WindowKind {
     let type = try await app.getAxUiElementWindowType(id, getWindowLevel(for: id), cm)
-    return switch type {
-    case .popup: .popup
-    case .dialog: .floating
-    case .window: .tiled
-    }
+    return type.initialKind(bundleId: app.rawAppBundleId, floatingApps: config.floatingApps)
 }
