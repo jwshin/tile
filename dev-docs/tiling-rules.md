@@ -1,16 +1,16 @@
 # tile tiling rules
 
-This is the working specification for the retained [layout prototype](layout-prototype.html). It records the binary layout design explored so far; the native macOS app does not yet implement this specification. Open the HTML file directly in Chrome to try the rules. No server or dependencies are required.
+Implementation specification, incorporating the design interview completed on 2026-09-27. The behavior decisions below are sufficient for an initial implementation. Smaller engineering defaults are identified separately so they are not mistaken for explicit user choices.
 
-The structural and movement rules below are the selected design. Details explicitly marked **working defaults** or **open** remain available for experimentation.
+The retained [layout prototype](layout-prototype.html) demonstrates the original binary structure and movement experiments. It does **not yet implement all of this specification**; see the coverage table below. The native macOS app also remains unchanged. Open the HTML directly in Chrome; no server or dependencies are required.
 
 ## 1. Screens and sections
 
 - Each screen owns an independent tiled layout and a collection of floating windows.
 - An empty screen has no tiled section. Otherwise its root section covers the usable tiling area.
-- A section contains either one window or exactly two child sections. A section never contains a list of windows alongside child sections.
-- Each tiled window occupies exactly one leaf section. Every window belongs to exactly one screen and is either tiled or floating.
-- Child order determines position: first means left or top; second means right or bottom.
+- A section contains either one window or exactly two child sections. There are no single-child splits or lists of windows within leaves.
+- Each tiled window occupies exactly one leaf. Each managed window belongs to one screen and is either tiled, floating, or temporarily excluded while minimized, hidden, or in native fullscreen.
+- Child order determines position: first means left/top; second means right/bottom.
 
 Example: `[W1, [W2, W3]]` on a screen with a horizontal root:
 
@@ -22,22 +22,30 @@ Example: `[W1, [W2, W3]]` on a screen with a horizontal root:
 └──────────┴──────────┘
 ```
 
-## 2. Split direction and size
+## 2. Orientation and split ratios
 
-Each screen has a root direction, horizontal by default. Here **horizontal** means children sit left/right; **vertical** means top/bottom. Each deeper level uses the opposite direction. Direction follows current depth rather than remaining attached to a section.
+**Horizontal** means children sit left/right; **vertical** means top/bottom. Choose a screen's initial root direction from its usable shape: horizontal for wide screens, vertical for portrait screens. Allow an explicit override and a command to flip the root direction. If shape information is unavailable, fall back to horizontal.
 
-**Working defaults:** every split divides the available space 50/50 after its gap. The prototype uses 1440 × 900 screens with 12-unit outer and inner gaps. These dimensions are simulator settings, not requirements for real displays. There is currently no resizing, minimum tile size, depth limit, or automatic balancing.
+Every deeper level uses the opposite direction. Direction follows current depth rather than remaining attached to a section. Promoting a section after removal can therefore rotate its subdivisions.
 
-## 3. Creating a window
+Every new split starts at **50/50** after accounting for the gap. Support keyboard and mouse resizing, retaining the resulting ratio for that split. Resizing adjusts the nearest ancestor split on the requested axis. In the example, resizing W3 horizontally adjusts the W1/right-column boundary; resizing it vertically adjusts the W2/W3 boundary.
 
-1. On an empty tiled layout, the new window fills the tiling area.
-2. Otherwise split the focused tiled window's section into two children: the existing window and the new window. The split direction follows that section's depth.
-3. If focus is floating, use the screen's remembered tiled window; if it is no longer present, use the last leaf in tree order. This is a single remembered window, not a full focus history.
-4. Focus follows the new window.
+Ratios describe positions within a split. Swapping its two children leaves the divider in place: a 70% left / 30% right split remains 70/30. A moved subtree retains its internal splits and ratios, subject to the swap's minimum-size validation.
 
-**Outer / Inner** controls which child receives the new window. The setting applies to future creation across all screens; changing it does not rearrange existing windows. Outer is the default.
+## 3. One insertion rule
 
-Compare the target window's center with the screen midpoint along the new split's axis:
+Use the same rule for creating a tiled window, retiling a floating window, returning a previously tiled window from minimization/hiding/fullscreen, transferring a tiled window, and receiving windows from a disconnected screen:
+
+1. Resolve the destination screen. Newly created application windows use the currently focused screen, regardless of the application's initial placement. Explicit transfers use their requested destination.
+2. On an empty tiled layout, use the whole tiling area.
+3. Otherwise split the destination's remembered tiled target into the existing window and the arriving window, initially 50/50. Prefer its focused tile; floating focus does not replace the remembered tiled target.
+4. Use Outer / Inner to choose which child receives the arriving window.
+5. If the proposed placement cannot satisfy both windows' minimum sizes, leave the existing tree unchanged and make the arriving window floating on the destination screen. Do not resize surrounding sections to make room for an insertion.
+6. User-created windows and explicitly transferred windows receive focus. Manual retiling retains focus on the same window.
+
+Returning windows do not restore their former tree position.
+
+**Outer / Inner** applies across all screens and affects future insertions only. Outer is the default. Compare the target tile's center with the screen midpoint along the new split's axis:
 
 | Target position along that axis | Outer | Inner |
 | --- | --- | --- |
@@ -46,24 +54,39 @@ Compare the target window's center with the screen midpoint along the new split'
 | Top half | New window above | New window below |
 | Bottom half | New window below | New window above |
 
-Outer means toward the nearer **screen edge**; Inner means the opposite side, toward the screen center. This rule applies at every depth. **Working tie rule:** exactly centered targets use right/bottom for Outer and left/top for Inner.
+Outer means toward the nearer **screen edge**; Inner means the opposite side, toward the screen center. This remains screen-relative at every depth. Retain the prototype's deterministic tie rule: exactly centered targets use right/bottom for Outer and left/top for Inner.
 
-For the example above, creating while W2 is focused splits W2 left/right. Outer creates to its right; Inner creates to its left. Mirroring the column to the left reverses those results.
+For the example above, inserting at W2 splits W2 left/right. Outer creates to its right; Inner creates to its left. Mirroring the column to the left reverses those results.
 
-## 4. Removing a tile
+## 4. Minimum sizes and recovery
 
-Deleting or floating a tiled window removes its leaf. Its sibling takes the removed parent's place. Removing the only tiled window leaves an empty tiled layout.
+The initial minimum tile size is **320 × 200 logical points**. Larger window-specific minimums take precedence when known. Lack of a reliable application minimum must not prevent operation: use the baseline and handle observed constraints through the native window adapter.
 
-If the promoted sibling is itself subdivided, its depth decreases and all split directions in that subtree change accordingly. This rotation is intentional: directions always follow depth. No other balancing is performed.
+- Clamp interactive resizing before any affected leaf falls below its minimum.
+- Float an arriving window when insertion cannot fit, including on an otherwise empty screen.
+- Reject an entire section or window swap if its resulting rectangles violate any affected window's minimum. Leave tree, ratios, and window positions unchanged.
+- For unavoidable changes, such as a shrinking screen or rotation after deletion, preserve ratios where possible; otherwise adjust them only enough to satisfy minimum sizes. If the layout still cannot fit, float its least recently focused tiled windows until the remaining tree can fit.
 
-## 5. Moving tiled windows
+There is no additional depth limit or general tree rebalancing in the initial design. Minimum sizes bound useful subdivision.
+
+For implementation, minimum section sizes can be calculated bottom-up. A horizontal split needs the sum of its children's minimum widths plus the gap, and the larger minimum height; a vertical split uses the corresponding height sum and larger width. Use these bounds when clamping ratios, then validate the actual leaf rectangles. Retry recovery after each removal because promotion changes split axes.
+
+## 5. Removal and temporary absence
+
+Deleting or floating a tile removes its leaf and promotes its sibling into the removed parent's place. Removing the only tile leaves the tiled layout empty. Promotion preserves the sibling's structure, but its new depth changes subdivision directions; apply minimum-size recovery if needed.
+
+Minimizing, hiding, or entering native fullscreen also removes a window from the tree, letting other windows expand. On return, a previously tiled window uses normal insertion; a previously floating window remains floating. No empty tile is reserved.
+
+Distinguish those explicit lifecycle changes from transient observation failures, such as temporary inaccessibility during screen lock. Reuse the app's existing reconciliation/restoration mechanisms where practical; a missed observation alone is not a close or minimize event.
+
+## 6. Moving tiled windows
 
 There are two operations:
 
-- **Section swap:** exchange the two children of the window's immediate parent. Its sibling may be a window or an entire subdivided section. A subdivided sibling moves intact, with the same internal structure and depth.
-- **Window swap:** exchange two windows between their existing leaf sections. The split structure and section sizes stay unchanged; each window takes the other section's rectangle.
+- **Section swap:** exchange the two children of the window's immediate parent. Its sibling may be one window or a whole subdivided section. The parent divider stays put; the subtree moves with its internal structure and ratios.
+- **Window swap:** exchange two windows between existing leaves. The tree, divider positions, and section sizes stay unchanged; each window takes the other's rectangle.
 
-The distinction is deliberately asymmetric in this example:
+Both operations must satisfy minimum sizes. Their difference is deliberately asymmetric:
 
 ```text
 Starting layout       W1 moves right       W3 moves left
@@ -75,46 +98,100 @@ Starting layout       W1 moves right       W3 moves left
                       Section swap         Window swap
 ```
 
-### Mouse dragging
+### Dragging within a screen
 
-- Clicking focuses a window. Dragging within its immediate parent swaps it with the sibling section when the pointer crosses into the sibling along the parent's split axis.
-- Dragging outside that parent onto another tiled window swaps the individual windows. Gaps and empty space are not window targets. Targets stay on the same screen.
-- Changes appear during the drag. After the first cross-parent window swap, the gesture stays in window-swap mode until release, including when dragged back into the original parent.
-- Keeping the pointer in the same target region does not repeatedly swap back and forth; leave that region to allow another swap.
-- Release keeps the result. Escape or pointer cancellation restores the layout from the start of the drag. One completed drag is one layout undo step.
+- Clicking focuses a window. Within its immediate parent, dragging into its sibling along the parent's split axis performs a section swap.
+- Outside that parent, dragging onto another tile performs a window swap. Gaps and empty space are not window targets.
+- Rearrange live during the drag. After the first cross-parent window swap, keep the gesture in window-swap mode until release, including when it returns to the original parent.
+- Keeping the pointer within the same target region does not repeatedly swap back and forth; it must leave before another swap can trigger.
+- Release retains valid changes. Escape or pointer cancellation restores the pre-drag layout. The prototype treats a completed drag as one undo step; a native global undo feature is not required by this specification.
 
-### Directional move controls
+### Dragging between screens
 
-Moving toward the immediate sibling performs a section swap. Otherwise choose a tiled window outside the immediate parent in that direction and perform a window swap. With no eligible target, the direction is unavailable.
+Preview the destination while hovering; transfer only on release. Use the destination's remembered tiled target and the normal insertion rule, including floating if it cannot fit. Focus follows the transferred window.
 
-**Working target selection:** prefer candidates overlapping the source on the perpendicular axis, then the smallest center distance along the movement axis, then perpendicular center distance, then window identifier. Each button press is a new operation; it does not retain a drag's window-swap mode. Consequently, an opposite button press is not guaranteed to undo a previous move if the window's parent has changed.
+When the drop is on another screen, **discard all intermediate swaps made during that gesture on the source screen**. Remove the window from its original position and apply ordinary collapse and minimum-size recovery there. Treat the gesture as one transfer, not a transfer plus incidental rearrangements along the pointer's route. Cancellation transfers nothing.
 
-## 6. Floating windows
+### Directional move commands
 
-Floating windows occupy independent rectangles above the tiled layout and consume no tiled space. They can be focused, freely dragged within the screen, nudged with the move controls, deleted, or tiled again. Changing between tiled and floating retains focus on that window.
+Moving toward the immediate sibling performs a section swap. Otherwise choose a tiled window outside the immediate parent, on the same screen, in that direction and perform a window swap. Reject an invalid swap; do not substitute a different operation. With no target, the direction is unavailable. Screen transfer is a separate operation.
 
-**Working defaults:** floating gives a window a smaller rectangle centered near its former tile, constrained to the screen. Tiling again splits the remembered tiled window, placing the returning window second (right/bottom), or fills an empty layout. It does not restore the old tree position. Outer / Inner currently applies only to newly created windows, not returning floating windows.
+Retain the prototype's target ordering: perpendicular overlap first, then nearest center along the movement axis, then nearest perpendicular center, then stable window identifier. Each command is a fresh operation and has no drag-mode memory. An opposite command therefore need not undo a prior move if the window's parent has changed.
 
-## 7. Focus and multiple screens
+## 7. Focus
 
-Focus identifies one window and its active screen. Creating, clicking, moving, or transferring a window keeps focus with that window's identity. Each screen remembers a tiled insertion target; focusing a float does not replace that target.
+Maintain recent-focus history per screen, including both tiled and floating windows.
 
-The prototype shows two independent screens, one at a time. Each has its own root direction. “Other screen” removes the focused window from its source and inserts it into the destination; focus follows it. Floating windows remain floating. A transferred tiled window currently splits the destination's remembered target and goes second, regardless of Outer / Inner.
+- Closing the focused window selects the most recently focused surviving, available window on that screen. An empty screen has no focused window.
+- Clicking selects a window; moving, resizing, floating, or retiling it keeps focus with its identity.
+- Remember the most recently focused available tiled window as the insertion target. Focusing a float does not replace that target.
+- Directional focus considers **tiled windows only**. Floating windows remain reachable through clicking or macOS window switching.
+- If no tile is available in the requested direction on the current screen, continue to a tile on another screen in that direction, following the physical monitor arrangement and skipping empty screens. Do not wrap around.
 
-**Working focus fallback:** after deletion, select the next window in tree order followed by floating order, or the previous final window if there is no next one. An empty screen has no focused window. Selecting a screen prefers its tiled target, then its last floating window. These are deterministic prototype defaults, not an agreed focus-history policy.
+Focus and movement are separate operations: focus can cross screens automatically at an edge; directional movement does not.
 
-## 8. Keeping the prototype useful
+## 8. Floating eligibility
 
-Keep the prototype as a small executable reference beside this document. It remains one self-contained HTML/CSS/JavaScript file, with the layout model independent of the DOM. Window content stays limited to an identifier and focus color; debug controls, tree state, calculated rectangles, and guided examples stay outside the windows.
+Normal, resizable application windows tile by default. Dialogs, palettes, and non-resizable windows retain appropriate floating or system-managed behavior. Use a manual float/tile toggle for eligible exceptions; no per-application rules are needed initially.
 
-Use the “Outer vs inner,” “Mirror the column,” “Window & section moves,” “Collapse & rotate,” “Floating,” and “Two screens” scenarios to check changes. Refreshing resets the prototype; it has no persistence or connection to macOS windows. Update this document and the prototype together when a design decision changes.
+Floating windows consume no tiled space. They can be focused, dragged, resized through ordinary window interaction, nudged by move commands, transferred, or tiled again. A floating transfer keeps the window floating. Retiling follows normal insertion and remains floating if the attempted insertion cannot fit.
 
-## 9. Open design questions
+The prototype's smaller centered rectangle on entering floating mode is an experimental presentation default, not a requirement for the native adapter.
 
-- Should Outer / Inner also control retiling and transfers?
-- Should retiling restore a previous position? What focus history should deletion and screen selection use?
-- Should splits support resizing, minimum sizes, or a maximum useful depth?
-- Should pointer dragging work between screens, and how should differently sized screens, disconnects, and reconnects behave?
-- How should the native app handle window size constraints, fullscreen/minimized windows, temporary disappearance, and saved state?
+## 9. Screen disconnection and restart
 
-These questions do not change the selected binary structure or the distinction between section swaps and window swaps.
+When a screen disconnects, permanently migrate its windows to a remaining screen. Insert tiled windows **individually** through normal Outer / Inner insertion; float arrivals that cannot fit. Floating windows remain floating. Do not preserve the disconnected layout as a group for later restoration.
+
+A newly connected or reconnected screen receives an empty tile layout; windows are not automatically moved back. Its initial orientation follows its usable shape or configured override. Reconnection does not imply that it is the same physical monitor.
+
+Restart restoration is best effort. Reuse existing support if practical, but **do not add a persistent window-layout storage system for the initial implementation**. If layout and ratio restoration would require that extra system, rebuild from currently open windows. In-memory recovery from temporary observation loss remains useful and is distinct from restart persistence or monitor reconnection.
+
+## 10. Engineering defaults and scope
+
+The interview settles product behavior above. Use these modest defaults where exact mechanics were not specified:
+
+- A square screen uses horizontal orientation. A surviving split retains its ratio when promoted onto a different axis, subject to minimum-size recovery.
+- With no usable focus history, choose the last eligible leaf in tree order as the insertion target. Break other ordering ties deterministically.
+- Selecting a screen restores its most recently focused available window. When an unavailable window leaves focus, use the same recent-focus fallback as deletion.
+- For directional focus, reuse the move target geometry ordering without its sibling-swap rule; a floating source may supply the origin rectangle but is never a directional focus target.
+- On disconnection, prefer the most recently focused remaining screen, falling back to the system's main available screen. Preserve the user's focused window during bulk migration rather than focusing every arrival. If no usable screen exists, defer placement until one becomes available.
+- Previously tiled windows returning from temporary exclusion use their assigned screen if it still exists, otherwise the remaining-screen fallback. Their old tree position is not retained.
+- Space becoming available does not automatically retile floating windows. Use the explicit tile action.
+- Reuse existing gap, shortcut, native activation, and window-classification mechanisms where suitable. Concrete key bindings, resize increments, and preview styling can be chosen during implementation.
+- Reconcile drag snapshots with concurrent window/screen lifecycle changes; cancellation must not resurrect closed windows or overwrite unrelated newly observed windows.
+
+These defaults can be changed without reopening the selected binary structure or interaction policies.
+
+## 11. Retained prototype and coverage
+
+Keep the prototype as a small executable reference beside this specification: one self-contained HTML/CSS/JavaScript file, with layout logic independent of the DOM. Window content remains an identifier plus focus color; controls, model state, rectangles, and guided examples remain outside windows. It has no persistence or connection to macOS windows; refresh resets it.
+
+| Behavior | Current prototype |
+| --- | --- |
+| Binary sections, depth-based directions, removal and promotion | Implemented |
+| Outer / Inner for new windows | Implemented, including centered tie rule |
+| Outer / Inner for retiling and transfers | Pending; currently inserts second |
+| Live sibling-section and individual-window swaps; drag cancellation | Implemented within one screen |
+| Adjustable ratios and minimum sizes | Pending; currently all splits are 50/50 with no minimum |
+| Rejected invalid swaps and automatic floating/recovery | Pending |
+| Recent-focus history and directional focus | Pending; currently uses deterministic tree-order fallbacks |
+| Two independent screens and button transfers | Implemented, one screen shown at a time |
+| Physical screen arrangement, automatic orientation, cross-screen drag previews and source rollback | Pending |
+| Disconnection, lifecycle events, native classification, restart recovery | Native integration work; not simulated yet |
+
+The simulator's current 1440 × 900 dimensions and 12-unit gaps are presentation settings, not requirements for real screens. Update the coverage table as features are implemented. Existing guided scenarios remain useful for creation, swapping, promotion, floating, and screen independence.
+
+## 12. Acceptance scenarios
+
+- Retile and transfer at targets in each screen half: Outer / Inner must select the same side as new-window creation, for both axes.
+- Resize W3 in the example: width affects the entire right column; height affects only W2/W3. Swap a 70/30 pair and verify the parent divider stays put.
+- Attempt an insertion below the minimum: only the arriving window floats. Attempt an invalid swap: the complete layout remains unchanged.
+- Close a window whose promotion rotates a subtree, and shrink a screen: retain valid ratios, clamp when needed, then float least-recently-focused tiles only if necessary.
+- Close the focused window after visiting a float: focus returns to that float if it is the most recent surviving available window. Directional focus still skips floats.
+- Focus beyond an edge with an empty screen between populated screens: continue in the physical direction without wrapping.
+- Drag through several source-screen swaps and release on another screen: discard intermediate source swaps and perform exactly one transfer. Cancel the same gesture: retain the original layout, accounting for independent lifecycle changes.
+- Disconnect a populated screen: migrate windows individually; reconnect a screen: do not restore or move them back.
+- Minimize, hide, or fullscreen a tiled window: collapse its old position; on return, use normal insertion rather than restoring a placeholder.
+- Launch a normal window with an initial rectangle on a different screen: insert on the screen that was focused when creation began.
+
+No further product decisions are blocking the initial implementation. Persistent layout storage, per-application rules, and general rebalancing are outside its scope.

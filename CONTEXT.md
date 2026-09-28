@@ -32,3 +32,9 @@ _Avoid_: virtual workspace
 **Outer placement**: Placement of a new window toward the nearer screen edge along the split direction.
 
 **Inner placement**: Placement of a new window on the opposite side from outer placement, toward the screen center.
+
+**Tiled insertion target**: The existing tile selected to share its section with an arriving tiled window.
+
+**Minimum tile size**: The smallest permitted tiled rectangle for a window, combining tile's baseline size with larger known application limits.
+
+**Screen focus history**: The recent ordering of focused windows on one screen, including tiled and floating windows.

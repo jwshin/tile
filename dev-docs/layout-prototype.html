@@ -11,7 +11,7 @@
 </style>
 </head>
 <body>
-<header class="intro"><div class="eyebrow">Reference prototype · binary layout</div><h1>tile layout lab</h1><p>Chosen model: each leaf is one window; each split has exactly two children. Split directions alternate by depth, including after deletion. Floating windows live outside the tree. Use this sandbox to explore and validate the tiling rules.</p></header>
+<header class="intro"><div class="eyebrow">Reference prototype · binary layout</div><h1>tile layout lab</h1><p>Chosen model: each leaf is one window; each split has exactly two children. Split directions alternate by depth, including after deletion. Floating windows live outside the tree. Use this sandbox to explore the original tiling experiments.</p><p class="caption">The <a href="tiling-rules.md">implementation specification</a> now also covers resizing, minimum sizes, focus history, and cross-screen dragging. Those additions are not implemented in this prototype yet; see its coverage table.</p></header>
 <div class="controls" aria-label="Debug controls">
 <button id="create" class="primary">+ New window</button><button id="delete">Delete focused</button>
 <span class="divider"></span><span class="caption">Move focused</span>
@@ -26,7 +26,7 @@
 <div class="caption">Click to focus. Drag within the parent to swap sibling sections; cross its boundary to swap individual windows. Drag floating windows freely. Blue = focused. Debug controls stay outside the windows. Escape cancels a drag.</div>
 <div class="panels">
 <section class="panel"><h2>Current model</h2><pre id="model"></pre><details><summary>Full state and calculated rectangles</summary><pre id="raw"></pre></details></section>
-<section class="panel"><h2>Chosen model &amp; working rules</h2><ul class="rules">
+<section class="panel"><h2>Current prototype behavior</h2><ul class="rules">
 <li><strong>Chosen structure:</strong> one window per leaf; exactly two children per split. The first window fills an empty screen. Directions alternate from the screen root and always follow current depth.</li>
 <li><strong>Create:</strong> split the focused tiled window 50/50. Outer (default) puts the new window toward the nearer screen edge along the split axis; Inner puts it on the opposite side, toward the screen center. A centered tile uses right / bottom for Outer and left / top for Inner. Changing the setting affects future creation only. When focus is floating, split the remembered tiled window, or the last tile in tree order if it is gone.</li>
 <li><strong>Delete / float:</strong> remove the tile and promote its sibling. Directions follow depth, so promotion can rotate an existing subtree.</li>
