@@ -11,7 +11,7 @@
 </style>
 </head>
 <body>
-<header class="intro"><div class="eyebrow">Throwaway prototype · experiment 01</div><h1>tile layout lab</h1><p>Chosen model: each leaf is one window; each split has exactly two children. Split directions alternate by depth, including after deletion. Floating windows live outside the tree. Use this sandbox to decide the remaining creation and movement rules.</p></header>
+<header class="intro"><div class="eyebrow">Reference prototype · binary layout</div><h1>tile layout lab</h1><p>Chosen model: each leaf is one window; each split has exactly two children. Split directions alternate by depth, including after deletion. Floating windows live outside the tree. Use this sandbox to explore and validate the tiling rules.</p></header>
 <div class="controls" aria-label="Debug controls">
 <button id="create" class="primary">+ New window</button><button id="delete">Delete focused</button>
 <span class="divider"></span><span class="caption">Move focused</span>
@@ -28,16 +28,16 @@
 <section class="panel"><h2>Current model</h2><pre id="model"></pre><details><summary>Full state and calculated rectangles</summary><pre id="raw"></pre></details></section>
 <section class="panel"><h2>Chosen model &amp; working rules</h2><ul class="rules">
 <li><strong>Chosen structure:</strong> one window per leaf; exactly two children per split. The first window fills an empty screen. Directions alternate from the screen root and always follow current depth.</li>
-<li><strong>Create:</strong> split the focused tiled window 50/50. Outer (default) puts the new window toward the nearer screen edge along the split axis; Inner puts it on the opposite side, toward the screen center. A centered tile uses right / bottom for Outer and left / top for Inner. Changing the setting affects future creation only. When focus is floating, split the most recently focused remaining tile.</li>
+<li><strong>Create:</strong> split the focused tiled window 50/50. Outer (default) puts the new window toward the nearer screen edge along the split axis; Inner puts it on the opposite side, toward the screen center. A centered tile uses right / bottom for Outer and left / top for Inner. Changing the setting affects future creation only. When focus is floating, split the remembered tiled window, or the last tile in tree order if it is gone.</li>
 <li><strong>Delete / float:</strong> remove the tile and promote its sibling. Directions follow depth, so promotion can rotate an existing subtree.</li>
 <li><strong>Drag:</strong> inside the immediate parent, swap with the whole sibling section. Outside that parent, swap individual windows without changing the split structure. After crossing the boundary, that drag stays in window-swap mode until release; dragging back reverses the swap.</li>
 <li><strong>Move buttons:</strong> swap the whole sibling section when moving toward it; otherwise swap with the nearest window outside the parent in that direction. Unavailable directions are disabled.</li>
-<li><strong>Floating:</strong> excluded from the tree. Drag freely or nudge with the move buttons. Tiling again splits the most recently focused tile.</li>
+<li><strong>Floating:</strong> excluded from the tree. Drag freely or nudge with the move buttons. Tiling again splits the remembered tiled window and places the returning window second (right / bottom).</li>
 <li><strong>Screens:</strong> independent trees and root directions. “Other screen” transfers the focused window and follows it. No minimum tile size or automatic rebalancing yet.</li>
 </ul><ol id="log" class="log"></ol></section>
 </div>
 <section class="panel experiments"><h2>Guided experiments</h2><div id="tabs" class="tabs" role="tablist" aria-label="Experiments"></div><div id="scenario" role="tabpanel"></div></section>
-<div class="footer">Plain HTML / CSS / JavaScript. No installation, network calls, storage, or connection to the macOS app. Reloading starts over.</div>
+<div class="footer">Plain HTML / CSS / JavaScript. No installation, network calls, storage, or connection to the macOS app. Reloading starts over. <a href="tiling-rules.md">Tiling rules</a>.</div>
 <script id="layout-logic">
 // Design decisions: window leaves (option A); exactly two children per split; axes follow current depth.
 // New-window placement: outer (default, toward the nearer screen edge) or inner (opposite side).
