@@ -1,8 +1,10 @@
 # tile tiling rules
 
-Implementation specification, incorporating the design interview completed on 2026-09-27. The behavior decisions below are sufficient for an initial implementation. Smaller engineering defaults are identified separately so they are not mistaken for explicit user choices.
+Living decision document for tile’s tiling algorithm, incorporating the design interview completed on 2026-09-27. This is the authoritative record of accepted behavior. Smaller engineering defaults are identified separately so they are not mistaken for explicit user choices.
 
-The retained [layout prototype](layout-prototype.html) demonstrates the original binary structure and movement experiments. It does **not yet implement all of this specification**; see the coverage table below. The native macOS app also remains unchanged. Open the HTML directly in Chrome; no server or dependencies are required.
+The retained [layout prototype](layout-prototype.html) implements these layout decisions and simulates window and screen lifecycle events. Actual macOS observation, window classification, and native window manipulation remain application integration work. Open the HTML directly in Chrome; no server or dependencies are required.
+
+**Maintenance rule:** whenever a tiling decision changes, update the relevant rule here and the prototype behavior in the same change. Add or revise a guided scenario that demonstrates the decision, exercise the affected controls, and update the coverage notes when simulation boundaries change. Keep undecided proposals distinct from accepted behavior. The prototype and this document should agree before the change is considered complete.
 
 ## 1. Screens and sections
 
@@ -169,17 +171,25 @@ Keep the prototype as a small executable reference beside this specification: on
 | Behavior | Current prototype |
 | --- | --- |
 | Binary sections, depth-based directions, removal and promotion | Implemented |
-| Outer / Inner for new windows | Implemented, including centered tie rule |
-| Outer / Inner for retiling and transfers | Pending; currently inserts second |
-| Live sibling-section and individual-window swaps; drag cancellation | Implemented within one screen |
-| Adjustable ratios and minimum sizes | Pending; currently all splits are 50/50 with no minimum |
-| Rejected invalid swaps and automatic floating/recovery | Pending |
-| Recent-focus history and directional focus | Pending; currently uses deterministic tree-order fallbacks |
-| Two independent screens and button transfers | Implemented, one screen shown at a time |
-| Physical screen arrangement, automatic orientation, cross-screen drag previews and source rollback | Pending |
-| Disconnection, lifecycle events, native classification, restart recovery | Native integration work; not simulated yet |
+| Outer / Inner for creation, retiling, returning windows, and transfers | Implemented, including centered tie rule |
+| Live section/window swaps and drag cancellation | Implemented; invalid swaps leave the layout unchanged |
+| Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at minimums |
+| Automatic floating and minimum-size recovery | Implemented; known per-window limits can be supplied in debug controls |
+| Recent-focus history and directional focus | Implemented; arrows skip floats, cross screens, and do not wrap |
+| Physical screen arrangement and orientation | Implemented; edit screen X/Y and dimensions, use Auto or an explicit root override |
+| Cross-screen dragging | Implemented; preview on hover, transfer on release, discard source swaps |
+| Disconnection and reconnection | Simulated; migrate individually, support deferred placement with no screens, reconnect empty |
+| Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; actual native events need an adapter |
+| Window classification | Simulated normal/dialog/palette/non-resizable kinds; native classification remains app integration |
+| Temporary observation loss and restart | Simulated; observation interruption retains state, restart demonstrates rebuilding without persistent layout storage |
 
-The simulator's current 1440 × 900 dimensions and 12-unit gaps are presentation settings, not requirements for real screens. Update the coverage table as features are implemented. Existing guided scenarios remain useful for creation, swapping, promotion, floating, and screen independence.
+The simulator starts with two 1440 × 900 screens and 12-unit gaps. Screen sizes and positions can be changed independently. These are simulation settings, not requirements for real screens. Use **All screens** for cross-screen dragging or **Active screen** for a larger view of one layout.
+
+The prototype's concrete input choices are engineering defaults: resize buttons change the selected window's share by five percentage points at its nearest matching ancestor, clamped to minimums; divider dragging sets a continuous ratio. Arrow keys focus, Shift + arrows move, and Alt + left/right or up/down shrink/grow width or height. N creates, F toggles floating, Delete closes, and Ctrl/Cmd + Z undoes. Floating windows have an invisible resize target at their bottom-right corner, except simulated non-resizable windows.
+
+Independent controls and simulated lifecycle events cancel an in-progress gesture before applying their change. This prevents cancellation from resurrecting a deleted window or losing a new event. The native adapter must preserve the same outcome when observations arrive asynchronously.
+
+Guided experiments cover insertion, section/window swaps, resizing, minimum-size rejection, recovery, recent focus, screen transfers and disconnection, lifecycle events, orientation, window kinds, and the permitted restart fallback. Cross-screen pointer behavior can be exercised directly with both screens visible. All state stays in memory; the restart button simulates the chosen fallback rather than adding a storage layer.
 
 ## 12. Acceptance scenarios
 
