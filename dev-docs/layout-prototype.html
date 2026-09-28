@@ -19,7 +19,7 @@
 <button id="transfer">Other screen</button><button id="float">Float focused</button><span class="divider"></span><button id="undo">Undo</button><button id="reset">Reset</button>
 </div>
 <div id="status" class="status" role="status" aria-live="polite"></div>
-<div class="screen-controls"><span class="caption">Inspect screen</span><button data-screen="A">A</button><button data-screen="B">B</button><span class="divider"></span><label class="caption">Root split <select id="axis"><option value="x">Horizontal · left / right</option><option value="y">Vertical · top / bottom</option></select></label></div>
+<div class="screen-controls"><span class="caption">Inspect screen</span><button data-screen="A">A</button><button data-screen="B">B</button><span class="divider"></span><label class="caption">Root split <select id="axis"><option value="x">Horizontal · left / right</option><option value="y">Vertical · top / bottom</option></select></label><label class="caption">New window placement <select id="placement"><option value="before">Before · left / top</option><option value="after">After · right / bottom</option></select></label></div>
 <div id="board" class="board" aria-label="Simulated screen">
 <section class="display"><div class="display-label"><span id="screen-name">Screen A</span><span>1440 × 900</span></div><div class="stage"></div></section>
 </div>
@@ -28,7 +28,7 @@
 <section class="panel"><h2>Current model</h2><pre id="model"></pre><details><summary>Full state and calculated rectangles</summary><pre id="raw"></pre></details></section>
 <section class="panel"><h2>Chosen model &amp; working rules</h2><ul class="rules">
 <li><strong>Chosen structure:</strong> one window per leaf; exactly two children per split. The first window fills an empty screen. Directions alternate from the screen root and always follow current depth.</li>
-<li><strong>Create:</strong> split the focused tiled window 50/50. When focus is floating, split the most recently focused remaining tile.</li>
+<li><strong>Create:</strong> split the focused tiled window 50/50. New windows default to the left for horizontal splits or top for vertical splits. “New window placement” can reverse this to right / bottom; it affects future creation only. When focus is floating, split the most recently focused remaining tile.</li>
 <li><strong>Delete / float:</strong> remove the tile and promote its sibling. Directions follow depth, so promotion can rotate an existing subtree.</li>
 <li><strong>Move:</strong> buttons swap with the nearest tiled window in that direction. At an edge, nothing happens. Dragging swaps when entering another tile.</li>
 <li><strong>Floating:</strong> excluded from the tree. Drag freely or nudge with the move buttons. Tiling again splits the most recently focused tile.</li>
@@ -39,6 +39,7 @@
 <div class="footer">Plain HTML / CSS / JavaScript. No installation, network calls, storage, or connection to the macOS app. Reloading starts over.</div>
 <script id="layout-logic">
 // Design decisions: window leaves (option A); exactly two children per split; axes follow current depth.
+// New-window placement is configurable: before (left/top, default) or after (right/bottom).
 // Still experimental: split focused tile 50/50, swap-based movement, and floating reinsertion.
 // Prototype model: no DOM. Split axes are derived from screen direction and depth.
 const Layout = (() => {
@@ -51,7 +52,7 @@ const Layout = (() => {
     const children=n.children.map(c=>replace(c,id,replacement)).filter(c=>c!=null);
     return children.length===2?{children}:children[0]??null;
   }
-  const split=(root,target,id)=>root==null?id:replace(root,target,{children:[target,id]});
+  const split=(root,target,id,placement='after')=>root==null?id:replace(root,target,{children:placement==='before'?[id,target]:[target,id]});
   const target=d=>ids(d.root).includes(d.lastTiled)?d.lastTiled:ids(d.root).at(-1);
   function frames(s){
     const result=[];
@@ -79,13 +80,14 @@ const Layout = (() => {
   const clamp=(v,low,high)=>Math.max(low,Math.min(high,v));
   function detach(d,id){d.root=replace(d.root,id,null);d.floating=d.floating.filter(w=>w.id!==id);if(d.lastTiled===id)d.lastTiled=ids(d.root).at(-1)??null;}
   function focus(s,id){const d=owner(s,id);if(!d)return;s.focused=id;s.activeDisplay=d.id;if(!isFloating(s,id))d.lastTiled=id;}
-  function seed(){return {displays:[{id:'A',axis:'x',root:{children:[1,{children:[2,3]}]},floating:[],lastTiled:3},{id:'B',axis:'x',root:null,floating:[],lastTiled:null}],focused:3,activeDisplay:'A',nextId:4};}
+  function seed(newWindowPlacement='before'){return {newWindowPlacement,displays:[{id:'A',axis:'x',root:{children:[1,{children:[2,3]}]},floating:[],lastTiled:3},{id:'B',axis:'x',root:null,floating:[],lastTiled:null}],focused:3,activeDisplay:'A',nextId:4};}
   function reduce(state,action){
     const s=structuredClone(state),id=s.focused,d=s.displays.find(d=>d.id===s.activeDisplay);
     if(action.type==='focus')focus(s,action.id);
     else if(action.type==='display'){const screen=s.displays.find(d=>d.id===action.display);if(screen){s.activeDisplay=screen.id;s.focused=target(screen)??screen.floating.at(-1)?.id??null;}}
     else if(action.type==='axis')d.axis=action.axis;
-    else if(action.type==='create'){const added=s.nextId++;d.root=split(d.root,target(d),added);focus(s,added);}
+    else if(action.type==='placement')s.newWindowPlacement=action.placement;
+    else if(action.type==='create'){const added=s.nextId++;d.root=split(d.root,target(d),added,s.newWindowPlacement);focus(s,added);}
     else if(action.type==='delete'&&id!=null){const order=[...ids(d.root),...d.floating.map(w=>w.id)],index=order.indexOf(id);detach(d,id);const remaining=[...ids(d.root),...d.floating.map(w=>w.id)];s.focused=remaining[Math.min(index,remaining.length-1)]??null;if(s.focused!=null)focus(s,s.focused);}
     else if(action.type==='move'&&id!=null){
       const floating=d.floating.find(w=>w.id===id);
@@ -107,12 +109,13 @@ const Layout = (() => {
 const $=id=>document.getElementById(id);
 let state=Layout.seed(),history=[],messages=['A horizontal root; its right child splits vertically.'],drag=null,scenarioIndex=null,stepIndex=0;
 const scenarios=[
+  {name:'New window side',placement:'before',note:'First add W4 on the left, then W5 on top. Switch to After and the next vertical split puts W6 on the bottom. Existing windows do not move when the setting changes.',steps:[['Add W4 on the left',{type:'create'}],['Add W5 on top',{type:'create'}],['Choose After',{type:'placement',placement:'after'}],['Focus W3',{type:'focus',id:3}],['Add W6 on bottom',{type:'create'}]]},
   {name:'Alternating splits',note:'W3 is a leaf at depth 2. Its next split is horizontal; the new child then splits vertically. Watch how each new window uses the opposite direction from its parent.',steps:[['Split W3: add W4',{type:'create'}],['Split W4: add W5',{type:'create'}],['Delete W5',{type:'delete'}]]},
   {name:'Collapse & rotate',note:'Delete W1. The former right subtree becomes the root, so W2 and W3 change from top/bottom to left/right. This is the key consequence of directions following depth.',steps:[['Focus W1',{type:'focus',id:1}],['Delete W1',{type:'delete'}],['Create W4',{type:'create'}]]},
   {name:'Floating',note:'Float W3, nudge it independently, then tile it again. Floating windows are not sections in the tree.',steps:[['Float W3',{type:'float'}],['Move it left',{type:'move',direction:'left'}],['Tile W3 again',{type:'float'}]]},
   {name:'Two screens',note:'Each screen has its own tree and root direction. Move W3 to B, create another window, then change B’s root direction.',steps:[['Send W3 to B',{type:'transfer'}],['Create W4',{type:'create'}],['Vertical root on B',{type:'axis',axis:'y'}]]}
 ];
-function describe(a){return ({focus:`Focused W${a.id}.`,display:`Selected screen ${a.display}.`,axis:`Changed the root to ${a.axis==='x'?'horizontal':'vertical'}.`,create:'Created a window by splitting a tile.',delete:'Deleted the focused window and collapsed its parent.',move:`Moved the focused window ${a.direction}.`,swap:`Swapped with W${a.target} while dragging.`,float:'Changed the focused window between floating and tiled.',floatMove:'Moved the floating window.',transfer:'Transferred the focused window to the other screen.'})[a.type];}
+function describe(a){return ({focus:`Focused W${a.id}.`,display:`Selected screen ${a.display}.`,axis:`Changed the root to ${a.axis==='x'?'horizontal':'vertical'}.`,placement:`New windows will open ${a.placement==='before'?'left / top':'right / bottom'}.`,create:`Created a window ${state.newWindowPlacement==='before'?'before (left / top)':'after (right / bottom)'} the previous tile.`,delete:'Deleted the focused window and collapsed its parent.',move:`Moved the focused window ${a.direction}.`,swap:`Swapped with W${a.target} while dragging.`,float:'Changed the focused window between floating and tiled.',floatMove:'Moved the floating window.',transfer:'Transferred the focused window to the other screen.'})[a.type];}
 function apply(action,record=true){
   const next=Layout.reduce(state,action);if(JSON.stringify(next)===JSON.stringify(state)){$('status').textContent='No change: there is no window in that direction, or the window is already selected.';return false;}
   if(record)history.push(structuredClone(state));state=next;if(action.type!=='floatMove'){messages.unshift(describe(action));messages=messages.slice(0,5);}render();return true;
@@ -124,14 +127,14 @@ function tree(n,axis,indent='',depth=0){
 }
 function render(){
   const rects=Layout.frames(state),screen=state.displays.find(d=>d.id===state.activeDisplay),stage=document.querySelector('.stage');
-  $('screen-name').textContent=`Screen ${screen.id}`;$('axis').value=screen.axis;
+  $('screen-name').textContent=`Screen ${screen.id}`;$('axis').value=screen.axis;$('placement').value=state.newWindowPlacement;
   document.querySelectorAll('[data-screen]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.screen===screen.id));
   stage.replaceChildren();
   const items=rects.filter(r=>r.display===screen.id);
   for(const r of items){const el=document.createElement('div');el.className='tile'+(r.id===state.focused?' focused':'')+(r.floating?' floating':'')+(drag?.moving&&!drag.floating&&drag.id===r.id?' dragged':'');el.dataset.window=r.id;el.textContent=`W${r.id}`;el.setAttribute('aria-label',`Window ${r.id}${r.floating?', floating':''}${r.id===state.focused?', focused':''}`);Object.assign(el.style,{left:r.x/Layout.WIDTH*100+'%',top:r.y/Layout.HEIGHT*100+'%',width:r.w/Layout.WIDTH*100+'%',height:r.h/Layout.HEIGHT*100+'%'});stage.append(el);}
   if(!items.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Empty screen · New window fills it';stage.append(empty);}
   $('status').textContent=`${state.focused==null?'No focused window':`Focused W${state.focused}${Layout.isFloating(state,state.focused)?' · floating':''}`} · Screen ${screen.id} · ${Layout.ids(screen.root).length} tiled / ${screen.floating.length} floating`;
-  $('model').textContent=state.displays.map(d=>`Screen ${d.id}${d.id===state.activeDisplay?' · active':''}\n${tree(d.root,d.axis)}\nFloating: ${d.floating.map(w=>`W${w.id}${w.id===state.focused?' (focused)':''} @ ${Math.round(w.x)},${Math.round(w.y)}`).join('; ')||'none'}`).join('\n\n');
+  $('model').textContent=`New windows: ${state.newWindowPlacement==='before'?'before · left / top':'after · right / bottom'}\n\n`+state.displays.map(d=>`Screen ${d.id}${d.id===state.activeDisplay?' · active':''}\n${tree(d.root,d.axis)}\nFloating: ${d.floating.map(w=>`W${w.id}${w.id===state.focused?' (focused)':''} @ ${Math.round(w.x)},${Math.round(w.y)}`).join('; ')||'none'}`).join('\n\n');
   $('raw').textContent=JSON.stringify({state,rectangles:rects},null,2);
   $('log').replaceChildren(...messages.map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
   for(const id of ['delete','transfer','float'])$(id).disabled=state.focused==null;
@@ -143,10 +146,11 @@ for(const type of ['create','delete','transfer','float'])$(type).onclick=()=>fre
 document.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>freeAction({type:'move',direction:b.dataset.move}));
 document.querySelectorAll('[data-screen]').forEach(b=>b.onclick=()=>freeAction({type:'display',display:b.dataset.screen}));
 $('axis').onchange=e=>freeAction({type:'axis',axis:e.target.value});
+$('placement').onchange=e=>freeAction({type:'placement',placement:e.target.value});
 $('undo').onclick=()=>{if(history.length){state=history.pop();scenarioIndex=null;messages.unshift('Undid the last action.');render();}};
-$('reset').onclick=()=>{state=Layout.seed();history=[];messages=['Reset to the initial binary sections.'];scenarioIndex=null;render();};
+$('reset').onclick=()=>{state=Layout.seed(state.newWindowPlacement);history=[];messages=['Reset to the initial binary sections.'];scenarioIndex=null;render();};
 function renderScenario(){
-  $('tabs').replaceChildren(...scenarios.map((scenario,index)=>{const b=document.createElement('button');b.textContent=scenario.name;b.setAttribute('role','tab');b.setAttribute('aria-selected',index===scenarioIndex);b.onclick=()=>{state=Layout.seed();history=[];messages=[`Started experiment: ${scenario.name}.`];scenarioIndex=index;stepIndex=0;render();};return b;}));
+  $('tabs').replaceChildren(...scenarios.map((scenario,index)=>{const b=document.createElement('button');b.textContent=scenario.name;b.setAttribute('role','tab');b.setAttribute('aria-selected',index===scenarioIndex);b.onclick=()=>{state=Layout.seed(scenario.placement??state.newWindowPlacement);history=[];messages=[`Started experiment: ${scenario.name}.`];scenarioIndex=index;stepIndex=0;render();};return b;}));
   const panel=$('scenario');panel.replaceChildren();const note=document.createElement('div');note.className='scenario-note';note.textContent=scenarioIndex==null?'Choose an experiment to reset the screen and step through it, or keep using the debug buttons.':scenarios[scenarioIndex].note;panel.append(note);if(scenarioIndex==null)return;
   const steps=document.createElement('div');steps.className='steps';scenarios[scenarioIndex].steps.forEach(([label,action],index)=>{const b=document.createElement('button');b.textContent=`${index+1}. ${label}`;b.disabled=index!==stepIndex;b.classList.toggle('done',index<stepIndex);b.onclick=()=>{stepIndex++;apply(action);renderScenario();};steps.append(b);});panel.append(steps);
 }
