@@ -16,7 +16,7 @@ struct LaunchAtLoginMenuItem: View {
                         }
                     })
             )
-            .disabled(model.status == .notFound)
+            .disabled(!model.canConfigure)
             .help("Automatically open tile when you log in to this Mac.")
             if model.status == .requiresApproval {
                 Button("Allow Launch at Login…") { model.openSettings() }

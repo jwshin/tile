@@ -4,17 +4,18 @@ import Observation
 import ServiceManagement
 
 @MainActor protocol LoginItemService {
-    var status: SMAppService.Status { get }
+    // nil means this executable is not an eligible app bundle.
+    var status: SMAppService.Status? { get }
     func register() throws
     func unregister() throws
     func openSettings()
 }
 
 @MainActor struct NativeLoginItemService: LoginItemService {
-    var status: SMAppService.Status {
+    var status: SMAppService.Status? {
         // An unbundled debug executable must never become a login item.
         guard Bundle.main.bundleURL.pathExtension == "app", Bundle.main.bundleIdentifier == stableAppId else {
-            return .notFound
+            return nil
         }
         return SMAppService.mainApp.status
     }
@@ -27,7 +28,8 @@ import ServiceManagement
 /// Reflects macOS registration without storing a second preference or registering during startup.
 @MainActor @Observable final class LaunchAtLogin {
     private let service: any LoginItemService
-    private(set) var status: SMAppService.Status
+    private(set) var status: SMAppService.Status?
+    var canConfigure: Bool { status != nil }
     var isEnabled: Bool { status == .enabled }
 
     init(service: any LoginItemService) {
@@ -41,11 +43,12 @@ import ServiceManagement
     /// Returns a diagnostic on failure; the displayed state always comes from macOS.
     func setEnabled(_ enabled: Bool) -> String? {
         refresh()
-        guard status != .notFound else { return "Open the installed tile.app to configure Launch at login." }
+        guard canConfigure else { return "Open the installed tile.app to configure Launch at login." }
         var failure: (any Error)?
         do {
             if enabled {
-                if status == .notRegistered { try service.register() }
+                // macOS can report .notFound before the first registration.
+                if status == .notRegistered || status == .notFound { try service.register() }
             } else if status == .enabled || status == .requiresApproval {
                 try service.unregister()
             }

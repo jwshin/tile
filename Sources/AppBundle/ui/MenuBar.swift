@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 public func menuBar(viewModel: TrayMenuModel) -> some Scene {
     MenuBarExtra {
-        Text(appName)
+        Text("\(appName) \(appVersion)")
         if viewModel.axPermissionStatus != .granted {
             Button("Grant Accessibility permission") { viewModel.axPermissionStatus = .waitingWithPrompt }
         } else {

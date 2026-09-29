@@ -7,7 +7,7 @@ import Testing
 @testable import AppBundle
 
 @MainActor private final class TestLoginItemService: LoginItemService {
-    var status: SMAppService.Status = .notRegistered
+    var status: SMAppService.Status? = .notRegistered
     var registrationStatus: SMAppService.Status = .enabled
     var failure: NSError?
     var statusOnFailure: SMAppService.Status?
@@ -65,6 +65,30 @@ extension CoreTests {
             #expect(service.removals == 1)
         }
 
+        @Test func firstRegistrationFromNotFound() {
+            let service = TestLoginItemService()
+            service.status = .notFound
+            let model = LaunchAtLogin(service: service)
+            #expect(model.canConfigure && !model.isEnabled && service.registrations == 0)
+            #expect(model.setEnabled(true) == nil)
+            #expect(model.isEnabled && service.registrations == 1)
+            #expect(service.settingsOpens == 0)
+        }
+
+        @Test func failedFirstRegistrationRemainsAvailableForRetry() {
+            let service = TestLoginItemService()
+            service.status = .notFound
+            service.failure = NSError(
+                domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Registration failed"])
+            let model = LaunchAtLogin(service: service)
+            #expect(model.setEnabled(true)?.contains("Registration failed") == true)
+            #expect(model.canConfigure && !model.isEnabled && model.status == .notFound)
+            #expect(service.registrations == 1 && service.settingsOpens == 0)
+            service.failure = nil
+            #expect(model.setEnabled(true) == nil)
+            #expect(model.isEnabled && service.registrations == 2)
+        }
+
         @Test func toggleRechecksChangesMadeOutsideTheApp() {
             let service = TestLoginItemService()
             let model = LaunchAtLogin(service: service)
@@ -76,16 +100,16 @@ extension CoreTests {
             #expect(!model.isEnabled && service.removals == 0)
         }
 
-        @Test(arguments: [false, true])
-        func pendingApprovalOpensSettingsOnlyAfterAnExplicitRequest(alreadyRegistered: Bool) {
+        @Test(arguments: [SMAppService.Status.notFound, .notRegistered, .requiresApproval])
+        func pendingApprovalOpensSettingsOnlyAfterAnExplicitRequest(initialStatus: SMAppService.Status) {
             let service = TestLoginItemService()
-            service.status = alreadyRegistered ? .requiresApproval : .notRegistered
+            service.status = initialStatus
             service.registrationStatus = .requiresApproval
             let model = LaunchAtLogin(service: service)
             #expect(service.settingsOpens == 0)
             #expect(model.setEnabled(true) == nil)
             #expect(!model.isEnabled && model.status == .requiresApproval)
-            #expect(service.registrations == (alreadyRegistered ? 0 : 1))
+            #expect(service.registrations == (initialStatus == .requiresApproval ? 0 : 1))
             #expect(service.settingsOpens == 1)
             #expect(model.setEnabled(false) == nil)
             #expect(model.status == .notRegistered && service.removals == 1)
@@ -114,8 +138,9 @@ extension CoreTests {
 
         @Test func missingBundleCannotBeRegistered() {
             let service = TestLoginItemService()
-            service.status = .notFound
+            service.status = nil
             let model = LaunchAtLogin(service: service)
+            #expect(!model.canConfigure)
             #expect(model.setEnabled(true)?.contains("installed tile.app") == true)
             #expect(!model.isEnabled && service.registrations == 0 && service.settingsOpens == 0)
         }
