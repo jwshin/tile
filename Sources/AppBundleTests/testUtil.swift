@@ -17,13 +17,13 @@ let projectRoot: URL = {
 
 @MainActor
 func setUpWorkspacesForTests() {
-    MouseTiling.shared.cancel()
+    DisplayLayoutState.shared.cancelPointer()
     ActionExecution.shared.cancelRefresh()
     ActionExecution.shared = ActionExecution(desktop: TestDesktopSessionAdapter())
     ConfigurationApplication.shared = ConfigurationApplication(
         defaults: defaultConfig, shortcuts: RecordingShortcutRegistrar())
     unsafe testMonitors = [TestMonitor(displayId: "test-main", name: "Main", x: 0, isMain: true)]
-    DisplayLayoutState.shared = DisplayLayoutState(monitors: monitorInfos)
+    DisplayLayoutState.shared = DisplayLayoutState(monitors: monitorInfos, pointer: TestPointerAdapter())
     _ = mainMonitorInfo.activeWorkspace.focusWorkspace()
 
     TestApp.shared.isHidden = false

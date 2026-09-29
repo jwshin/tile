@@ -28,7 +28,7 @@ while exercising the same session and layout implementation. Foreground sessions
 Mouse and startup sessions use the same owner. Tree algorithm tests keep a smaller test-only entry point.
 
 `DisplayLayoutState` owns display layouts, window identity, logical focus, native focus history, restoration
-snapshots, and native window kinds (floating, popup, minimized, hidden, fullscreen). Each test can create fresh state. Layout mutations invalidate
+snapshots, its active gesture, and native window kinds (floating, popup, minimized, hidden, fullscreen). Each test can create fresh state. Layout mutations invalidate
 restoration through the owner, and window disappearance/restoration uses the same lookup in production and tests.
 
 
@@ -94,12 +94,19 @@ Floating windows can supply a focus origin but are not directional targets. Move
 sibling section, otherwise an individual tile outside the parent on the same screen. Explicit swap always
 exchanges individual windows. The `join-*` and `flatten-layout` actions are removed.
 
-`MouseTiling` owns a gesture's original and expected layouts. Native resize deltas apply to the original
-snapshot. Same-screen swaps update live, with a target-region latch and sticky individual-window mode
+`DisplayLayoutState` owns one private `MouseTiling` instance, including its original and expected layouts,
+manipulated window identity, transfer preview, and cancellation-until-release state. Pointer updates and
+release enter through the state owner and invalidate only its restoration history. Membership changes,
+window constraints, and monitor reconciliation cancel that owner's gesture before mutation. Frame writes
+and size feedback consult the same owner's manipulated window, so equal IDs in another state do not interfere.
+A `PointerAdapter` supplies pressed-button state and renders previews; native and recording test adapters
+exercise the same gesture implementation. The UI adapter keeps native event translation outside the model.
+Native resize deltas apply to the original snapshot. Same-screen swaps update live, with a target-region latch and sticky individual-window mode
 once a parent boundary is crossed. Another screen receives only a preview until release. A cross-screen
 drop restores the original source tree before transferring once. Escape or an independent lifecycle/action
 change cancels before mutation. Stale gestures never overwrite unrelated edits or resurrect closed windows.
-A non-activating `NSPanel` renders the destination outline. Input continues through the normal native window.
+A non-activating `NSPanel` owned by the native pointer adapter renders the destination outline. Input
+continues through the normal native window. Release clears cancellation state even when tiling has been disabled.
 
 The retained [prototype](layout-prototype.html) and [tiling rules](tiling-rules.md) are the executable reference
 and authoritative policy document. Keep both synchronized with native policy changes.

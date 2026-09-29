@@ -1,0 +1,200 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { test } = require('node:test');
+const vm = require('node:vm');
+
+// Exercise the same DOM-independent model embedded in the standalone prototype.
+const html = fs.readFileSync(path.join(__dirname, '../dev-docs/layout-prototype.html'), 'utf8');
+const source = html.match(/<script id="layout-logic">([\s\S]*?)<\/script>/)[1];
+const context = vm.createContext({ structuredClone });
+vm.runInContext(`${source}\nglobalThis.model = Layout;`, context);
+const Layout = context.model;
+const plain = value => JSON.parse(JSON.stringify(value));
+const center = rect => ({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 });
+const frame = (session, id) => Layout.frames(session.state).find(rect => rect.id === id);
+const root = session => plain(session.state.displays[0].root);
+
+function assertValid(session) {
+  const state = session.state;
+  for (const display of state.displays) assert(Layout.valid(state, display));
+  const ids = state.displays.flatMap(display => Layout.ids(display.root));
+  assert.equal(ids.length, new Set(ids).size);
+  assert.deepEqual(ids.slice().sort(), Object.values(state.windows)
+    .filter(window => window.mode === 'tiled' && window.display != null).map(window => window.id).sort());
+}
+
+test('another owner with matching window IDs cannot cancel a gesture or preview', () => {
+  const first = new Layout.DisplayLayoutState();
+  first.begin({ id: 3 });
+  first.move(center(frame(first, 1)));
+  first.move(center(Layout.display(first.state, 'B')));
+  const gesture = first.gesture;
+  const preview = plain(gesture.preview);
+  const second = new Layout.DisplayLayoutState();
+  second.begin({ id: 3 });
+  second.dispatch({ type: 'delete', id: 3 });
+  second.release();
+  assert.equal(first.gesture, gesture);
+  assert.deepEqual(plain(first.gesture.preview), preview);
+  assert(first.state.windows[3]);
+  assert(!second.state.windows[3]);
+});
+
+test('creation cancels live swaps before inserting and stale movement cannot replay them', () => {
+  const session = new Layout.DisplayLayoutState();
+  const expected = Layout.reduce(session.state, { type: 'create' });
+  const original = root(session);
+  session.begin({ id: 3 });
+  session.move(center(frame(session, 1)));
+  assert.notDeepEqual(root(session), original);
+  session.dispatch({ type: 'create' });
+  assert.equal(session.gesture, null);
+  assert(session.blocked);
+  session.move(center(Layout.display(session.state, 'B')));
+  assert.equal(session.begin({ id: 1 }), false);
+  session.release();
+  assert.deepEqual(plain(session.state), plain(expected));
+  assert.equal(session.begin({ id: 1 }), true);
+});
+
+test('close and screen disconnection survive stale release and cancellation', () => {
+  for (const action of [{ type: 'delete', id: 3 }, { type: 'disconnect', display: 'A' }]) {
+    const session = new Layout.DisplayLayoutState();
+    const expected = Layout.reduce(session.state, action);
+    session.begin({ id: 3 });
+    session.move(center(Layout.display(session.state, 'B')));
+    assert(session.gesture.preview);
+    session.dispatch(action);
+    session.release(true);
+    session.cancel();
+    assert.deepEqual(plain(session.state), plain(expected));
+    assertValid(session);
+  }
+});
+
+test('cross-screen release discards incidental source swaps', () => {
+  const session = new Layout.DisplayLayoutState();
+  const expected = Layout.reduce(session.state, { type: 'transfer', id: 3, destination: 'B' });
+  session.begin({ id: 3 });
+  session.move(center(frame(session, 1)));
+  session.move(center(Layout.display(session.state, 'B')));
+  assert.equal(session.state.windows[3].display, 'A');
+  session.release();
+  assert.deepEqual(plain(session.state), plain(expected));
+  assertValid(session);
+});
+
+test('leaving a screen clears the target latch before returning', () => {
+  const initial = Layout.reduce(Layout.seed(), { type: 'delete', id: 3 });
+  const session = new Layout.DisplayLayoutState(Layout.reduce(initial, { type: 'ratio', display: 'A', path: '', ratio: .3 }));
+  const original = root(session);
+  session.begin({ id: 1 });
+  session.move(center(frame(session, 2)));
+  assert.notDeepEqual(root(session), original);
+  session.move(center(Layout.display(session.state, 'B')));
+  session.move(center(frame(session, 2)));
+  session.release();
+  assert.deepEqual(root(session).children, original.children);
+  assert(Math.abs(root(session).ratio - original.ratio) < 1e-9);
+  assertValid(session);
+});
+
+test('resize cancellation restores the snapshot and outside-screen release cancels', () => {
+  const session = new Layout.DisplayLayoutState();
+  const initial = plain(session.state);
+  const split = Layout.geometry(session.state).splits[0];
+  const start = center(split.divider);
+  session.begin({ kind: 'split', point: start, split });
+  session.move({ x: start.x + 100, y: start.y });
+  assert.notDeepEqual(root(session), plain(initial.displays[0].root));
+  assertValid(session);
+  session.release(true);
+  assert.deepEqual(plain(session.state), initial);
+  session.begin({ id: 3 });
+  session.move({ x: -100, y: -100 });
+  session.release();
+  assert.deepEqual(root(session), plain(initial.displays[0].root));
+});
+
+// Run the real input adapter with rendering stubbed out; coordinates stay in model units.
+function pointerFixture() {
+  const elements = new Map();
+  const listeners = new Map();
+  const window = { addEventListener: listen };
+  function listen(type, handler) {
+    if (!listeners.has(this)) listeners.set(this, new Map());
+    const events = listeners.get(this);
+    if (!events.has(type)) events.set(type, []);
+    events.get(type).push(handler);
+  }
+  function emit(target, type, event = {}) {
+    event = { button: 0, pointerId: 7, target, preventDefault() {}, ...event, type };
+    for (const handler of listeners.get(target)?.get(type) ?? []) handler(event);
+    if (target !== window) {
+      for (const handler of listeners.get(window)?.get(type) ?? []) handler(event);
+    }
+  }
+  function element(id) {
+    if (id === 'ghost') return null;
+    if (!elements.has(id)) elements.set(id, {
+      value: id === 'view' ? 'all' : '', addEventListener: listen,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 2920, height: 900 }),
+      setPointerCapture(pointerId) { this.capture = pointerId; },
+      hasPointerCapture(pointerId) { return this.capture === pointerId; },
+      releasePointerCapture(pointerId) { this.capture = null; emit(this, 'lostpointercapture', { pointerId }); },
+    });
+    return elements.get(id);
+  }
+  const context = vm.createContext({ structuredClone, window, document: {
+    getElementById: element, querySelectorAll: () => [],
+  } });
+  const ui = html.match(/<script id="prototype-ui">([\s\S]*?)<\/script>/)[1];
+  vm.runInContext(`${source}\n${ui}\nfunction render() {}\nfunction showGhost() {}\nworld={x:0,y:0,w:2920,h:900};`, context);
+  const api = window.LayoutPrototype;
+  const board = element('board');
+  function down(id = 3) {
+    const rect = api.Layout.frames(api.state).find(rect => rect.id === id);
+    const tile = {
+      dataset: { window: id },
+      closest: selector => selector === '[data-window]' ? tile : null,
+      getBoundingClientRect: () => ({ left: rect.x, top: rect.y, width: rect.w, height: rect.h }),
+    };
+    emit(board, 'pointerdown', { target: tile, clientX: center(rect).x, clientY: center(rect).y });
+  }
+  return { api, down, emit, board, window };
+}
+
+test('pointercancel rolls back the gesture and accepts the very next drag', () => {
+  const { api, down, emit, board } = pointerFixture();
+  down();
+  const initial = plain(api.state);
+  const target = center(api.Layout.frames(api.state).find(rect => rect.id === 1));
+  emit(board, 'pointermove', { clientX: target.x, clientY: target.y });
+  assert.notDeepEqual(plain(api.state.displays), initial.displays);
+  emit(board, 'pointercancel');
+  assert.deepEqual(plain(api.state), initial);
+  assert.equal(api.gesture, null);
+  assert.equal(board.hasPointerCapture(7), false);
+  down();
+  assert.equal(api.gesture?.id, 3);
+});
+
+test('held-pointer cancellation stays blocked until a terminal event outside the board', () => {
+  for (const cancel of ['Escape', 'lifecycle']) {
+    for (const terminal of ['pointerup', 'pointercancel']) {
+      const { api, down, emit, board, window } = pointerFixture();
+      down();
+      if (cancel === 'Escape') emit(window, 'keydown', { key: 'Escape', target: board });
+      else api.dispatch({ type: 'create' });
+      assert.equal(api.gesture, null);
+      const windowIds = Object.keys(api.state.windows);
+      down();
+      assert.equal(api.gesture, null, `${cancel} must block held-pointer samples`);
+      emit(window, terminal);
+      down();
+      assert.equal(api.gesture?.id, 3, `${terminal} must permit the next drag after ${cancel}`);
+      assert.deepEqual(Object.keys(api.state.windows), windowIds);
+    }
+  }
+});

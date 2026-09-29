@@ -18,22 +18,20 @@ private func observeMouseChange(windowId: UInt32?, notification: String) {
         }
         try await ActionExecution.shared.runSession(.ax(notification), token) {
             guard let rect = try await window.getAxRect(.cancellable), window.isRegistered,
-                isLeftMouseButtonDown, ConfigurationApplication.shared.isEnabled
+                window.layoutState.isPointerDown, ConfigurationApplication.shared.isEnabled
             else { return }
-            await DisplayLayoutState.shared.changeLayout {
-                MouseTiling.shared.observe(window, frame: rect)
-                let point = mouseLocation
-                MouseTiling.shared.drag(at: point, on: point.monitorApproximation.activeWorkspace)
-            }
+            let point = mouseLocation
+            window.layoutState.updatePointer(
+                window, frame: rect, at: point,
+                on: window.layoutState.workspace(for: point.monitorApproximation))
         }
     }
 }
 
 @MainActor func resetManipulatedWithMouseIfPossible() async throws {
-    guard MouseTiling.shared.isHandlingPointer else { return }
+    let state = DisplayLayoutState.shared
+    guard state.isHandlingPointer else { return }
     let point = mouseLocation
-    await DisplayLayoutState.shared.changeLayout {
-        MouseTiling.shared.finish(at: point, on: point.monitorApproximation.activeWorkspace)
-    }
+    state.finishPointer(at: point, on: state.workspace(for: point.monitorApproximation))
     ActionExecution.shared.scheduleRefresh(.resetManipulatedWithMouse)
 }

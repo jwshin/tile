@@ -1,9 +1,11 @@
 import AppKit
 import Common
 
-/// Owns display layouts, window membership, focus, and restoration validity.
+/// Owns display layouts, window membership, focus, gestures, and restoration validity.
 @MainActor final class DisplayLayoutState {
-    static var shared = DisplayLayoutState(monitors: monitorInfos)
+    static var shared = DisplayLayoutState(monitors: monitorInfos, pointer: NativePointerAdapter())
+    private let pointer: any PointerAdapter
+    private lazy var mouseTiling = MouseTiling(state: self, pointer: pointer)
     private var layouts: [String: Workspace] = [:]
     private var windows: [UInt32: Window] = [:]
     private var mainDisplayId: String?
@@ -20,7 +22,34 @@ import Common
         let resumeKinds: [UInt32: WindowKind]
     }
 
-    init(monitors: [MonitorInfo]) { reconcileMonitors(monitors) }
+    init(monitors: [MonitorInfo], pointer: any PointerAdapter) {
+        self.pointer = pointer
+        reconcileMonitors(monitors)
+    }
+
+    var isPointerDown: Bool { pointer.isButtonDown }
+    var isHandlingPointer: Bool { mouseTiling.isHandlingPointer }
+    var manipulatedWindow: Window? { mouseTiling.manipulatedWindow }
+    var pointerPreview: MouseTiling.Preview? { mouseTiling.preview }
+
+    /// Pointer samples and lifecycle edits use this owner's gesture and restoration history.
+    func updatePointer(_ window: Window, frame: Rect, at point: CGPoint, on destination: Workspace) {
+        guard isPointerDown, window.layoutState === self, window.isRegistered, contains(destination),
+            manipulatedWindow == nil || manipulatedWindow === window
+        else { return }
+        restoration = [:]
+        mouseTiling.observe(window, frame: frame)
+        mouseTiling.drag(at: point, on: destination)
+    }
+
+    func finishPointer(at point: CGPoint, on destination: Workspace) {
+        guard isHandlingPointer, contains(destination) else { return }
+        restoration = [:]
+        mouseTiling.finish(at: point, on: destination)
+    }
+
+    func cancelPointer() { mouseTiling.cancel() }
+
     var workspaces: [Workspace] { layouts.values.sorted() }
     var allWindows: [Window] { windows.values.sorted { $0.windowId < $1.windowId } }
     var mainWorkspace: Workspace {
@@ -46,7 +75,7 @@ import Common
     func place(_ window: Window, on requested: Workspace, kind: WindowKind) {
         guard windows[window.windowId] === window else { return }
         check(requested.state === self)
-        MouseTiling.shared.cancel()
+        cancelPointer()
         let previous = focus
         let destination = contains(requested) ? requested : remainingWorkspace
         let source = window.workspace
@@ -129,7 +158,7 @@ import Common
             return existing.workspaceMonitor.visibleRect.topLeftCorner != monitor.visibleRect.topLeftCorner
                 || existing.workspaceMonitor.visibleRect.size != monitor.visibleRect.size
         }
-        if !removed.isEmpty || geometryChanged { MouseTiling.shared.cancel() }
+        if !removed.isEmpty || geometryChanged { cancelPointer() }
         mainDisplayId = main.displayId
         for monitor in monitors { workspace(for: monitor).workspaceMonitor = monitor }
         let destination =
@@ -160,7 +189,7 @@ import Common
 
     @discardableResult func removeWindow(_ window: Window, remember: Bool) -> Window? {
         guard windows[window.windowId] === window else { return nil }
-        MouseTiling.shared.cancel()
+        cancelPointer()
         let previous = focus
         if remember { saveForRestoration() }
         let workspace = window.workspace
@@ -197,7 +226,7 @@ import Common
 
     @discardableResult func restoreWindow(newlyDetectedWindow window: Window) -> Bool {
         guard restoration.values.contains(where: { $0.kinds[window.windowId] != nil }) else { return false }
-        MouseTiling.shared.cancel()
+        cancelPointer()
         // Rebuild all saved memberships atomically, without transient insertion failures.
         for (name, saved) in restoration {
             let destination = workspace(named: name)

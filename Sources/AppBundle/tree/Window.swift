@@ -49,7 +49,7 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
     /// Keep the actual applied size as the next gesture's baseline, including app rounding/cell snapping.
     @discardableResult func observeAppliedSize(requested: CGSize, actual: CGSize) -> Bool {
         let learnedMinimum = observeSizeConstraint(requested: requested, actual: actual)
-        if lastAppliedLayoutPhysicalRect?.size == requested, currentlyManipulatedWithMouseWindowId != windowId {
+        if lastAppliedLayoutPhysicalRect?.size == requested, layoutState.manipulatedWindow !== self {
             lastAppliedLayoutPhysicalRect?.width = actual.width
             lastAppliedLayoutPhysicalRect?.height = actual.height
         }
@@ -60,7 +60,7 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
     /// successful native writes before learning a substantially larger application limit.
     @discardableResult func observeSizeConstraint(requested: CGSize, actual: CGSize) -> Bool {
         guard isRegistered, kind == .tiled, !isFullscreen,
-            currentlyManipulatedWithMouseWindowId != windowId,
+            layoutState.manipulatedWindow !== self,
             lastAppliedLayoutPhysicalRect?.size == requested
         else {
             constraintCandidate = nil
@@ -77,7 +77,7 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
             constraintCandidate = candidate
             return false
         }
-        MouseTiling.shared.cancel()
+        layoutState.cancelPointer()
         minimumSize = candidate
         constraintCandidate = nil
         return true

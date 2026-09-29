@@ -1,9 +1,15 @@
-import AppKit
 import Common
+import Foundation
 
 /// A gesture owns its source snapshot until release. Destination layouts are only previewed.
 @MainActor final class MouseTiling {
-    static let shared = MouseTiling()
+    private unowned let state: DisplayLayoutState
+    private let pointer: any PointerAdapter
+
+    init(state: DisplayLayoutState, pointer: any PointerAdapter) {
+        self.state = state
+        self.pointer = pointer
+    }
     struct Preview {
         let workspace: Workspace
         let frame: Rect
@@ -26,6 +32,7 @@ import Common
     private var gesture: Gesture?
     private var blockedUntilRelease = false
     private(set) var preview: Preview?
+    var manipulatedWindow: Window? { gesture?.window }
     var isHandlingPointer: Bool { gesture != nil || blockedUntilRelease }
 
     /// Independent lifecycle edits call this *before* mutating membership.
@@ -33,19 +40,19 @@ import Common
         if let current = validGesture() {
             current.workspace.layout = current.original
             if current.kind == .floating { current.window.setAxFrame(current.frame.topLeftCorner, current.frame.size) }
-            blockedUntilRelease = isLeftMouseButtonDown
+            blockedUntilRelease = pointer.isButtonDown
         }
         clear()
     }
     private func clear() {
         gesture = nil
         preview = nil
-        currentlyManipulatedWithMouseWindowId = nil
-        if self === Self.shared { DragPreview.shared.hide() }
+        pointer.showPreview(nil)
     }
 
     func observe(_ window: Window, frame: Rect) {
-        guard !blockedUntilRelease, window.isRegistered, window.kind == .tiled || window.kind == .floating,
+        guard !blockedUntilRelease, window.layoutState === state, window.isRegistered,
+            window.kind == .tiled || window.kind == .floating,
             let workspace = window.workspace
         else { return }
         if gesture == nil {
@@ -55,7 +62,6 @@ import Common
                 frame: original, bounds: workspace.layoutRect, gap: CGFloat(config.gap), expected: workspace.layout)
         }
         guard var current = validGesture(), current.window === window else { return }
-        currentlyManipulatedWithMouseWindowId = window.windowId
         // Leading-edge resizing also moves the origin; AXMoved and AXResized may arrive in either order.
         current.resizing =
             current.resizing
@@ -116,11 +122,11 @@ import Common
                     topLeftX: point.x - current.frame.width / 2, topLeftY: point.y - 20,
                     width: current.frame.width, height: current.frame.height)
             preview = Preview(workspace: destination, frame: frame, floating: !tiled)
-            if self === Self.shared { DragPreview.shared.show(frame, floating: !tiled) }
+            pointer.showPreview(preview)
             return
         }
         preview = nil
-        if self === Self.shared { DragPreview.shared.hide() }
+        pointer.showPreview(nil)
         guard current.kind == .tiled else { return }
         if current.lastTargetRegion?.contains(point) == true { return }
         current.lastTargetRegion = nil
@@ -190,34 +196,4 @@ import Common
             drag(at: point, on: current.workspace)
         }
     }
-}
-
-/// Non-activating outline; the real target tree is untouched until the mouse is released.
-@MainActor private final class DragPreview {
-    static let shared = DragPreview()
-    private var panel: NSPanel?
-    func show(_ rect: Rect, floating: Bool) {
-        guard !isUnitTest, !appOptions.isReadOnly else { return }
-        if panel == nil {
-            let panel = NSPanel(
-                contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.ignoresMouseEvents = true
-            panel.level = .floating
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            panel.contentView = NSView()
-            panel.contentView?.wantsLayer = true
-            self.panel = panel
-        }
-        let color = floating ? NSColor.systemOrange : NSColor.systemBlue
-        panel?.contentView?.layer?.backgroundColor = color.withAlphaComponent(0.15).cgColor
-        panel?.contentView?.layer?.borderColor = color.cgColor
-        panel?.contentView?.layer?.borderWidth = 3
-        panel?.setFrame(
-            CGRect(x: rect.minX, y: mainMonitorInfo.height - rect.maxY, width: rect.width, height: rect.height),
-            display: true)
-        panel?.orderFrontRegardless()
-    }
-    func hide() { panel?.orderOut(nil) }
 }

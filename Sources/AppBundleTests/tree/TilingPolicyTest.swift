@@ -159,9 +159,9 @@ extension CoreTests {
             let constrained = CGSize(width: 600, height: 350)
             window.lastAppliedLayoutPhysicalRect = requested
             #expect(!window.observeAppliedSize(requested: requested.size, actual: constrained))
-            currentlyManipulatedWithMouseWindowId = window.windowId
+            window.layoutState.updatePointer(window, frame: requested, at: requested.center, on: window.workspace!)
             #expect(!window.observeAppliedSize(requested: requested.size, actual: constrained))
-            currentlyManipulatedWithMouseWindowId = nil
+            window.layoutState.cancelPointer()
             window.lastAppliedLayoutPhysicalRect = requested
             #expect(!window.observeAppliedSize(requested: requested.size, actual: constrained))
             window.lastAppliedLayoutPhysicalRect = requested  // A second native layout write confirms the limit.

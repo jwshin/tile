@@ -163,7 +163,7 @@ The interview settles product behavior above. Use these modest defaults where ex
 - Previously tiled windows returning from temporary exclusion use their assigned screen if it still exists, otherwise the remaining-screen fallback. Their old tree position is not retained.
 - Space becoming available does not automatically retile floating windows. Use the explicit tile action.
 - Reuse existing gap, shortcut, native activation, and window-classification mechanisms where suitable. Concrete key bindings, resize increments, and preview styling can be chosen during implementation.
-- Reconcile drag snapshots with concurrent window/screen lifecycle changes; cancellation must not resurrect closed windows or overwrite unrelated newly observed windows.
+- Reconcile drag snapshots with concurrent window/screen lifecycle changes; cancellation must not resurrect closed windows or overwrite unrelated newly observed windows. Each display layout state owns its gesture, manipulation tracking, and preview. Changes to another state must not cancel it, even when window identifiers match. After lifecycle cancellation, ignore further movement from the held pointer until release.
 
 These defaults can be changed without reopening the selected binary structure or interaction policies.
 
@@ -175,7 +175,7 @@ Keep the prototype as a small executable reference beside this specification: on
 | --- | --- |
 | Binary sections, depth-based directions, removal and promotion | Implemented |
 | Outer / Inner for creation, retiling, returning windows, and transfers | Implemented, including centered tie rule |
-| Live section/window swaps and drag cancellation | Implemented; moves preserve the selected width/height and redistribute space through ancestors |
+| Live section/window swaps and drag cancellation | Implemented in the model-owned gesture session; independent owners and lifecycle cancellation have a guided scenario; moves preserve the selected width/height |
 | Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at minimums |
 | Automatic floating and minimum-size recovery | Implemented; known per-window limits can be supplied in debug controls |
 | Recent-focus history and directional focus | Implemented; arrows skip floats, cross screens, and do not wrap |
@@ -190,7 +190,9 @@ The simulator starts with two 1440 × 900 screens and 12-unit gaps. Screen sizes
 
 The prototype's concrete input choices are engineering defaults: resize buttons change the selected window's share by five percentage points at its nearest matching ancestor, clamped to minimums; divider dragging sets a continuous ratio. Arrow keys focus, Shift + arrows move, and Alt + left/right or up/down shrink/grow width or height. N creates, F toggles floating, Delete closes, and Ctrl/Cmd + Z undoes. Floating windows have an invisible resize target at their bottom-right corner, except simulated non-resizable windows.
 
-Independent controls and simulated lifecycle events cancel an in-progress gesture before applying their change. This prevents cancellation from resurrecting a deleted window or losing a new event. The native adapter must preserve the same outcome when observations arrive asynchronously.
+The display layout state owns gesture transitions in the DOM-independent model. Independent controls and simulated lifecycle events cancel that state’s in-progress gesture before applying their change. Stale movement, release, or cancellation cannot resurrect a deleted window or lose a new event. A separate model’s lifecycle events leave the first model’s gesture intact. The **Gesture ownership** guided scenario exercises both cases. The native adapter must preserve the same outcome when observations arrive asynchronously.
+
+Browser `pointercancel` ends the input stream: restore the gesture’s original layout and accept the next drag immediately, without waiting for a `pointerup` that will not follow. Escape, lost pointer capture, and lifecycle edits can cancel while the pointer remains held; block further drag attempts until release or terminal browser cancellation, including when that event arrives outside the board. The **Pointer cancellation** guided scenario demonstrates terminal cancellation during a live swap and a transfer preview.
 
 Guided experiments cover floating-app preferences and manual overrides, insertion, section/window swaps, resizing, minimum-size rejection, recovery, recent focus, screen transfers and disconnection, lifecycle events, orientation, window kinds, and the permitted restart fallback. Cross-screen pointer behavior can be exercised directly with both screens visible. All state stays in memory; the restart button simulates the chosen fallback rather than adding a storage layer.
 
@@ -206,6 +208,8 @@ Guided experiments cover floating-app preferences and manual overrides, insertio
 - Resize a tile from its left or top edge: adjust the split while keeping window identities in place. Native move/resize notification order must not affect this outcome.
 - Close or minimize the focused tile after focusing a float: select the float, including when macOS initially reports another window as focused.
 - Drag through several source-screen swaps and release on another screen: discard intermediate source swaps and perform exactly one transfer. Cancel the same gesture: retain the original layout, accounting for independent lifecycle changes.
+- During a live swap or transfer preview, create or close a window or disconnect its screen. Cancel the gesture before applying that event; ignore stale movement until release and retain the event after stale release/cancel. Mutate a separate display layout state with matching window IDs: its changes must leave the first gesture and preview intact.
+- Cancel a browser pointer stream during a live swap: restore the original layout, then start the next drag without an extra click. Cancel with Escape or a lifecycle edit while held: reject a new drag until `pointerup` or `pointercancel`, even outside the board, and preserve the lifecycle edit.
 - Disconnect a populated screen: migrate windows individually; reconnect a screen: do not restore or move them back.
 - Minimize, hide, or fullscreen a tiled window: collapse its old position; on return, use normal insertion rather than restoring a placeholder.
 - Add an app to `floating-apps`: its existing windows stay put; a new matching window floats. Tile it manually, transfer it, and minimize/restore it: retain the manual choice. Remove the rule: only future windows return to automatic classification. Matching must not turn unmanaged popups into managed floats.
@@ -242,3 +246,5 @@ drag/resize, unplug/reconnect, lock/unlock, and fullscreen smoke tests remain ma
 The [native validation record](development.md#native-validation-record-2026-09-28) lists the outstanding desktop checks and the local environment limitation. Prototype lifecycle controls and Swift adapters cannot validate macOS notification timing or physical display changes.
 
 Issue #5 validation boundary: adapter regressions cover fullscreen focus preservation, Space-change departures, and interrupted Space reconciliation. The fullscreen/Space prototype scenario models activation separately. Real fullscreen animations, moving windows between Spaces, AX notification ordering, and desktop focus remain manual checks; this change does not implement per-Space layouts or claim to resolve every transient AX identity failure.
+
+Gesture ownership validation: Swift regressions cover independent state instances, matching window IDs, preview cleanup, frame-write and size-feedback isolation, restoration invalidation, and cancellation until release. The prototype’s model and guided controls exercise interruption by creation, close, and screen disconnection. Pointer-adapter regressions simulate browser cancellation and release both during a drag and after Escape or lifecycle cancellation; rendering is stubbed in these tests. Actual pressed-button sampling, Accessibility notification ordering, native preview rendering, and physical displays remain native integration checks.
