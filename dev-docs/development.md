@@ -9,7 +9,8 @@ and otherwise the selected system Swift. They work with the macOS system Bash.
 - `./test.sh`: tests followed by an app build treating warnings as errors.
 - `./lint.sh`: warnings-as-errors app build.
 - `./build-release.sh [output.app]`: build/sign `.release/tile.app` (or the supplied path) without installing or launching it.
-  Use a separate output path while another build is running.
+  Use a separate output path while another build is running. Version metadata comes from `Sources/Common/version.swift`.
+- `./package-release.sh [output-directory]`: build/sign an Apple silicon app, bundle license notices, and create a ZIP and SHA-256 checksum. See [releasing](releasing.md).
 
 Open `Package.swift` in Xcode. Running the debug executable from Terminal lets macOS request Accessibility
 permission for that host. The release app has a separate bundle identity and permission grant. Stop the

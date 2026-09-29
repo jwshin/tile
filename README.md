@@ -31,6 +31,30 @@ The [tiling rules](dev-docs/tiling-rules.md) are the authoritative specification
 Open the retained [interactive prototype](dev-docs/layout-prototype.html) directly in Chrome to experiment
 with layouts, minimums, screen changes, and window lifecycle events. It needs no server or dependencies.
 
+## Install
+
+Release 0.1.0 supports Apple silicon Macs running macOS 27 or later. With current Homebrew:
+
+```sh
+brew tap jwshin/tap
+brew trust --cask jwshin/tap/tile
+brew install --cask jwshin/tap/tile
+open /Applications/tile.app
+```
+
+The [tap](https://github.com/jwshin/homebrew-tap) installs the packaged app; Xcode and Swift are not required.
+Release downloads and checksums are also available on [GitHub](https://github.com/jwshin/tile/releases).
+
+This personal-use release is ad-hoc signed and **not notarized**. After the first launch attempt,
+use **System Settings → Privacy & Security → Open Anyway** if macOS blocks it
+([Apple's instructions](https://support.apple.com/en-us/102445)). Then grant tile Accessibility access.
+Quit any existing tile or other window manager before launching the installed app. Each Mac keeps its
+own `~/.tile.toml`; copy that file separately if you want matching settings.
+
+For updates, quit tile, run `brew update && brew upgrade --cask jwshin/tap/tile`, then reopen it.
+New ad-hoc builds may require renewing macOS approval and Accessibility access. The cask leaves your
+configuration in place on uninstall.
+
 ## Build and run
 
 Requires macOS 27, the macOS 27 SDK, and Swift 6.4 (see `.swift-version`). Open `Package.swift` in Xcode.
