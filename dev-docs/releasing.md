@@ -10,8 +10,11 @@ The app retains its `local.jwshin.tile` bundle ID so installations share one Acc
 2. Run `./test.sh`, then `./package-release.sh .release/dist`.
 3. Verify the archived app after extraction: its signature, bundle version, minimum OS, arm64 architecture,
    default config, and license notices must match the release. Confirm `Contents/MacOS/tile --version`.
-4. Commit and push the release source. Tag that commit `v<version>`; never move a published release tag
-   or replace a published version's archive. Publish fixes under a new version.
+4. Commit and push the release source. Tag that commit `v<version>`. Normally publish fixes under a new
+   version so existing installations can upgrade. If an explicitly requested re-release keeps the same
+   version, preserve the old assets, move only that tag with an expected-old-value check, replace both
+   the archive and checksum, and update the cask checksum together. Document `brew reinstall` for
+   existing users; Homebrew cannot detect a same-version replacement through `brew upgrade`.
 
 Packaging produces `tile-<version>-macos-arm64.zip` and a companion `.zip.sha256` file. The archive
 contains only `tile.app`, including `LICENSE.txt` and `legal/` in `Contents/Resources`. The build script

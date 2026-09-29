@@ -57,3 +57,17 @@ The required native validation remains open until the following checks are perfo
 | Configuration lifecycle | Disable/re-enable tiling and reload valid configuration. Shortcuts and layout remain operational. | Not run |
 
 Record the build/commit, displays, application names, results, and any reproduction details when completing these checks.
+
+## Launch at login
+
+The menu uses `SMAppService.mainApp` through `LaunchAtLogin`. Registration is opt-in and belongs to
+macOS; there is no stored Boolean, config key, helper app, or startup-time registration. Status refreshes
+when the menu opens and when tile becomes active. Enabling a registration that requires approval opens
+Login Items settings only after the user requests it. Failures refresh the actual state and use the
+existing diagnostics window. Unbundled/debug executables are ineligible for registration.
+
+Tests inject a service adapter to exercise registration, removal, external changes, approval, failure,
+and observable menu state without modifying the developer's login items. Manual validation still needs
+an installed signed `tile.app`: enable the toggle, check System Settings, disable/re-enable there and
+reopen the menu, then log out/in and confirm tile starts. Disabling the toggle should prevent the next
+login launch without quitting the current app. These native login/logout checks are not automated.
