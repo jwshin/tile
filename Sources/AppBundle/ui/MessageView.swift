@@ -31,7 +31,7 @@ struct MessageView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(.yellow)
                     .font(.system(size: 48))
-                Text("tile config diagnostics")
+                Text("tile diagnostics")
                     .padding(.horizontal)
                     .focusable()
             }

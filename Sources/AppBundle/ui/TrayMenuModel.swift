@@ -5,6 +5,7 @@ import Observation
 public final class TrayMenuModel {
     public static let shared = TrayMenuModel()
     private init() {}
+    let launchAtLogin = LaunchAtLogin(service: NativeLoginItemService())
     var trayText = "tile"
     var isEnabled: Bool { ConfigurationApplication.shared.isEnabled }
     var axPermissionStatus: AxPermissionStatus = .waitingWithPrompt
