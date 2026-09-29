@@ -69,7 +69,7 @@ import Common
             setFocus(
                 to: window.isFocusable
                     ? LiveFocus(windowOrNil: window, workspace: destination) : destination.toLiveFocus())
-            if !window.isFocusable { pendingFocusRecovery = true }
+            if !window.isFocusable { pendingFocusRecovery = window.kind != .nativeFullscreen }
         }
     }
 
@@ -99,6 +99,9 @@ import Common
             lastKnownNativeFocusedWindowId = window?.windowId
         }
     }
+
+    /// Native Space transitions own activation; discard recovery rather than replaying it later.
+    func discardFocusRecovery() { pendingFocusRecovery = false }
 
     /// Retain recovery across cancelled refreshes until an execution session can apply native focus.
     func takeFocusRecovery() -> LiveFocus? {
