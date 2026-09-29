@@ -51,17 +51,12 @@ use **System Settings → Privacy & Security → Open Anyway** if macOS blocks i
 Quit any existing tile or other window manager before launching the installed app. Each Mac keeps its
 own `~/.tile.toml`; copy that file separately if you want matching settings.
 
-For updates, quit tile, run `brew update && brew upgrade --cask jwshin/tap/tile`, then reopen it.
-New ad-hoc builds may require renewing macOS approval and Accessibility access. The cask leaves your
-configuration in place on uninstall.
+The cask leaves your configuration in place on uninstall.
 
 To start automatically, open the installed app and enable **Launch at login** in tile's menu.
 It is off until you enable it, applies to the current user on this Mac, and is managed by macOS rather
 than `~/.tile.toml`. If approval is required, use **Allow Launch at Login…** to open Login Items settings.
 The menu reflects changes made in System Settings. Debug executables cannot register themselves.
-
-Version 0.1.0 was republished with this toggle. If you installed the original 0.1.0, quit tile and run
-`brew update && brew reinstall --cask jwshin/tap/tile` to receive the replacement build.
 
 ## Build and run
 
