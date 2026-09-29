@@ -7,6 +7,7 @@ and otherwise the selected system Swift. They work with the macOS system Bash.
 - `./run-debug.sh`: build and start the app; this manages real desktop windows.
 - `./swift-test.sh`: run the serialized Swift Testing suites.
 - `./test.sh`: tests followed by an app build treating warnings as errors.
+- `node --test script/test-layout-prototype.cjs`: test the retained prototype’s model-owned gestures, lifecycle interruption, resizing, and cross-screen release without a browser or external packages.
 - `./lint.sh`: warnings-as-errors app build.
 - `./build-release.sh [output.app]`: build/sign `.release/tile.app` (or the supplied path) without installing or launching it.
   Use a separate output path while another build is running. Version metadata comes from `Sources/Common/version.swift`.

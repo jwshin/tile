@@ -1,13 +1,12 @@
 import AppKit
 
-@MainActor var currentlyManipulatedWithMouseWindowId: UInt32? = nil
 var isLeftMouseButtonDown: Bool { NSEvent.pressedMouseButtons == 1 }
 
 @MainActor
 func isManipulatedWithMouse(_ window: Window) async throws -> Bool {
     try await
-        (isLeftMouseButtonDown
-        && (currentlyManipulatedWithMouseWindowId == nil || window.windowId == currentlyManipulatedWithMouseWindowId))
+        (window.layoutState.isPointerDown
+        && (window.layoutState.manipulatedWindow == nil || window.layoutState.manipulatedWindow === window))
         .andAsync { @Sendable @MainActor in try await getNativeFocusedWindow(.cancellable) == window }
 }
 

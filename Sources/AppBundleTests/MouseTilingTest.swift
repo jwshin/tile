@@ -25,7 +25,7 @@ extension CoreTests {
             let (workspace, a, _, _) = setupThree()
             workspace.layout.resize(1, by: 200, in: workspace.layoutRect, gap: 8)
             let before = workspace.tiledFrames
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             defer { mouse.cancel() }
             mouse.observe(a, frame: try #require(before[1]))
             mouse.drag(at: before[2]!.center, on: workspace)
@@ -36,12 +36,12 @@ extension CoreTests {
             #expect(workspace.layout == swapped)
             mouse.finish(at: before[3]!.center, on: workspace)
             #expect(workspace.layout == swapped)
-            #expect(currentlyManipulatedWithMouseWindowId == nil)
+            #expect(DisplayLayoutState.shared.manipulatedWindow == nil)
         }
 
         @Test func crossingParentSwapsWindowsAndKeepsThatModeForRestOfGesture() throws {
             let (workspace, _, _, c) = setupThree()
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             defer { mouse.cancel() }
             let before = workspace.tiledFrames
             mouse.observe(c, frame: try #require(before[3]))
@@ -59,7 +59,7 @@ extension CoreTests {
             let destination = secondScreen()
             TestWindow.new(id: 4, workspace: destination)
             let original = source.layout
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             let frame = try #require(source.tiledFrames[1])
             mouse.observe(a, frame: frame)
             mouse.drag(at: source.tiledFrames[2]!.center, on: source)
@@ -83,20 +83,20 @@ extension CoreTests {
             let (source, a, _, _) = setupThree()
             let destination = secondScreen()
             let before = source.layout
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             mouse.observe(a, frame: try #require(source.tiledFrames[1]))
             mouse.drag(at: source.tiledFrames[2]!.center, on: source)
             mouse.drag(at: destination.layoutRect.center, on: destination)
             mouse.cancel()
             #expect(source.layout == before)
             #expect(destination.layout.windowIds.isEmpty)
-            #expect(a.workspace === source && currentlyManipulatedWithMouseWindowId == nil)
+            #expect(a.workspace === source && DisplayLayoutState.shared.manipulatedWindow == nil)
         }
 
-        @Test func independentCreationCancelsSharedGestureBeforeInserting() throws {
+        @Test func independentCreationCancelsOwnedGestureBeforeInserting() throws {
             let (workspace, a, _, _) = setupThree()
             let original = workspace.layout
-            let mouse = MouseTiling.shared
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             mouse.observe(a, frame: try #require(workspace.tiledFrames[1]))
             mouse.drag(at: workspace.tiledFrames[2]!.center, on: workspace)
             let newcomer = TestWindow.new(id: 4, workspace: workspace)
@@ -109,7 +109,7 @@ extension CoreTests {
 
         @Test func staleGestureCannotResurrectClosedWindowOrOverwriteExternalEdit() throws {
             let (workspace, a, _, _) = setupThree()
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             let original = try #require(workspace.tiledFrames[1])
             mouse.observe(a, frame: original)
             workspace.flipOrientation()
@@ -128,7 +128,7 @@ extension CoreTests {
             try await workspace.layoutWorkspace()
             let first = try #require(await a.getAxRect(.nonCancellable))
             let target = try #require(await b.getAxRect(.nonCancellable))
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             mouse.observe(a, frame: first)
             mouse.drag(at: target.center, on: workspace)
             try await workspace.layoutWorkspace()
@@ -142,7 +142,7 @@ extension CoreTests {
         @Test func resizeUsesAbsoluteDeltaClampsAndDoesNotBecomeMove() throws {
             let (workspace, a, _, _) = setupThree()
             let original = try #require(workspace.tiledFrames[1])
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             var frame = original
             frame.width += 40
             mouse.observe(a, frame: frame)
@@ -176,7 +176,7 @@ extension CoreTests {
             let edge =
                 axis == .h
                 ? CGPoint(x: frame.minX, y: frame.center.y) : CGPoint(x: frame.center.x, y: frame.minY)
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             defer { mouse.cancel() }
             mouse.observe(second, frame: frame)
             mouse.drag(at: edge, on: workspace)
@@ -197,7 +197,7 @@ extension CoreTests {
             actual.width -= 12  // A terminal may round the requested size to its character grid.
             #expect(!first.observeAppliedSize(requested: original.size, actual: actual.size))
             actual.topLeftX += 30
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             defer { mouse.cancel() }
             mouse.observe(first, frame: actual)
             mouse.drag(at: workspace.tiledFrames[2]!.center, on: workspace)
@@ -213,7 +213,7 @@ extension CoreTests {
             let original = source.layout
             let before = source.tiledFrames
             let oldTarget = try #require(before[2])
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             defer { mouse.cancel() }
             mouse.observe(first, frame: try #require(before[1]))
             mouse.drag(at: oldTarget.center, on: source)
@@ -237,7 +237,7 @@ extension CoreTests {
             let destination = secondScreen()
             let frame = Rect(topLeftX: 100, topLeftY: 100, width: 450, height: 300)
             let floating = TestWindow.new(id: 1, workspace: source, kind: .floating, rect: frame)
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             mouse.observe(floating, frame: frame)
             mouse.drag(at: destination.layoutRect.center, on: destination)
             #expect(floating.workspace === source && mouse.preview?.floating == true)
@@ -257,12 +257,12 @@ extension CoreTests {
 
         @Test func displayGeometryChangeInvalidatesPendingDrop() throws {
             let (workspace, a, _, _) = setupThree()
-            let mouse = MouseTiling()
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
             mouse.observe(a, frame: try #require(workspace.tiledFrames[1]))
             workspace.workspaceMonitor = TestMonitor(displayId: workspace.name, name: "Moved", x: 100)
             let before = workspace.layout
             mouse.finish(at: workspace.tiledFrames[2]!.center, on: workspace)
-            #expect(workspace.layout == before && currentlyManipulatedWithMouseWindowId == nil)
+            #expect(workspace.layout == before && DisplayLayoutState.shared.manipulatedWindow == nil)
         }
     }
 }

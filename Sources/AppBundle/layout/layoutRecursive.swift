@@ -5,7 +5,7 @@ extension Workspace {
         recover()
         let frames = tiledFrames
         let selected = insertionTarget
-        for window in tiledWindows where window.windowId != currentlyManipulatedWithMouseWindowId {
+        for window in tiledWindows where state.manipulatedWindow !== window {
             guard let rect = frames[window.windowId] else { continue }
             if window.isFullscreen && window.windowId == selected {
                 window.lastAppliedLayoutPhysicalRect = nil
@@ -17,7 +17,7 @@ extension Workspace {
                 window.setAxFrame(rect.topLeftCorner, rect.size)
             }
         }
-        for window in floatingWindows where window.windowId != currentlyManipulatedWithMouseWindowId {
+        for window in floatingWindows where state.manipulatedWindow !== window {
             try await window.layoutFloatingWindow(on: self)
         }
     }

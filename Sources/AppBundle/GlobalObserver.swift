@@ -39,7 +39,7 @@ enum GlobalObserver {
         NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
             guard event.keyCode == 53 else { return }
             Task { @MainActor in
-                MouseTiling.shared.cancel()
+                DisplayLayoutState.shared.cancelPointer()
                 ActionExecution.shared.scheduleRefresh(.resetManipulatedWithMouse)
             }
         }
@@ -49,8 +49,8 @@ enum GlobalObserver {
             //  resetManipulatedWithMouseIfPossible might call its own refresh session
             //  The end of the callback calls refresh session
             _ = Task { @MainActor in
-                guard let token: RunSessionGuard = .isEnabled else { return }
                 try await resetManipulatedWithMouseIfPossible()
+                guard let token: RunSessionGuard = .isEnabled else { return }
                 let mouseLocation = mouseLocation
                 let clickedMonitor = mouseLocation.monitorApproximation
                 switch true {

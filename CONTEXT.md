@@ -17,9 +17,11 @@ _Avoid_: virtual workspace
 
 **Restoration snapshot**: A saved arrangement used when windows disappear temporarily, such as while the screen is locked.
 
-**Display layout state**: The current display layouts, logical focus, and restoration history taken together.
+**Display layout state**: The current display layouts, logical focus, restoration history, and active gesture taken together.
 
 ### Tiling model
+
+**Gesture**: One continuous window drag or resize, from its start until release or cancellation. It belongs to one display layout state, including when it crosses screens.
 
 **Section**: A region of a display layout occupied by one tiled window or subdivided into two child sections.
 

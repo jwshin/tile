@@ -24,7 +24,7 @@ enum ActionInput { case shortcut, menu }
         guard ConfigurationApplication.shared.isEnabled || allowedWhileDisabled else {
             return CmdResult(stdout: [], stderr: [], exitCode: .fail)
         }
-        MouseTiling.shared.cancel()
+        DisplayLayoutState.shared.cancelPointer()
         return try await runSession(input == .menu ? .menuBarButton : .hotkeyBinding, .forceRun) {
             let command = action.command
             let io = CmdIo()

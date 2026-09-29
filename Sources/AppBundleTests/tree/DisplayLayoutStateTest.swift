@@ -43,8 +43,8 @@ extension CoreTests {
         }
 
         @Test func ownersDoNotShareLayoutsFocusOrWindowIdentity() {
-            let first = DisplayLayoutState(monitors: [main, side])
-            let second = DisplayLayoutState(monitors: [main, side])
+            let first = DisplayLayoutState(monitors: [main, side], pointer: TestPointerAdapter())
+            let second = DisplayLayoutState(monitors: [main, side], pointer: TestPointerAdapter())
             let a = TestWindow.new(id: 1, workspace: first.workspace(for: side))
             let b = TestWindow.new(id: 1, workspace: second.mainWorkspace)
             _ = a.focusWindow()
@@ -57,7 +57,7 @@ extension CoreTests {
         }
 
         @Test func popupAndMinimizedWindowsStayOutsideTilingTree() {
-            let state = DisplayLayoutState(monitors: [main])
+            let state = DisplayLayoutState(monitors: [main], pointer: TestPointerAdapter())
             let popup = TestWindow.new(id: 1, workspace: state.mainWorkspace, kind: .popup)
             let minimized = TestWindow.new(id: 2, workspace: state.mainWorkspace, kind: .minimized)
             #expect(state.window(for: 1) === popup && state.window(for: 2) === minimized)
@@ -67,7 +67,7 @@ extension CoreTests {
         }
 
         @Test func returningWindowsRestoreExactTreeRatiosAndDisplayInReverseOrder() {
-            let state = DisplayLayoutState(monitors: [main, side])
+            let state = DisplayLayoutState(monitors: [main, side], pointer: TestPointerAdapter())
             let workspace = state.workspace(for: side)
             let a = TestWindow.new(id: 1, workspace: workspace)
             let b = TestWindow.new(id: 2, workspace: workspace)
@@ -87,7 +87,7 @@ extension CoreTests {
         }
 
         @Test func restorationRetainsNewWindowsAndFloatingMembership() {
-            let state = DisplayLayoutState(monitors: [main, side])
+            let state = DisplayLayoutState(monitors: [main, side], pointer: TestPointerAdapter())
             let a = TestWindow.new(id: 1, workspace: state.workspace(for: side))
             let floating = TestWindow.new(id: 2, workspace: state.workspace(for: side), kind: .floating)
             state.removeWindow(a, remember: true)
@@ -100,7 +100,7 @@ extension CoreTests {
         }
 
         @Test func restorationIsInvalidatedBeforeAndAfterSuspendingMutation() async {
-            let state = DisplayLayoutState(monitors: [main, side])
+            let state = DisplayLayoutState(monitors: [main, side], pointer: TestPointerAdapter())
             let old = TestWindow.new(id: 1, workspace: state.workspace(for: side))
             state.removeWindow(old, remember: true)
             await state.changeLayout {
@@ -114,7 +114,7 @@ extension CoreTests {
         }
 
         @Test func disconnectInvalidatesSnapshotButEmptyMonitorSnapshotDoesNot() {
-            let state = DisplayLayoutState(monitors: [main, side])
+            let state = DisplayLayoutState(monitors: [main, side], pointer: TestPointerAdapter())
             let old = TestWindow.new(id: 1, workspace: state.workspace(for: side))
             state.removeWindow(old, remember: true)
             state.reconcileMonitors([])
