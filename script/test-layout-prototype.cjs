@@ -116,3 +116,85 @@ test('resize cancellation restores the snapshot and outside-screen release cance
   session.release();
   assert.deepEqual(root(session), plain(initial.displays[0].root));
 });
+
+// Run the real input adapter with rendering stubbed out; coordinates stay in model units.
+function pointerFixture() {
+  const elements = new Map();
+  const listeners = new Map();
+  const window = { addEventListener: listen };
+  function listen(type, handler) {
+    if (!listeners.has(this)) listeners.set(this, new Map());
+    const events = listeners.get(this);
+    if (!events.has(type)) events.set(type, []);
+    events.get(type).push(handler);
+  }
+  function emit(target, type, event = {}) {
+    event = { button: 0, pointerId: 7, target, preventDefault() {}, ...event, type };
+    for (const handler of listeners.get(target)?.get(type) ?? []) handler(event);
+    if (target !== window) {
+      for (const handler of listeners.get(window)?.get(type) ?? []) handler(event);
+    }
+  }
+  function element(id) {
+    if (id === 'ghost') return null;
+    if (!elements.has(id)) elements.set(id, {
+      value: id === 'view' ? 'all' : '', addEventListener: listen,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 2920, height: 900 }),
+      setPointerCapture(pointerId) { this.capture = pointerId; },
+      hasPointerCapture(pointerId) { return this.capture === pointerId; },
+      releasePointerCapture(pointerId) { this.capture = null; emit(this, 'lostpointercapture', { pointerId }); },
+    });
+    return elements.get(id);
+  }
+  const context = vm.createContext({ structuredClone, window, document: {
+    getElementById: element, querySelectorAll: () => [],
+  } });
+  const ui = html.match(/<script id="prototype-ui">([\s\S]*?)<\/script>/)[1];
+  vm.runInContext(`${source}\n${ui}\nfunction render() {}\nfunction showGhost() {}\nworld={x:0,y:0,w:2920,h:900};`, context);
+  const api = window.LayoutPrototype;
+  const board = element('board');
+  function down(id = 3) {
+    const rect = api.Layout.frames(api.state).find(rect => rect.id === id);
+    const tile = {
+      dataset: { window: id },
+      closest: selector => selector === '[data-window]' ? tile : null,
+      getBoundingClientRect: () => ({ left: rect.x, top: rect.y, width: rect.w, height: rect.h }),
+    };
+    emit(board, 'pointerdown', { target: tile, clientX: center(rect).x, clientY: center(rect).y });
+  }
+  return { api, down, emit, board, window };
+}
+
+test('pointercancel rolls back the gesture and accepts the very next drag', () => {
+  const { api, down, emit, board } = pointerFixture();
+  down();
+  const initial = plain(api.state);
+  const target = center(api.Layout.frames(api.state).find(rect => rect.id === 1));
+  emit(board, 'pointermove', { clientX: target.x, clientY: target.y });
+  assert.notDeepEqual(plain(api.state.displays), initial.displays);
+  emit(board, 'pointercancel');
+  assert.deepEqual(plain(api.state), initial);
+  assert.equal(api.gesture, null);
+  assert.equal(board.hasPointerCapture(7), false);
+  down();
+  assert.equal(api.gesture?.id, 3);
+});
+
+test('held-pointer cancellation stays blocked until a terminal event outside the board', () => {
+  for (const cancel of ['Escape', 'lifecycle']) {
+    for (const terminal of ['pointerup', 'pointercancel']) {
+      const { api, down, emit, board, window } = pointerFixture();
+      down();
+      if (cancel === 'Escape') emit(window, 'keydown', { key: 'Escape', target: board });
+      else api.dispatch({ type: 'create' });
+      assert.equal(api.gesture, null);
+      const windowIds = Object.keys(api.state.windows);
+      down();
+      assert.equal(api.gesture, null, `${cancel} must block held-pointer samples`);
+      emit(window, terminal);
+      down();
+      assert.equal(api.gesture?.id, 3, `${terminal} must permit the next drag after ${cancel}`);
+      assert.deepEqual(Object.keys(api.state.windows), windowIds);
+    }
+  }
+});

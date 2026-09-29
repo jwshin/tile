@@ -380,6 +380,7 @@ const $=id=>document.getElementById(id),copy=x=>structuredClone(x);
 const model=new Layout.DisplayLayoutState();
 let state=model.state,history=[],messages=[state.message],drag=null,scenarioIndex=null,stepIndex=0,world=null;
 const scenarios=[
+  {name:'Pointer cancellation',note:'Browser pointer cancellation ends the stream: roll back a live swap or transfer preview and accept the next drag immediately, without an extra click or release.',steps:[['Begin dragging W3',{type:'gestureBegin',id:3}],['Swap W3 onto W1',{type:'gestureMove',target:1}],['Browser cancels pointer stream',{type:'gesturePointerCancel'}],['Begin W3 again immediately',{type:'gestureBegin',id:3}],['Preview screen B',{type:'gestureMove',destination:'B'}],['Browser cancels transfer preview',{type:'gesturePointerCancel'}],['Begin W3 after stream ends',{type:'gestureBegin',id:3}],['Release pointer',{type:'gestureRelease'}]]},
   {name:'Gesture ownership',note:'The model owns the gesture. Lifecycle edits cancel its preview before changing windows; later pointer events cannot restore old state. A separate model has its own gesture even when window IDs match.',steps:[['Begin dragging W3',{type:'gestureBegin',id:3}],['Swap W3 onto W1',{type:'gestureMove',target:1}],['Edit a separate model',{type:'otherOwner'}],['Create W4; cancel this drag',{type:'create'}],['Stale move toward B (ignored)',{type:'gestureMove',destination:'B'}],['Release after cancellation',{type:'gestureRelease'}],['Begin dragging W3 again',{type:'gestureBegin',id:3}],['Preview screen B',{type:'gestureMove',destination:'B'}],['Close W3; cancel its preview',{type:'delete',id:3}],['Stale cancel (W3 stays closed)',{type:'gestureCancel'}],['Release pointer',{type:'gestureRelease'}],['Begin dragging W1',{type:'gestureBegin',id:1}],['Disconnect A during drag',{type:'disconnect',display:'A'}],['Stale release (keep migration)',{type:'gestureRelease'}]]},
   {name:'Window & section swaps',note:'W3 moving left exchanges individual windows. W1 at the root can exchange places with the entire right section. Moves carry the selected width or height; surrounding dividers adjust.',steps:[['W3 left',{type:'move',direction:'left'}],['Focus W1',{type:'focus',id:1}],['W1 left',{type:'move',direction:'left'}],['W1 right (whole section)',{type:'move',direction:'right'}]]},
   {name:'All insertions',note:'Creation, retiling, and transfers all use the same Outer / Inner choice. Floating focus remembers the last focused tile.',steps:[['Focus W2',{type:'focus',id:2}],['Create outside (right)',{type:'create'}],['Float W4',{type:'float'}],['Choose Inner',{type:'placement',placement:'inner'}],['Retile W4 inside (left)',{type:'float'}],['Transfer to B',{type:'transfer',destination:'B'}],['Transfer back to A',{type:'transfer',destination:'A'}]]},
@@ -408,6 +409,7 @@ function apply(action,free=true) {
     if(target)model.move({x:target.x+target.w/2,y:target.y+target.h/2},action.destination??target.display);
   }
   else if(action.type==='gestureRelease')model.release();
+  else if(action.type==='gesturePointerCancel')model.release(true);
   else if(action.type==='gestureCancel')model.cancel();
   else if(action.type==='otherOwner') {
     const other=new Layout.DisplayLayoutState();other.begin({id:3});other.dispatch({type:'delete',id:3});
@@ -536,14 +538,14 @@ function finish(e,cancel=false) {
   if(e&&drag&&e.pointerId!==drag.pointerId)return;
   if(!cancel&&drag?.moving&&e)live(e);
   const done=model.gesture;
-  if(cancel)model.cancel();else model.release();
+  if(cancel&&e?.type!=='pointercancel')model.cancel();else model.release(cancel);
   state=model.state;
   if(cancel&&done)log('Cancelled the gesture.');
   else if(done?.moving){if(JSON.stringify(state)!==JSON.stringify(done.initial))history.push(done.initial);log(state.message);}
   clearPointer();render();
 }
-// A lifecycle edit may release capture while the button is held; only the actual release unblocks input.
-window.addEventListener('pointerup',()=>{if(!drag&&!model.gesture)model.release();});
+// Lifecycle edits may release capture while held; release or terminal cancellation unblocks input.
+for(const event of ['pointerup','pointercancel'])window.addEventListener(event,()=>{if(!drag&&!model.gesture)model.release();});
 $('board').addEventListener('pointerup',e=>finish(e));$('board').addEventListener('pointercancel',e=>finish(e,true));$('board').addEventListener('lostpointercapture',e=>{if(drag)finish(e,true);});
 window.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&model.gesture){e.preventDefault();finish(null,true);return;}
