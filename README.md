@@ -33,7 +33,7 @@ with layouts, minimums, screen changes, and window lifecycle events. It needs no
 
 ## Install
 
-Release 0.2.0 supports Apple silicon Macs running macOS 27 or later. With current Homebrew:
+Release 0.3.0 supports Apple silicon Macs running macOS 27 or later. With current Homebrew:
 
 ```sh
 brew tap jwshin/tap
