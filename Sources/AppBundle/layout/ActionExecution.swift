@@ -1,3 +1,4 @@
+import AppKit
 import Common
 
 /// The native and test adapters observe windows; tree/layout algorithms stay shared.
@@ -60,7 +61,22 @@ enum ActionInput { case shortcut, menu }
         do {
             try await $refreshSessionEvent.withValue(event) {
                 // Reconcile departures before importing macOS's possibly automatic focus replacement.
+                let spaceTransition: Bool
+                if case .globalObserver(let name) = event {
+                    spaceTransition = name == NSWorkspace.activeSpaceDidChangeNotification.rawValue
+                } else {
+                    spaceTransition = false
+                }
+                var preserveNativeFocus = spaceTransition
+                // Clear even on cancellation: a later AX refresh must not replay this recovery.
+                defer {
+                    if preserveNativeFocus { DisplayLayoutState.shared.discardFocusRecovery() }
+                }
+                if preserveNativeFocus { DisplayLayoutState.shared.discardFocusRecovery() }
                 let nativeFocus = try await desktop.focusedWindow()
+                let nativeFullscreen = try await nativeFocus?.isMacosFullscreen(.cancellable) ?? false
+                preserveNativeFocus = preserveNativeFocus || nativeFullscreen
+                if preserveNativeFocus { DisplayLayoutState.shared.discardFocusRecovery() }
                 if shouldLayout && optimisticallyPreLayoutWorkspaces { try await layoutWorkspaces() }
                 refreshModel()
                 try await desktop.refreshWindows()
@@ -74,6 +90,9 @@ enum ActionInput { case shortcut, menu }
                 desktop.updateStatus()
                 try await desktop.validatePopups()
                 if shouldLayout { try await layoutWorkspaces() }
+                if preserveNativeFocus {
+                    DisplayLayoutState.shared.discardFocusRecovery()
+                }
                 DisplayLayoutState.shared.takeFocusRecovery()?.windowOrNil?.nativeFocus()
             }
         } catch is CancellationError {

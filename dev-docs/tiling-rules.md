@@ -157,6 +157,7 @@ The interview settles product behavior above. Use these modest defaults where ex
 - A square screen uses horizontal orientation. A surviving split retains its ratio when promoted onto a different axis, subject to minimum-size recovery.
 - With no usable focus history, choose the last eligible leaf in tree order as the insertion target. Break other ordering ties deterministically.
 - Selecting a screen restores its most recently focused available window. When an unavailable window leaves focus, use the same recent-focus fallback as deletion.
+- Entering native fullscreen removes the window from tiling but must not activate a replacement window or pull macOS back to another Space. A Space-change refresh must likewise preserve native activation, including discarding queued recovery across cancellation. Logical focus may select an available tile for later commands; close and minimize still apply recent-focus recovery.
 - For directional focus, reuse the move target geometry ordering without its sibling-swap rule; a floating source may supply the origin rectangle but is never a directional focus target.
 - On disconnection, prefer the most recently focused remaining screen, falling back to the system's main available screen. Preserve the user's focused window during bulk migration rather than focusing every arrival. If no usable screen exists, defer placement until one becomes available.
 - Previously tiled windows returning from temporary exclusion use their assigned screen if it still exists, otherwise the remaining-screen fallback. Their old tree position is not retained.
@@ -181,7 +182,7 @@ Keep the prototype as a small executable reference beside this specification: on
 | Physical screen arrangement and orientation | Implemented; edit screen X/Y and dimensions, use Auto or an explicit root override |
 | Cross-screen dragging | Implemented; preview on hover, transfer on release, discard source swaps |
 | Disconnection and reconnection | Simulated; migrate individually, support deferred placement with no screens, reconnect empty |
-| Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; actual native events need an adapter |
+| Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; fullscreen/Space guided scenario separates native from logical focus; actual native events need an adapter |
 | Window classification | Simulated normal/dialog/palette/non-resizable kinds plus exact bundle-ID floating preferences; native popup filtering and Accessibility metadata remain app integration |
 | Temporary observation loss and restart | Simulated; observation interruption retains state, restart demonstrates rebuilding without persistent layout storage |
 
@@ -220,7 +221,7 @@ all insertions share Outer/Inner and the same 50/50 fit check. Focus history inc
 minimize/hide/fullscreen handling keeps unavailable windows outside the tree. Disconnect migrates leaves
 individually and preserves the focused window.
 
-Native focus reconciliation processes departures before importing the observed native focus. Pending fallback survives cancellation and is applied by the next completed refresh or action. Mouse gesture classification uses the observed frame delta against the last successfully applied native size, including application rounding. Move and resize notifications share the same path; even a small resize must not become a swap across a narrow gap.
+Native focus reconciliation processes departures before importing the observed native focus. Pending fallback survives cancellation and is applied by the next completed refresh or action, except during native fullscreen or Space transitions, which discard recovery to preserve macOS activation. Mouse gesture classification uses the observed frame delta against the last successfully applied native size, including application rounding. Move and resize notifications share the same path; even a small resize must not become a swap across a narrow gap.
 
 Native engineering choices: `floating-apps` is an array of bundle-ID strings and defaults to `[]`; invalid array entries reject the entire reload. `new-window-placement` defaults to `outer`; `root-orientation` defaults to
 `auto` and accepts `horizontal`/`vertical`. Flipping orientation gives the active screen an in-memory
@@ -239,3 +240,5 @@ validate actual Accessibility timing, native preview rendering, or real monitor 
 drag/resize, unplug/reconnect, lock/unlock, and fullscreen smoke tests remain manual validation.
 
 The [native validation record](development.md#native-validation-record-2026-09-28) lists the outstanding desktop checks and the local environment limitation. Prototype lifecycle controls and Swift adapters cannot validate macOS notification timing or physical display changes.
+
+Issue #5 validation boundary: adapter regressions cover fullscreen focus preservation, Space-change departures, and interrupted Space reconciliation. The fullscreen/Space prototype scenario models activation separately. Real fullscreen animations, moving windows between Spaces, AX notification ordering, and desktop focus remain manual checks; this change does not implement per-Space layouts or claim to resolve every transient AX identity failure.

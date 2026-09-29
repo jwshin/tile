@@ -58,7 +58,9 @@ extension CoreTests {
         }
 
         @Test(arguments: [false, true], [false, true])
-        func nativeExclusionRestoresAndAppliesRecentFocus(fullscreen: Bool, macOSSelectedReplacement: Bool) async {
+        func nativeExclusionPreservesFullscreenFocusAndRecoversMinimize(
+            fullscreen: Bool, macOSSelectedReplacement: Bool
+        ) async {
             let (floating, departing, other) = recentFocusSequence()
             departing.isMacosFullscreenForTest = fullscreen
             departing.isMacosMinimizedForTest = !fullscreen
@@ -68,8 +70,64 @@ extension CoreTests {
             defer { execution.cancelRefresh() }
             await execution.refresh(.startup, assumeCancellable: false)
             #expect(departing.kind == (fullscreen ? .nativeFullscreen : .minimized))
-            #expect(focus.windowOrNil === floating)
-            #expect(desktop.nativeFocus === floating)
+            #expect(focus.windowOrNil === (fullscreen && macOSSelectedReplacement ? other : floating))
+            #expect(desktop.nativeFocus === (fullscreen ? (macOSSelectedReplacement ? other : departing) : floating))
+        }
+
+        @Test func spaceChangeDoesNotApplyDepartureRecovery() async {
+            let (_, departing, other) = recentFocusSequence()
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = other
+            desktop.onRefreshWindows = { departing.layoutState.removeWindow(departing, remember: true) }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(
+                .globalObserver(NSWorkspace.activeSpaceDidChangeNotification.rawValue), assumeCancellable: false)
+            #expect(desktop.nativeFocus === other)
+            #expect(DisplayLayoutState.shared.takeFocusRecovery() == nil)
+        }
+
+        @Test func cancelledSpaceChangeDiscardsRecoveryBeforeLaterAXRefresh() async {
+            let (_, departing, other) = recentFocusSequence()
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = other
+            desktop.onRefreshWindows = {
+                departing.layoutState.removeWindow(departing, remember: true)
+                throw CancellationError()
+            }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(
+                .globalObserver(NSWorkspace.activeSpaceDidChangeNotification.rawValue), assumeCancellable: true)
+            desktop.onRefreshWindows = nil
+            await execution.refresh(.ax(kAXFocusedWindowChangedNotification), assumeCancellable: false)
+            #expect(desktop.nativeFocus === other)
+            #expect(focus.windowOrNil === other)
+        }
+
+        @Test func fullscreenNativeFocusDiscardsEarlierDepartureRecovery() async {
+            let (_, departing, other) = recentFocusSequence()
+            departing.layoutState.removeWindow(departing, remember: true)
+            other.isMacosFullscreenForTest = true
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = other
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.ax(kAXFocusedWindowChangedNotification), assumeCancellable: false)
+            #expect(desktop.nativeFocus === other)
+            #expect(DisplayLayoutState.shared.takeFocusRecovery() == nil)
+        }
+
+        @Test func cancelledSpaceFocusReadDiscardsEarlierRecovery() async {
+            let (_, departing, _) = recentFocusSequence()
+            departing.layoutState.removeWindow(departing, remember: true)
+            let desktop = TestDesktopSessionAdapter()
+            desktop.failFocusRead = true
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(
+                .globalObserver(NSWorkspace.activeSpaceDidChangeNotification.rawValue), assumeCancellable: true)
+            #expect(DisplayLayoutState.shared.takeFocusRecovery() == nil)
         }
 
         @Test func cancelledReconciliationRetainsFocusRecoveryForNextRefresh() async {
