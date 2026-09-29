@@ -16,7 +16,7 @@ The app retains its `local.jwshin.tile` bundle ID so installations share one Acc
 Packaging produces `tile-<version>-macos-arm64.zip` and a companion `.zip.sha256` file. The archive
 contains only `tile.app`, including `LICENSE.txt` and `legal/` in `Contents/Resources`. The build script
 uses ad-hoc signing by default; `TILE_CODESIGN_IDENTITY` can select an installed signing identity.
-Developer ID notarization is not configured for 0.1.0. Keep quarantine intact and document Apple's
+Developer ID notarization is not configured. Keep quarantine intact and document Apple's
 [Open Anyway](https://support.apple.com/en-us/102445) flow instead of disabling Gatekeeper.
 
 ## Publish the release and tap

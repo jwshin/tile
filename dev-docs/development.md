@@ -64,10 +64,20 @@ The menu uses `SMAppService.mainApp` through `LaunchAtLogin`. Registration is op
 macOS; there is no stored Boolean, config key, helper app, or startup-time registration. Status refreshes
 when the menu opens and when tile becomes active. Enabling a registration that requires approval opens
 Login Items settings only after the user requests it. Failures refresh the actual state and use the
-existing diagnostics window. Unbundled/debug executables are ineligible for registration.
+existing diagnostics window. Unbundled/debug executables are ineligible for registration, represented
+by a nil service status. A native `.notFound` status can mean macOS has never seen this login service;
+it leaves the toggle available and an explicit enable request attempts registration. Bundle eligibility
+and registration status must not be conflated. The menu header shows the shared app version.
 
 Tests inject a service adapter to exercise registration, removal, external changes, approval, failure,
-and observable menu state without modifying the developer's login items. Manual validation still needs
-an installed signed `tile.app`: enable the toggle, check System Settings, disable/re-enable there and
-reopen the menu, then log out/in and confirm tile starts. Disabling the toggle should prevent the next
-login launch without quitting the current app. These native login/logout checks are not automated.
+and observable menu state without modifying the developer's login items.
+
+For 0.2.0, a disposable ad-hoc signed app on macOS 27.2 exercised the production login model and native
+adapter with a unique test bundle identifier. It confirmed `.notFound` with the toggle available,
+successful registration (`.enabled`), and removal (`.notRegistered`). The temporary app was removed;
+tile's own registration was not changed. This validates native registration, not launch during login.
+
+Manual validation still needs an installed signed `tile.app`: enable the toggle, check System Settings,
+disable/re-enable there and reopen the menu, then log out/in and confirm tile starts. Disabling the
+toggle should prevent the next login launch without quitting the current app. These native menu and
+login/logout checks are not automated.
