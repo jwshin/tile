@@ -156,6 +156,75 @@ extension CoreTests {
             #expect(workspace.layout == resized)
         }
 
+        @Test(arguments: [false, true])
+        func refreshBeforeFirstResizeObservationDoesNotSnapFocusedWindowBack(optimistic: Bool) async throws {
+            let workspace = focus.workspace
+            TestWindow.new(id: 1, workspace: workspace)
+            let right = TestWindow.new(id: 2, workspace: workspace)
+            try await workspace.layoutWorkspace()
+            let original = try #require(await right.getAxRect(.nonCancellable))
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = right
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+
+            // macOS changes the leading edge before its AX notification is handled.
+            var nativeFrame = original
+            nativeFrame.topLeftX -= 120
+            nativeFrame.width += 120
+            right.setAxFrame(nativeFrame.topLeftCorner, nativeFrame.size)
+            // An earlier layout write is still queued on the application's AX thread.
+            right.deferFrameWrites = true
+            right.setAxFrame(original.topLeftCorner, original.size)
+            #expect(workspace.state.isPointerDown)
+            #expect(workspace.state.manipulatedWindow == nil)
+            await execution.refresh(
+                .ax(kAXFocusedWindowChangedNotification), assumeCancellable: false,
+                optimisticallyPreLayoutWorkspaces: optimistic)
+            right.flushPendingFrame()
+
+            let afterRefresh = try #require(await right.getAxRect(.nonCancellable))
+            #expect(afterRefresh.topLeftCorner == nativeFrame.topLeftCorner)
+            #expect(afterRefresh.size == nativeFrame.size)
+            let mouse = TestPointerDriver(state: workspace.state)
+            mouse.observe(right, frame: afterRefresh)
+            try await workspace.layoutWorkspace()
+            #expect(abs(workspace.tiledFrames[2]!.minX - nativeFrame.minX) < 0.001)
+            mouse.finish(at: nativeFrame.center, on: workspace)
+        }
+
+        @Test func firstResizeSampleCancelsEarlierWriteAndRepeatedRefreshesKeepEdgesStable() async throws {
+            let workspace = focus.workspace
+            let left = TestWindow.new(id: 1, workspace: workspace)
+            let right = TestWindow.new(id: 2, workspace: workspace)
+            try await workspace.layoutWorkspace()
+            let original = try #require(await right.getAxRect(.nonCancellable))
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = right
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            let mouse = TestPointerDriver(state: workspace.state)
+            for amount in [CGFloat(40), 120, 240, 80, -40] {
+                var nativeFrame = original
+                nativeFrame.topLeftX -= amount
+                nativeFrame.width += amount
+                right.deferFrameWrites = false
+                right.setAxFrame(nativeFrame.topLeftCorner, nativeFrame.size)
+                right.deferFrameWrites = true
+                right.setAxFrame(original.topLeftCorner, original.size)
+                mouse.observe(right, frame: nativeFrame)
+                right.flushPendingFrame()
+                for _ in 0..<3 {
+                    await execution.refresh(.ax(kAXResizedNotification), assumeCancellable: false)
+                    #expect(try await right.getAxRect(.nonCancellable)?.topLeftCorner == nativeFrame.topLeftCorner)
+                    #expect(abs(workspace.tiledFrames[2]!.minX - nativeFrame.minX) < 0.001)
+                    let leftFrame = try #require(await left.getAxRect(.nonCancellable))
+                    #expect(abs(leftFrame.maxX - nativeFrame.minX + CGFloat(config.gap)) < 0.001)
+                }
+            }
+            mouse.finish(at: original.center, on: workspace)
+        }
+
         @Test(arguments: [Orientation.h, .v], [CGFloat(5), 32])
         func resizingLeadingEdgeDoesNotBecomeSwap(axis: Orientation, delta: CGFloat) throws {
             ConfigurationApplication.shared.apply("gap = 4")

@@ -42,6 +42,7 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
     func getAxSize(_ cm: CancellationMode) async throws -> CGSize? { die("Not implemented") }
     func getAxRect(_ cm: CancellationMode) async throws -> Rect? { die("Not implemented") }
     func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) { die("Not implemented") }
+    func cancelPendingFrame() {}
     func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool { false }
     func isMacosMinimized(_ cm: CancellationMode) async throws -> Bool { false }
     func getCenter(_ cm: CancellationMode) async throws -> CGPoint? { try await getAxRect(cm)?.center }

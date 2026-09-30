@@ -32,6 +32,8 @@ Every deeper level uses the opposite direction. Direction follows current depth 
 
 Every new split starts at **50/50** after accounting for the gap. Support keyboard and mouse resizing, retaining the resulting ratio for that split. Resizing a window edge must not exchange window positions, even when the edge changes both position and size. Resizing adjusts the nearest ancestor split on the requested axis. In the example, resizing W3 horizontally adjusts the W1/right-column boundary; resizing it vertically adjusts the W2/W3 boundary.
 
+During a native pointer resize, passive refreshes must preserve the held window's native frame even before its first move/resize observation arrives. Cancel obsolete queued frame writes when protecting that window or recognizing its gesture. Neighboring windows follow the observed split; after release, ordinary layout writes resume. Explicit keyboard/menu actions and lifecycle cancellation still apply their resulting layout.
+
 A move carries the selected window’s allocation: horizontal moves preserve its actual width, and vertical moves preserve its actual height. Destination columns or rows and their ancestors adjust around it. Moving a wide window right in a 70% left / 30% right split makes it 30/70; moving a narrow window into the wide side likewise preserves the narrow window’s width. This supersedes the earlier decision to leave dividers fixed. Other ratios stay unchanged where possible and adjust as needed for minimum sizes.
 
 ## 3. One insertion rule
@@ -176,7 +178,7 @@ Keep the prototype as a small executable reference beside this specification: on
 | Binary sections, depth-based directions, removal and promotion | Implemented |
 | Outer / Inner for creation, retiling, returning windows, and transfers | Implemented, including centered tie rule |
 | Live section/window swaps and drag cancellation | Implemented in the model-owned gesture session; independent owners and lifecycle cancellation have a guided scenario; moves preserve the selected width/height |
-| Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at minimums |
+| Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at minimums; native resize timing scenario simulates the first-observation delay and protected frame writes |
 | Automatic floating and minimum-size recovery | Implemented; known per-window limits can be supplied in debug controls |
 | Recent-focus history and directional focus | Implemented; arrows skip floats, cross screens, and do not wrap |
 | Physical screen arrangement and orientation | Implemented; edit screen X/Y and dimensions, use Auto or an explicit root override |
@@ -196,6 +198,8 @@ Browser `pointercancel` ends the input stream: restore the gesture’s original 
 
 Guided experiments cover floating-app preferences and manual overrides, insertion, section/window swaps, resizing, minimum-size rejection, recovery, recent focus, screen transfers and disconnection, lifecycle events, orientation, window kinds, and the permitted restart fallback. Cross-screen pointer behavior can be exercised directly with both screens visible. All state stays in memory; the restart button simulates the chosen fallback rather than adding a storage layer.
 
+The **Native resize timing** scenario displays a simulated native frame before the model observes it, refreshes while the pointer is held, delivers the observation, then releases. It makes the protected window and neighboring frame-write policy executable. It does not reproduce macOS AX thread scheduling, in-flight calls, or display animation.
+
 ## 12. Acceptance scenarios
 
 - Retile and transfer at targets in each screen half: Outer / Inner must select the same side as new-window creation, for both axes.
@@ -206,6 +210,7 @@ Guided experiments cover floating-app preferences and manual overrides, insertio
 - Focus beyond an edge with an empty screen between populated screens: continue in the physical direction without wrapping.
 - Swap unequal-width sections, hover another screen, and return over the sibling inside the former target region: permit a new swap without requiring an extra detour.
 - Resize a tile from its left or top edge: adjust the split while keeping window identities in place. Native move/resize notification order must not affect this outcome.
+- Start a native edge resize, then refresh before handling its first observation: retain the native edge rather than writing the old tile rectangle back. Cancel an earlier queued write, process repeated observations/refreshes, and release; neighbors follow the split without repeatedly resetting the held window.
 - Close or minimize the focused tile after focusing a float: select the float, including when macOS initially reports another window as focused.
 - Drag through several source-screen swaps and release on another screen: discard intermediate source swaps and perform exactly one transfer. Cancel the same gesture: retain the original layout, accounting for independent lifecycle changes.
 - During a live swap or transfer preview, create or close a window or disconnect its screen. Cancel the gesture before applying that event; ignore stale movement until release and retain the event after stale release/cancel. Mutate a separate display layout state with matching window IDs: its changes must leave the first gesture and preview intact.
@@ -226,6 +231,10 @@ minimize/hide/fullscreen handling keeps unavailable windows outside the tree. Di
 individually and preserves the focused window.
 
 Native focus reconciliation processes departures before importing the observed native focus. Pending fallback survives cancellation and is applied by the next completed refresh or action, except during native fullscreen or Space transitions, which discard recovery to preserve macOS activation. Mouse gesture classification uses the observed frame delta against the last successfully applied native size, including application rounding. Move and resize notifications share the same path; even a small resize must not become a swap across a narrow gap.
+
+Passive refreshes protect the native-focused window while the pointer is down and no gesture or cancellation is registered yet, including optimistic pre-layout. Registered gestures continue to protect their owned window. Both paths cancel obsolete queued AX frame requests and ignore their later size callbacks; an AX call already executing cannot be interrupted. Explicit actions use their normal layout path. Adapter replay tests cover refresh-before-observation snap-back, delayed writes, and repeated edge samples. Real Chrome resize flicker remains a native smoke test with the patched build.
+
+The 2026-09-29 investigation replayed a 120-point leading-edge resize on both release 0.3.0 (`041d4af0`, immediately before gesture ownership refactoring) and unpatched 0.4.0. Both reset the native X position from 844 to 964 and width from 1068 to 948 when a refresh preceded the first observation. This establishes that this specific snap-back race predates `d3be185e`; it does not establish that every flicker in the attached recording has that cause.
 
 Native engineering choices: `floating-apps` is an array of bundle-ID strings and defaults to `[]`; invalid array entries reject the entire reload. `new-window-placement` defaults to `outer`; `root-orientation` defaults to
 `auto` and accepts `horizontal`/`vertical`. Flipping orientation gives the active screen an in-memory

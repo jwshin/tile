@@ -159,6 +159,10 @@ final class MacApp: AbstractApp {
         }
     }
 
+    func cancelPendingFrame(_ windowId: UInt32) {
+        setFrameJobs.removeValue(forKey: windowId)?.cancel()
+    }
+
     func getAxRect(_ windowId: UInt32, _ cm: CancellationMode) async throws -> Rect? {
         try await withWindow(windowId, cm) { window, job in
             try AppBundle.getAxRect(window: window, job: job)

@@ -320,11 +320,36 @@ const Layout = (() => {
   }
   // One display layout state owns its gesture. DOM input and ghost rendering stay outside.
   class DisplayLayoutState {
-    constructor(state=seed()){this.state=clone(state);this.gesture=null;this.blocked=false;}
-    reset(state){this.state=clone(state);this.gesture=null;this.blocked=false;}
-    dispatch(action){this.cancel();this.state=reduce(this.state,action);return this.state;}
+    constructor(state=seed()){this.reset(state);}
+    reset(state){this.state=clone(state);this.gesture=null;this.blocked=false;this.pendingNativeResize=null;}
+    dispatch(action){
+      if(action.type.startsWith('nativeResize'))return this.simulateNativeResize(action);
+      this.pendingNativeResize=null;this.cancel();this.state=reduce(this.state,action);return this.state;
+    }
+    visibleFrames(){return frames(this.state).map(r=>r.id===this.pendingNativeResize?.id?this.pendingNativeResize.frame:r);}
+    layoutWrites(){return frames(this.state).filter(r=>r.id!==this.pendingNativeResize?.id&&r.id!==this.gesture?.id);}
+    simulateNativeResize(action){
+      if(action.type==='nativeResizeStart') {
+        const id=action.id??this.state.focused,axis=action.axis??'x',q=ancestor(this.state,id,axis),frame=frames(this.state).find(r=>r.id===id);
+        if(!q||!frame||frame.floating||this.gesture||this.blocked)return this.state;
+        const amount=action.amount??120,first=frame.path[q.path.length]==='0',nativeFrame={...frame};
+        if(axis==='x'){nativeFrame.w+=amount;if(!first)nativeFrame.x-=amount;}
+        else{nativeFrame.h+=amount;if(!first)nativeFrame.y-=amount;}
+        this.pendingNativeResize={id,frame:nativeFrame,initial:clone(this.state),axis,amount:amount/((axis==='x'?q.rect.w:q.rect.h)-GAP),observed:false};
+        this.state.message=`Native W${id} resized; its first Accessibility observation is pending.`;
+      } else if(this.pendingNativeResize) {
+        const pending=this.pendingNativeResize;
+        if(action.type==='nativeResizeObserve'||action.type==='nativeResizeRelease') {
+          this.state=reduce(pending.initial,{type:'resize',id:pending.id,axis:pending.axis,amount:pending.amount});pending.observed=true;
+          this.state.message=`Observed W${pending.id}; neighboring tiles now follow its resized edge.`;
+        }
+        if(action.type==='nativeResizeRefresh')this.state.message=`Background refresh writes ${this.layoutWrites().map(r=>`W${r.id}`).join(', ')||'no windows'}; held W${pending.id} keeps its native frame.`;
+        if(action.type==='nativeResizeRelease'){this.pendingNativeResize=null;this.state.message='Pointer released; normal frame writes resume.';}
+      }
+      return this.state;
+    }
     begin({id=null,kind='window',point,split=null}) {
-      if(this.gesture||this.blocked)return false;
+      if(this.gesture||this.blocked||this.pendingNativeResize)return false;
       const frame=frames(this.state).find(r=>r.id===id);
       if(kind==='split'?!split:!frame)return false;
       point=point??{x:frame.x+frame.w/2,y:frame.y+frame.h/2};
@@ -385,6 +410,7 @@ const scenarios=[
   {name:'Window & section swaps',note:'W3 moving left exchanges individual windows. W1 at the root can exchange places with the entire right section. Moves carry the selected width or height; surrounding dividers adjust.',steps:[['W3 left',{type:'move',direction:'left'}],['Focus W1',{type:'focus',id:1}],['W1 left',{type:'move',direction:'left'}],['W1 right (whole section)',{type:'move',direction:'right'}]]},
   {name:'All insertions',note:'Creation, retiling, and transfers all use the same Outer / Inner choice. Floating focus remembers the last focused tile.',steps:[['Focus W2',{type:'focus',id:2}],['Create outside (right)',{type:'create'}],['Float W4',{type:'float'}],['Choose Inner',{type:'placement',placement:'inner'}],['Retile W4 inside (left)',{type:'float'}],['Transfer to B',{type:'transfer',destination:'B'}],['Transfer back to A',{type:'transfer',destination:'A'}]]},
   {name:'Resize & swap',note:'Resize W3 horizontally to adjust the whole right column; vertically to adjust only W2/W3. Moving W1 to the right carries its width: a 70/30 root becomes 30/70. You can also drag any divider: window identifiers stay in their sections while the ratio changes. Native move/resize notification ordering is covered separately by Swift regression tests.',steps:[['Grow right column',{type:'resize',axis:'x',amount:.1}],['Grow W3 height',{type:'resize',axis:'y',amount:.1}],['Set root to 70/30',{type:'ratio',display:'A',path:'',ratio:.7}],['Focus W1',{type:'focus',id:1}],['Move W1 right, keep its width',{type:'move',direction:'right'}]]},
+  {name:'Native resize timing',note:'Simulate macOS expanding W3 from its left edge before the first AX observation. A background refresh must keep the held window’s native frame. Once observed, the neighboring column follows. Queued AX writes and real macOS timing are covered by native adapter tests and require a desktop recording to validate.',steps:[['Start native edge resize (+120)',{type:'nativeResizeStart',id:3,axis:'x',amount:120}],['Refresh before AX observation',{type:'nativeResizeRefresh'}],['Deliver resize observation',{type:'nativeResizeObserve'}],['Refresh while held',{type:'nativeResizeRefresh'}],['Release pointer',{type:'nativeResizeRelease'}]]},
   {name:'Minimum sizes',init:()=>{const s=Layout.seed();s.displays[0].root.ratio=.7;s.windows[1].minW=600;return s;},note:'Creating in the narrow column floats the new window. Moving W1 there instead carries its existing width and grows the destination; the former narrow column is not a fixed limit.',steps:[['Focus W3',{type:'focus',id:3}],['Create: too small, so float',{type:'create'}],['Attempt retiling (still too small)',{type:'float'}],['Focus W1',{type:'focus',id:1}],['Move right, preserve W1 width',{type:'move',direction:'right'}]]},
   {name:'Nested size preservation',init:()=>{let s=Layout.reduce(Layout.seed(),{type:'screen',display:'A',w:1800});s=Layout.reduce(s,{type:'create'});return Layout.reduce(s,{type:'ratio',display:'A',path:'',ratio:.6});},note:'Move the wide W1 into W3’s nested section. Its immediate split and the screen-level split both adjust to preserve W1’s width. Moving it back also preserves that width.',steps:[['Focus W1',{type:'focus',id:1}],['Swap with nested W3',{type:'windowSwap',target:3,axis:'x'}],['Swap back, keep width',{type:'windowSwap',target:3,axis:'x'}]]},
   {name:'Recovery',init:()=>{const s=Layout.seed();s.displays[0].root.ratio=.7;return s;},note:'Shrinking first clamps the 70/30 ratio. Shrinking further floats the least recently used windows until the tree can fit. Growing again does not automatically retile floats.',steps:[['Shrink A to 900 × 600',{type:'screen',display:'A',w:900,h:600}],['Shrink A to 600 × 500',{type:'screen',display:'A',w:600,h:500}],['Grow A again',{type:'screen',display:'A',w:1440,h:900}]]},
@@ -441,7 +467,7 @@ function render() {
     const box=document.createElement('section');box.className='screen'+(d.id===state.activeDisplay?' active':'');box.dataset.display=d.id;position(box,d,world);
     const label=document.createElement('div');label.className='screen-label';label.textContent=`Screen ${d.id} · ${d.w} × ${d.h}`;box.append(label);
     const stage=document.createElement('div');stage.className='stage';stage.dataset.display=d.id;box.append(stage);board.append(box);
-    const items=geometry.tiles.filter(r=>r.display===d.id);
+    const items=(shown===state?model.visibleFrames():geometry.tiles).filter(r=>r.display===d.id);
     for(const r of items) {
       const el=document.createElement('div');el.className='tile'+(r.id===shown.focused?' focused':'')+(r.floating?' floating':'')+(model.gesture?.moving&&model.gesture.kind==='window'&&r.id===model.gesture.id?' dragged':'');
       el.dataset.window=r.id;el.textContent=`W${r.id}`;el.setAttribute('aria-label',`Window ${r.id}${r.floating?', floating':''}${r.id===shown.focused?', focused':''}`);position(el,r,d);stage.append(el);

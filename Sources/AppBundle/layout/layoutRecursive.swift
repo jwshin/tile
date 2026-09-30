@@ -1,11 +1,15 @@
 import AppKit
 
 extension Workspace {
-    func layoutWorkspace() async throws {
+    func layoutWorkspace(preservingPointerWindow pendingWindow: Window? = nil) async throws {
         recover()
         let frames = tiledFrames
         let selected = insertionTarget
-        for window in tiledWindows where state.manipulatedWindow !== window {
+        for window in tiledWindows {
+            if state.manipulatedWindow === window || pendingWindow === window {
+                window.cancelPendingFrame()
+                continue
+            }
             guard let rect = frames[window.windowId] else { continue }
             if window.isFullscreen && window.windowId == selected {
                 window.lastAppliedLayoutPhysicalRect = nil
@@ -17,7 +21,11 @@ extension Workspace {
                 window.setAxFrame(rect.topLeftCorner, rect.size)
             }
         }
-        for window in floatingWindows where state.manipulatedWindow !== window {
+        for window in floatingWindows {
+            if state.manipulatedWindow === window || pendingWindow === window {
+                window.cancelPendingFrame()
+                continue
+            }
             try await window.layoutFloatingWindow(on: self)
         }
     }
