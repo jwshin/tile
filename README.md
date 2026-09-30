@@ -38,7 +38,7 @@ record the exact behavior, including recovery and native integration boundaries.
 
 ## Install
 
-Release 0.5.0 supports Apple silicon Macs running macOS 27 or later. With current Homebrew:
+Release 0.6.0 supports Apple silicon Macs running macOS 27 or later. With current Homebrew:
 
 ```sh
 brew tap jwshin/tap
