@@ -75,6 +75,11 @@ final class MacWindow: Window {
     override func getAxRect(_ cm: CancellationMode) async throws -> Rect? {
         try await macApp.getAxRect(windowId, cm)
     }
+
+    override func cancelPendingFrame() {
+        frameRequest += 1
+        macApp.cancelPendingFrame(windowId)
+    }
 }
 
 extension MacWindow {

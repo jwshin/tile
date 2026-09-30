@@ -117,11 +117,42 @@ test('resize cancellation restores the snapshot and outside-screen release cance
   assert.deepEqual(root(session), plain(initial.displays[0].root));
 });
 
+test('native resize keeps the held frame through refresh before and after observation', () => {
+  for (const axis of ['x', 'y']) {
+    const session = new Layout.DisplayLayoutState();
+    const before = frame(session, 3);
+    const original = root(session);
+    session.dispatch({ type: 'nativeResizeStart', id: 3, axis, amount: 80 });
+    const native = plain(session.visibleFrames().find(rect => rect.id === 3));
+    assert.equal(native[axis === 'x' ? 'w' : 'h'], before[axis === 'x' ? 'w' : 'h'] + 80);
+    session.dispatch({ type: 'nativeResizeRefresh' });
+    assert.deepEqual(root(session), original);
+    assert.deepEqual(plain(session.visibleFrames().find(rect => rect.id === 3)), native);
+    assert(!session.layoutWrites().some(rect => rect.id === 3));
+    session.dispatch({ type: 'nativeResizeObserve' });
+    assert(Math.abs(frame(session, 3)[axis] - native[axis]) < 1e-9);
+    for (let i = 0; i < 3; i++) session.dispatch({ type: 'nativeResizeRefresh' });
+    assert(!session.layoutWrites().some(rect => rect.id === 3));
+    session.dispatch({ type: 'nativeResizeRelease' });
+    assert(session.layoutWrites().some(rect => rect.id === 3));
+    assert(Math.abs(frame(session, 3)[axis] - native[axis]) < 1e-9);
+    assertValid(session);
+  }
+});
+
 // Run the real input adapter with rendering stubbed out; coordinates stay in model units.
 function pointerFixture() {
   const elements = new Map();
   const listeners = new Map();
   const window = { addEventListener: listen };
+  function makeElement(tagName = 'div') {
+    return {
+      tagName: tagName.toUpperCase(), children: [], style: {}, dataset: {},
+      classList: { toggle() {} }, setAttribute() {},
+      append(...children) { this.children.push(...children); },
+      replaceChildren(...children) { this.children = children; },
+    };
+  }
   function listen(type, handler) {
     if (!listeners.has(this)) listeners.set(this, new Map());
     const events = listeners.get(this);
@@ -138,6 +169,7 @@ function pointerFixture() {
   function element(id) {
     if (id === 'ghost') return null;
     if (!elements.has(id)) elements.set(id, {
+      ...makeElement(),
       value: id === 'view' ? 'all' : '', addEventListener: listen,
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 2920, height: 900 }),
       setPointerCapture(pointerId) { this.capture = pointerId; },
@@ -147,7 +179,7 @@ function pointerFixture() {
     return elements.get(id);
   }
   const context = vm.createContext({ structuredClone, window, document: {
-    getElementById: element, querySelectorAll: () => [],
+    getElementById: element, querySelectorAll: () => [], createElement: makeElement,
   } });
   const ui = html.match(/<script id="prototype-ui">([\s\S]*?)<\/script>/)[1];
   vm.runInContext(`${source}\n${ui}\nfunction render() {}\nfunction showGhost() {}\nworld={x:0,y:0,w:2920,h:900};`, context);
@@ -162,8 +194,54 @@ function pointerFixture() {
     };
     emit(board, 'pointerdown', { target: tile, clientX: center(rect).x, clientY: center(rect).y });
   }
-  return { api, down, emit, board, window };
+  function scenarioControls(name) {
+    const index = vm.runInContext(`scenarios.findIndex(scenario => scenario.name === ${JSON.stringify(name)})`, context);
+    assert(index >= 0);
+    vm.runInContext('renderScenario()', context);
+    element('tabs').children[index].onclick();
+    vm.runInContext('renderScenario()', context);
+    const controls = () => element('scenario').children.find(child => child.className === 'steps').children;
+    return { controls, click(index) {
+      assert.equal(controls()[index].disabled, false);
+      controls()[index].onclick();
+      vm.runInContext('renderScenario()', context);
+    } };
+  }
+  return { api, down, emit, board, window, scenarioControls };
 }
+
+test('native resize timing guided buttons exercise the complete delayed-observation sequence', () => {
+  const fixture = pointerFixture();
+  const scenario = fixture.scenarioControls('Native resize timing');
+  const original = plain(fixture.api.state.displays);
+  scenario.click(0);
+  scenario.click(1);
+  assert.deepEqual(plain(fixture.api.state.displays), original);
+  assert.match(fixture.api.state.message, /held W3 keeps its native frame/);
+  scenario.click(2);
+  assert.notDeepEqual(plain(fixture.api.state.displays), original);
+  const observed = plain(fixture.api.state.displays);
+  scenario.click(3);
+  assert.deepEqual(plain(fixture.api.state.displays), observed);
+  scenario.click(4);
+  assert.match(fixture.api.state.message, /normal frame writes resume/);
+});
+
+test('floating cancellation guided controls preserve restoration and independent creation', () => {
+  const fixture = pointerFixture();
+  const scenario = fixture.scenarioControls('Floating cancellation');
+  const original = plain(fixture.api.state.windows[3].rect);
+  scenario.click(0);
+  scenario.click(1);
+  assert.notDeepEqual(plain(fixture.api.state.windows[3].rect), original);
+  scenario.click(2);
+  assert.deepEqual(plain(fixture.api.state.windows[3].rect), original);
+  const afterCreation = plain(fixture.api.state);
+  scenario.click(3);
+  scenario.click(4);
+  assert.deepEqual(plain(fixture.api.state), afterCreation);
+  assert(fixture.api.state.windows[4]);
+});
 
 test('pointercancel rolls back the gesture and accepts the very next drag', () => {
   const { api, down, emit, board } = pointerFixture();

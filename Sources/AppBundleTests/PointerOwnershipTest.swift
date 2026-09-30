@@ -90,6 +90,24 @@ extension CoreTests {
             state.cancelPointer()
         }
 
+        @Test func stalePointerSampleAfterCancellationKeepsQueuedFloatingRestoration() async throws {
+            let state = DisplayLayoutState(monitors: [main], pointer: TestPointerAdapter())
+            let workspace = state.mainWorkspace
+            let original = Rect(topLeftX: 80, topLeftY: 80, width: 500, height: 400)
+            let window = TestWindow.new(id: 1, workspace: workspace, kind: .floating, rect: original)
+            state.updatePointer(window, frame: original, at: original.center, on: workspace)
+            var moved = original
+            moved.topLeftX += 100
+            window.setAxFrame(moved.topLeftCorner, moved.size)
+            window.deferFrameWrites = true
+            state.cancelPointer()
+            #expect(state.manipulatedWindow == nil && state.isHandlingPointer)
+            state.updatePointer(window, frame: moved, at: moved.center, on: workspace)
+            window.flushPendingFrame()
+            #expect(try await window.getAxRect(.nonCancellable)?.topLeftCorner == original.topLeftCorner)
+            #expect(state.manipulatedWindow == nil)
+        }
+
         @Test func equalWindowIdsDoNotSuppressOtherOwnersSizeFeedback() throws {
             let first = DisplayLayoutState(monitors: [main], pointer: TestPointerAdapter())
             let second = DisplayLayoutState(monitors: [main], pointer: TestPointerAdapter())

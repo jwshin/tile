@@ -62,6 +62,9 @@ import Foundation
                 frame: original, bounds: workspace.layoutRect, gap: CGFloat(config.gap), expected: workspace.layout)
         }
         guard var current = validGesture(), current.window === window else { return }
+        // Only accepted samples supersede earlier writes. Stale samples after cancellation
+        // must leave queued restoration and independent-action frames intact.
+        window.cancelPendingFrame()
         // Leading-edge resizing also moves the origin; AXMoved and AXResized may arrive in either order.
         current.resizing =
             current.resizing

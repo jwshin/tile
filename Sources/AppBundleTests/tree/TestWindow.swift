@@ -4,6 +4,8 @@ import AppKit
 
 final class TestWindow: Window, CustomStringConvertible {
     private var _rect: Rect?
+    var deferFrameWrites = false
+    private var pendingFrame: Rect?
     var beforeNextSizeRead: (@MainActor () async throws -> Void)?
     var isMacosFullscreenForTest = false
     var isMacosMinimizedForTest = false
@@ -44,9 +46,17 @@ final class TestWindow: Window, CustomStringConvertible {
 
     override func setAxFrame(_ point: CGPoint?, _ size: CGSize?) {
         let old = _rect ?? Rect(topLeftX: 0, topLeftY: 0, width: 400, height: 300)
-        _rect = Rect(
+        let frame = Rect(
             topLeftX: point?.x ?? old.minX, topLeftY: point?.y ?? old.minY,
             width: size?.width ?? old.width, height: size?.height ?? old.height)
+        if deferFrameWrites { pendingFrame = frame } else { _rect = frame }
+    }
+
+    override func cancelPendingFrame() { pendingFrame = nil }
+
+    func flushPendingFrame() {
+        if let pendingFrame { _rect = pendingFrame }
+        pendingFrame = nil
     }
 
     override func isMacosMinimized(_ cm: CancellationMode) async throws -> Bool { isMacosMinimizedForTest }

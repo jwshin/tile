@@ -77,7 +77,9 @@ enum ActionInput { case shortcut, menu }
                 let nativeFullscreen = try await nativeFocus?.isMacosFullscreen(.cancellable) ?? false
                 preserveNativeFocus = preserveNativeFocus || nativeFullscreen
                 if preserveNativeFocus { DisplayLayoutState.shared.discardFocusRecovery() }
-                if shouldLayout && optimisticallyPreLayoutWorkspaces { try await layoutWorkspaces() }
+                if shouldLayout && optimisticallyPreLayoutWorkspaces {
+                    try await layoutWorkspaces(preservingPointerInputFrom: nativeFocus)
+                }
                 refreshModel()
                 try await desktop.refreshWindows()
                 DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
@@ -89,7 +91,7 @@ enum ActionInput { case shortcut, menu }
                 }
                 desktop.updateStatus()
                 try await desktop.validatePopups()
-                if shouldLayout { try await layoutWorkspaces() }
+                if shouldLayout { try await layoutWorkspaces(preservingPointerInputFrom: nativeFocus) }
                 if preserveNativeFocus {
                     DisplayLayoutState.shared.discardFocusRecovery()
                 }
@@ -127,9 +129,14 @@ enum ActionInput { case shortcut, menu }
         DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
     }
 
-    private func layoutWorkspaces() async throws {
+    private func layoutWorkspaces(preservingPointerInputFrom nativeFocus: Window? = nil) async throws {
         guard ConfigurationApplication.shared.isEnabled, !monitorInfos.isEmpty else { return }
-        for workspace in DisplayLayoutState.shared.workspaces { try await workspace.layoutWorkspace() }
+        for workspace in DisplayLayoutState.shared.workspaces {
+            // A passive refresh can run before the first move/resize notification. The native
+            // focused window already belongs to the held pointer during that interval.
+            let pendingWindow = workspace.state.isPointerDown && !workspace.state.isHandlingPointer ? nativeFocus : nil
+            try await workspace.layoutWorkspace(preservingPointerWindow: pendingWindow)
+        }
     }
 }
 
