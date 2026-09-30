@@ -227,6 +227,22 @@ test('native resize timing guided buttons exercise the complete delayed-observat
   assert.match(fixture.api.state.message, /normal frame writes resume/);
 });
 
+test('floating cancellation guided controls preserve restoration and independent creation', () => {
+  const fixture = pointerFixture();
+  const scenario = fixture.scenarioControls('Floating cancellation');
+  const original = plain(fixture.api.state.windows[3].rect);
+  scenario.click(0);
+  scenario.click(1);
+  assert.notDeepEqual(plain(fixture.api.state.windows[3].rect), original);
+  scenario.click(2);
+  assert.deepEqual(plain(fixture.api.state.windows[3].rect), original);
+  const afterCreation = plain(fixture.api.state);
+  scenario.click(3);
+  scenario.click(4);
+  assert.deepEqual(plain(fixture.api.state), afterCreation);
+  assert(fixture.api.state.windows[4]);
+});
+
 test('pointercancel rolls back the gesture and accepts the very next drag', () => {
   const { api, down, emit, board } = pointerFixture();
   down();

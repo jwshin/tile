@@ -38,7 +38,6 @@ import Common
             manipulatedWindow == nil || manipulatedWindow === window
         else { return }
         restoration = [:]
-        window.cancelPendingFrame()
         mouseTiling.observe(window, frame: frame)
         mouseTiling.drag(at: point, on: destination)
     }
