@@ -19,7 +19,7 @@ import Common
         }
     }
 
-    func updateStatus() { updateTrayText() }
+    func updateStatus() { updateTrayStatus() }
 
     func refreshWindows() async throws {
         // Garbage collect terminated apps and windows before working with all windows

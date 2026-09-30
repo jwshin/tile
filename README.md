@@ -185,6 +185,7 @@ tile grew from [AeroSpace](https://github.com/nikitabobko/AeroSpace), with its l
 model rebuilt around alternating binary splits. Original copyright and third-party licenses remain in
 `LICENSE.txt` and `legal/`.
 
-The logo echoes those splits with a Mondrian-inspired palette. Its editable vector is
+The logo echoes those splits with a Mondrian-inspired palette; a monochrome version marks the menu bar.
+Its editable vector is
 [resources/tile.svg](resources/tile.svg); run `swift script/render-logo.swift` on macOS to regenerate
 it, a PNG preview, and the app icon from the same geometry.

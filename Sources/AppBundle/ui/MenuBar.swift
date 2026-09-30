@@ -26,9 +26,21 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene {
             terminateApp()
         }.keyboardShortcut("Q", modifiers: .command)
     } label: {
-        Text(
+        HStack(spacing: 4) {
+            Image(nsImage: TileMenuBarIcon.image)
+            if viewModel.axPermissionStatus != .granted {
+                Text("!")
+            } else if !viewModel.isEnabled {
+                Text("paused")
+            } else if viewModel.secureInput {
+                Image(systemName: "lock.fill")
+            }
+        }
+        .accessibilityLabel(
             viewModel.axPermissionStatus != .granted
-                ? "tile !" : viewModel.isEnabled ? viewModel.trayText : "tile paused")
+                ? "tile: Accessibility permission required"
+                : !viewModel.isEnabled ? "tile paused"
+                : viewModel.secureInput ? "tile: Secure Input is blocking shortcuts" : "tile")
     }
 }
 
