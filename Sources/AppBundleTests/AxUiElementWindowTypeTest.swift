@@ -10,7 +10,69 @@ extension CoreTests {
         @Test func test() throws {
             try checkAxDumpsRecursive(projectRoot.appending(path: "./axDumps"))
         }
+
+        @Test(arguments: [nil, false, true] as [Bool?])
+        func claudeStandardWindowTilesWithoutNativeFullscreenControls(fullscreenEnabled: Bool?) {
+            let type = classifyClaudeWindow(fullscreenEnabled: fullscreenEnabled)
+            #expect(type == .window)
+            #expect(type.initialKind(bundleId: claudeBundleId, floatingApps: []) == .tiled)
+            #expect(type.initialKind(bundleId: claudeBundleId, floatingApps: [claudeBundleId]) == .floating)
+        }
+
+        @Test func claudeDialogsAndOverlaysStayOutOfTheTiledLayout() {
+            #expect(classifyClaudeWindow(subrole: kAXDialogSubrole) == .dialog)
+            #expect(classifyClaudeWindow(subrole: kAXFloatingWindowSubrole) == .dialog)
+            #expect(classifyClaudeWindow(level: .alwaysOnTopWindow) == .popup)
+            #expect(classifyClaudeWindow(level: .unknown(windowLevel: 25)) == .popup)
+            #expect(classifyClaudeWindow(level: nil) == .popup)
+        }
+
+        @Test func fullscreenControlExceptionDoesNotApplyToOtherApps() {
+            let window = standardWindowWithoutButtons()
+            #expect(window.getWindowType(axApp: [:], nil, .regular, .normalWindow) == .dialog)
+        }
+
+        @MainActor @Test func claudeMainWindowSharesTheScreenWithAnExistingTile() throws {
+            setUpWorkspacesForTests()
+            let workspace = focus.workspace
+            let existing = TestWindow.new(id: 1, workspace: workspace)
+            let initialWidth = try #require(workspace.tiledFrames[existing.windowId]).width
+            let type = classifyClaudeWindow()
+            let claude = TestWindow.new(
+                id: 2, workspace: workspace,
+                kind: type.initialKind(bundleId: claudeBundleId, floatingApps: []))
+            #expect(claude.kind == .tiled)
+            #expect(workspace.layout.windowIds.count == 2)
+            let existingFrame = try #require(workspace.tiledFrames[existing.windowId])
+            #expect(existingFrame.width < initialWidth)
+        }
     }
+}
+
+private let claudeBundleId = "com.anthropic.claudefordesktop"
+
+// Synthetic compatibility cases, not a captured native AX dump.
+private func standardWindowWithoutButtons() -> [String: Json] {
+    [
+        "AXSubrole": .string(kAXStandardWindowSubrole),
+        "AXFocused": .bool(true),
+        "AXMain": .bool(true),
+        "AXTitle": .string("Claude"),
+        "tile.axWindowId": .int(Int64(2)),
+    ]
+}
+
+private func classifyClaudeWindow(
+    fullscreenEnabled: Bool? = nil,
+    subrole: String = kAXStandardWindowSubrole,
+    level: MacOsWindowLevel? = .normalWindow,
+) -> AxUiElementWindowType {
+    var window = standardWindowWithoutButtons()
+    window["AXSubrole"] = .string(subrole)
+    if let fullscreenEnabled {
+        window["AXFullScreenButton"] = .dict(["AXEnabled": .bool(fullscreenEnabled)])
+    }
+    return window.getWindowType(axApp: [:], KnownBundleId(rawValue: claudeBundleId), .regular, level)
 }
 
 func checkAxDumpsRecursive(_ dir: URL) throws {

@@ -81,6 +81,9 @@ extension AxUiElementMock {
             // Chrome reactivating the fullscreen button
             // todo: consider checking for fullscreen cirteria periodically (downside: will affect performance)
             && id != .chrome
+            // Claude's standard windows can omit native title-bar controls.
+            // The subrole guard above still keeps its dialogs floating.
+            && id != .claude
             &&
 
             id != .activityMonitor  // Activity Monitor doesn't show fullscreen button
@@ -110,8 +113,9 @@ extension AxUiElementMock {
     ) -> Bool {
         if windowLevel != .normalWindow
             // Slowly roll out windowLevel for applications for which we have the appropriate dumps
-            && (id == .slack || id == .chrome || id?.isFirefox == true || id == .braveBrowser || id == .screenstudio
-                || id == .cleanshotx || id == .iterm2 || id == .outlook || id == .codex || id == .wisprFlow)
+            && (id == .slack || id == .chrome || id == .claude || id?.isFirefox == true || id == .braveBrowser
+                || id == .screenstudio || id == .cleanshotx || id == .iterm2 || id == .outlook || id == .codex
+                || id == .wisprFlow)
         {
             return false
         }
