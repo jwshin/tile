@@ -46,7 +46,7 @@ extension CoreTests {
             _ = b.focusWindow()
             _ = c.focusWindow()
             _ = a.focusWindow()
-            let small = TestMonitor(displayId: workspace.name, name: "Small", x: 0, width: 680, height: 400)
+            let small = TestMonitor(displayId: workspace.name, name: "Small", x: 0, width: 360, height: 220)
             workspace.state.reconcileMonitors([small])
             #expect(b.kind == .floating)
             #expect(a.kind == .tiled && c.kind == .tiled)
@@ -76,7 +76,7 @@ extension CoreTests {
             let state = DisplayLayoutState.shared
             let destination = focus.workspace
             let source = state.workspace(
-                for: TestMonitor(displayId: "side", name: "Side", x: 1920, width: 680, height: 1080))
+                for: TestMonitor(displayId: "side", name: "Side", x: 1920, width: 360, height: 1080))
             source.orientationOverride = .h
             source.recover()
             let a = TestWindow.new(id: 1, workspace: source)

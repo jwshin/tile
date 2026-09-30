@@ -105,9 +105,33 @@ struct BinaryLayoutTest {
         #expect(accepted93)
         var empty = BinaryLayout()
         let accepted95 = !empty.insert(
-            1, beside: nil, in: Rect(topLeftX: 0, topLeftY: 0, width: 300, height: 900), gap: 0)
+            1, beside: nil, in: Rect(topLeftX: 0, topLeftY: 0, width: 159, height: 900), gap: 0)
         #expect(accepted95)
         #expect(empty.windowIds.isEmpty)
+    }
+
+    @Test func laptopSubdivisionsFitAndResizeToSmallerBaseline() {
+        let bounds = Rect(topLeftX: 0, topLeftY: 0, width: 1280, height: 800)
+        var layout = three(bounds, gap: 12)
+        let inserted4 = layout.insert(4, beside: 3, in: bounds, gap: 12)
+        let inserted5 = layout.insert(5, beside: 4, in: bounds, gap: 12)
+        #expect(inserted4 && inserted5)
+        let nested = layout.frames(in: bounds, gap: 12)[5]!
+        #expect(nested.width < 320 && nested.height < 200)
+        let resizedWidth = layout.resize(5, axis: .h, by: -10000, in: bounds, gap: 12)
+        let resizedHeight = layout.resize(5, axis: .v, by: -10000, in: bounds, gap: 12)
+        #expect(resizedWidth && resizedHeight)
+        let minimum = layout.frames(in: bounds, gap: 12)[5]!
+        #expect(abs(minimum.width - 160) < 0.001)
+        #expect(abs(minimum.height - 100) < 0.001)
+        let known: BinaryLayout.Minimums = [5: CGSize(width: 240, height: 180)]
+        let recovered = layout.recover(in: bounds, gap: 12, minimums: known, oldestFirst: [])
+        #expect(recovered.isEmpty)
+        #expect(layout.isValid(in: bounds, gap: 12, minimums: known))
+        let before = layout
+        let inserted6 = layout.insert(6, beside: 5, in: bounds, gap: 12, minimums: known)
+        #expect(!inserted6)
+        #expect(layout == before)
     }
 
     @Test func resizeClampsAtApplicationMinimumAndFindsNearestAxis() {
@@ -122,7 +146,7 @@ struct BinaryLayoutTest {
         #expect(wider[3]!.height == before[3]!.height)
         let accepted107 = layout.resize(3, axis: .v, by: 10000, in: rect, gap: 12)
         #expect(accepted107)
-        #expect(abs(layout.frames(in: rect, gap: 12)[2]!.height - 200) < 0.001)
+        #expect(abs(layout.frames(in: rect, gap: 12)[2]!.height - 100) < 0.001)
         let unchanged = layout
         let accepted110 = !layout.resizeEdge(3, edge: .right, by: 50, in: rect, gap: 12)
         #expect(accepted110)
@@ -133,7 +157,7 @@ struct BinaryLayoutTest {
         var layout = three(rect)
         layout.insert(4, beside: 3, in: rect, gap: 0)
         layout.remove(1)
-        let bounds = Rect(topLeftX: 0, topLeftY: 0, width: 660, height: 410)
+        let bounds = Rect(topLeftX: 0, topLeftY: 0, width: 340, height: 210)
         let accepted119 = layout.recover(in: bounds, gap: 12, oldestFirst: [4, 2, 3]) == [4]
         #expect(accepted119)
         #expect(layout.windowIds == [2, 3])

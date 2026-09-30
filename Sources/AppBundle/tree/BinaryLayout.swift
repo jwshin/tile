@@ -72,7 +72,7 @@ struct BinaryLayout: Equatable {
     private var root: Node?
     var rootAxis: Orientation = .h
     var windowIds: [UInt32] { root?.ids ?? [] }
-    static let baseline = CGSize(width: 320, height: 200)
+    static let baseline = CGSize(width: 160, height: 100)
     typealias Minimums = [UInt32: CGSize]
 
     private static func length(_ size: CGSize, _ axis: Orientation) -> CGFloat { axis == .h ? size.width : size.height }

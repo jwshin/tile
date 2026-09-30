@@ -17,7 +17,7 @@ to preserve the allocation. Moving toward the immediate sibling swaps the whole 
 moving beyond the parent swaps individual windows. Closing or floating a window promotes its sibling,
 with split directions following the new depth.
 
-Tiles have a 320 × 200 point baseline minimum, raised when an application demonstrates a larger limit.
+Tiles have a 160 × 100 point baseline minimum, raised when an application demonstrates a larger limit.
 A new window floats if its insertion cannot fit. Resizing clamps at minimums. Screen changes and collapse
 adjust ratios as needed, then float the least recently focused tiles only if necessary.
 
