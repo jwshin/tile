@@ -5,6 +5,7 @@ enum KnownBundleId: String, Equatable {
     case alacritty = "org.alacritty"
     case braveBrowser = "com.brave.Browser"
     case chrome = "com.google.Chrome"
+    case claude = "com.anthropic.claudefordesktop"
     case cleanshotx = "pl.maketheweb.cleanshotx"
     case codex = "com.openai.codex"
     case emacs = "org.gnu.Emacs"

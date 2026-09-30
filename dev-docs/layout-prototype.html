@@ -10,7 +10,7 @@
 <body>
 <header><div class="eyebrow">Reference prototype · binary layout</div><h1>tile layout lab</h1><p>Explore the <a href="tiling-rules.md">agreed tiling rules</a>: alternating binary sections, Outer / Inner insertion, resizing, minimum sizes, focus history, and screen transfers.</p></header>
 <div class="controls" aria-label="Window controls">
-<button id="create" class="primary">+ New window</button><select id="kind" aria-label="New window kind"><option value="normal">Normal window</option><option value="dialog">Dialog</option><option value="palette">Palette</option><option value="fixed">Non-resizable</option></select><label>App bundle ID <input id="app-bundle" value="com.example.editor" aria-label="New window app bundle ID"></label><button id="delete">Delete focused</button><button id="float">Float focused</button><button id="transfer">Transfer to</button><select id="destination" aria-label="Transfer destination"></select><button id="undo">Undo</button><button id="reset">Reset</button>
+<button id="create" class="primary">+ New window</button><select id="kind" aria-label="New window kind"><option value="normal">Normal window</option><option value="dialog">Dialog</option><option value="palette">Palette</option><option value="fixed">Non-resizable</option><option value="overlay">Overlay · non-normal level</option></select><label>App bundle ID <input id="app-bundle" value="com.example.editor" aria-label="New window app bundle ID"></label><button id="delete">Delete focused</button><button id="float">Float focused</button><button id="transfer">Transfer to</button><select id="destination" aria-label="Transfer destination"></select><button id="undo">Undo</button><button id="reset">Reset</button>
 </div>
 <div class="controls">
 <span class="control-group"><span class="caption">Focus</span><button data-focus="left" aria-label="Focus left">←</button><button data-focus="down" aria-label="Focus down">↓</button><button data-focus="up" aria-label="Focus up">↑</button><button data-focus="right" aria-label="Focus right">→</button></span>
@@ -23,6 +23,7 @@
 <details class="panel"><summary>Screen, window constraints, and lifecycle experiments</summary>
 <div class="controls"><span class="caption">Active screen</span><label>Width<input id="screen-w" type="number" min="100" step="100"></label><label>Height<input id="screen-h" type="number" min="100" step="100"></label><label>X<input id="screen-x" type="number" step="100"></label><label>Y<input id="screen-y" type="number" step="100"></label><button id="screen-apply">Apply geometry</button><button id="disconnect">Disconnect</button><button id="add-screen">Add screen</button><select id="offline" aria-label="Disconnected screen"></select><button id="reconnect">Reconnect empty</button></div>
 <div class="controls"><label>Floating apps <input id="floating-apps" placeholder="com.example.editor, com.example.player" aria-label="Floating app bundle IDs"></label><button id="floating-apps-apply">Apply floating apps</button><span class="caption">Exact bundle IDs, separated by commas. Applies to newly detected windows; manual tiling remains available.</span></div>
+<div class="controls"><label>New window fullscreen button <select id="fullscreen-button"><option value="enabled">Enabled</option><option value="missing">Missing</option><option value="disabled">Disabled</option></select></label><span class="caption">Simulated Accessibility metadata: normal Claude windows still tile without this button. Dialogs and fixed windows float; overlays stay unmanaged.</span></div>
 <div class="controls"><span class="caption">Focused window’s known minimum</span><label>Width<input id="min-w" type="number" min="0" step="20"></label><label>Height<input id="min-h" type="number" min="0" step="20"></label><button id="minimum">Apply minimum</button><span class="caption">0 = unknown; tiles still use the 160 × 100 baseline.</span></div>
 <div class="controls"><button data-suspend="minimized">Minimize</button><button data-suspend="hidden">Hide</button><button data-suspend="fullscreen">Native fullscreen</button><select id="suspended" aria-label="Unavailable window"></select><button id="restore">Restore window</button><button id="observations">Interrupt observations</button><button id="restart">Simulate restart</button></div>
 <p class="caption">These controls simulate native events. Reconnection starts empty; restart rebuilds open windows without saved layout storage. X/Y positions describe the physical screen arrangement.</p>
@@ -37,6 +38,7 @@
 <li>Every tiled insertion uses Outer / Inner. Windows that cannot fit float. The baseline minimum is 160 × 100, with larger known limits taking precedence.</li>
 <li>Within the parent, swap whole sibling sections. Beyond it, swap individual windows. Moves carry the window’s width or height; surrounding dividers adjust while respecting minimum sizes.</li>
 <li>Apps in the floating list open floating by default. Reloading the list preserves existing windows; manual tiling overrides the initial preference.</li>
+<li>Claude’s standard resizable window can tile without an enabled fullscreen button. Dialogs and fixed windows float; non-normal overlays remain unmanaged.</li>
 <li>Cross-screen transfers preview while hovering and commit on release. Source-screen swaps made during that gesture are discarded.</li>
 <li>Closing uses recent focus, including floats. Directional focus skips floats, crosses screens, and never wraps.</li>
 <li>Removal promotes the sibling. If a changed screen or rotation cannot fit, clamp ratios, then float the least recently focused tiles.</li>
@@ -236,14 +238,16 @@ const Layout = (() => {
   }
   function fallbackScreen(s){return s.screenHistory.map(id=>display(s,id)).find(Boolean)??s.displays[0];}
   function screen(id,x=0,y=0,w=1440,h=900){return {id,x,y,w,h,orientation:'auto',root:null,history:[]};}
-  function windowRecord(id,d,kind='normal',bundleId='com.example.editor'){return {id,bundleId,display:d,mode:kind==='normal'?'tiled':'floating',kind,minW:0,minH:0,lastFocus:0,rect:null};}
-  const startsFloating=(s,w)=>w.kind!=='normal'||(w.bundleId!=null&&s.floatingApps.includes(w.bundleId));
+  function windowRecord(id,d,kind='normal',bundleId='com.example.editor',fullscreenButton='enabled'){return {id,bundleId,display:d,mode:kind==='normal'?'tiled':'floating',kind,fullscreenButton,minW:0,minH:0,lastFocus:0,rect:null};}
+  const startsFloating=(s,w)=>w.kind!=='normal'||(w.fullscreenButton!=='enabled'&&w.bundleId!=='com.anthropic.claudefordesktop')||(w.bundleId!=null&&s.floatingApps.includes(w.bundleId));
+  const isUnmanagedEvent=action=>action.type==='create'&&action.kind==='overlay';
   function seed(placement='outer') {
     const a=screen('A'),b=screen('B',1480);a.root={ratio:.5,children:[1,{ratio:.5,children:[2,3]}]};a.history=[3,2,1];
     const s={placement,floatingApps:[],displays:[a,b],offline:[],windows:{},focused:3,nativeFocused:3,activeDisplay:'A',screenHistory:['A','B'],nextId:4,nextScreen:2,tick:3,message:'Ready. Focus a window or choose a guided experiment.',recovered:[],observationsPaused:false};
     for(const id of [1,2,3])s.windows[id]={...windowRecord(id,'A'),lastFocus:id};return s;
   }
   function reduce(state,action) {
+    if(isUnmanagedEvent(action))return {...clone(state),message:'Non-normal overlay stays unmanaged; layout, focus, and gestures are unchanged.'};
     const s=clone(state),id=action.id??s.focused,w=s.windows[id];let d=display(s,action.display??s.activeDisplay);
     s.recovered=[];s.message='No layout change.';
     if(action.type==='focus'){focus(s,id);s.message=`Focused W${id}.`;}
@@ -251,9 +255,9 @@ const Layout = (() => {
     else if(action.type==='placement'){s.placement=action.placement;s.message=`All tiled insertions now use ${s.placement}.`;}
     else if(action.type==='floatingApps'){s.floatingApps=[...action.bundleIds];s.message='Floating app list updated; existing windows keep their layout.';}
     else if(action.type==='create') {
-      const added=s.nextId++,kind=action.kind??'normal',created=windowRecord(added,s.activeDisplay,kind,action.bundleId);s.windows[added]=created;
+      const added=s.nextId++,kind=action.kind??'normal',created=windowRecord(added,s.activeDisplay,kind,action.bundleId,action.fullscreenButton);s.windows[added]=created;
       const shouldFloat=startsFloating(s,created);created.mode=shouldFloat?'floating':'tiled';
-      if(d){if(!shouldFloat)insert(s,d,added);else{makeFloating(s,added);s.message=`W${added} floats (${kind==='normal'?'app preference':kind}).`;}focus(s,added);}
+      if(d){if(!shouldFloat)insert(s,d,added);else{makeFloating(s,added);s.message=`W${added} floats (${kind!=='normal'?kind:s.floatingApps.includes(created.bundleId)?'app preference':'no enabled fullscreen button'}).`;}focus(s,added);}
       else{s.windows[added].display=null;s.message='No connected screen; placement deferred.';}
     }
     else if(action.type==='delete'&&w){const source=detach(s,id);delete s.windows[id];for(const q of s.displays)q.history=q.history.filter(x=>x!==id);recover(s,source);s.message=`Closed W${id}.`;}
@@ -323,6 +327,7 @@ const Layout = (() => {
     constructor(state=seed()){this.reset(state);}
     reset(state){this.state=clone(state);this.gesture=null;this.blocked=false;this.pendingNativeResize=null;}
     dispatch(action){
+      if(isUnmanagedEvent(action))return this.state=reduce(this.state,action);
       if(action.type.startsWith('nativeResize'))return this.simulateNativeResize(action);
       this.pendingNativeResize=null;this.cancel();this.state=reduce(this.state,action);return this.state;
     }
@@ -396,7 +401,7 @@ const Layout = (() => {
     }
     cancel(){if(this.gesture){this.release(true);this.blocked=true;}}
   }
-  return {DisplayLayoutState,seed,reduce,frames,geometry,ids,axis,display,contains,peer,ancestor,insertion,moveAction,focusTarget,dragAction,valid,required,minimum,available,floating,screen,GAP,MIN_W,MIN_H};
+  return {DisplayLayoutState,seed,reduce,isUnmanagedEvent,frames,geometry,ids,axis,display,contains,peer,ancestor,insertion,moveAction,focusTarget,dragAction,valid,required,minimum,available,floating,screen,GAP,MIN_W,MIN_H};
 })();
 
 </script>
@@ -423,6 +428,7 @@ const scenarios=[
   {name:'Fullscreen and Spaces',note:'Native focus is modeled separately here. Fullscreen removes W3 from tiling but keeps native focus on W3. Space changes preserve native focus; actual macOS notification timing remains a native integration check.',steps:[['Fullscreen W3; preserve native focus',{type:'suspend',reason:'fullscreen'}],['Simulate Space change',{type:'spaceChange'}],['Return W3',{type:'restore',id:3}],['Minimize W3; activate fallback',{type:'suspend',reason:'minimized'}]]},
   {name:'Lifecycle',note:'A temporarily unavailable window leaves the tree. Focus a different tile before restoring W3 to demonstrate normal insertion instead of restoring its old position.',steps:[['Minimize W3',{type:'suspend',reason:'minimized'}],['Focus W1',{type:'focus',id:1}],['Restore W3 beside W1',{type:'restore',id:3}],['Fullscreen W3',{type:'suspend',reason:'fullscreen'}],['Return W3',{type:'restore',id:3}],['Hide W3',{type:'suspend',reason:'hidden'}],['Show W3',{type:'restore',id:3}]]},
   {name:'Floating apps',note:'Adding com.example.editor leaves W1–W3 tiled but makes new matching windows float. You can tile one manually, and it stays tiled when transferred. Removing the rule affects new windows; existing floats stay put. Use the app bundle ID input and floating-app list to try your own IDs.',steps:[['Float new editor windows',{type:'floatingApps',bundleIds:['com.example.editor']}],['Create editor W4 → floating',{type:'create',bundleId:'com.example.editor'}],['Tile W4 manually',{type:'float'}],['Transfer W4 to B → still tiled',{type:'transfer',destination:'B'}],['Create editor W5 → floating',{type:'create',bundleId:'com.example.editor'}],['Clear app list',{type:'floatingApps',bundleIds:[]}],['Create editor W6 → tiled',{type:'create',bundleId:'com.example.editor'}],['Focus W5 → still floating',{type:'focus',id:5}]]},
+  {name:'Claude window eligibility',note:'A standard resizable Claude window tiles even when its Accessibility fullscreen button is missing or disabled. The exception does not include dialogs, fixed windows, non-normal overlays, or an explicit floating-app preference. These are simulated attributes; this does not read Claude’s live Accessibility metadata or verify native classification.',steps:[['Claude W4: missing button → tiled',{type:'create',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'missing'}],['Claude W5: disabled button → tiled',{type:'create',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'disabled'}],['Claude dialog W6 → floating',{type:'create',kind:'dialog',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'missing'}],['Claude fixed W7 → floating',{type:'create',kind:'fixed',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'missing'}],['Try tiling W7 → stays floating',{type:'float'}],['Claude overlay → unmanaged',{type:'create',kind:'overlay',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'missing'}],['Generic W8: missing button → floating',{type:'create',bundleId:'com.example.editor',fullscreenButton:'missing'}],['Prefer floating for Claude',{type:'floatingApps',bundleIds:['com.anthropic.claudefordesktop']}],['Claude W9 → floating by preference',{type:'create',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'disabled'}]]},
   {name:'Screen shape',note:'A portrait screen automatically starts top/bottom. An explicit override flips it to left/right. Root changes recover minimum sizes if needed.',steps:[['Select B',{type:'display',display:'B'}],['Make B portrait',{type:'screen',display:'B',w:900,h:1440}],['Create first tile',{type:'create'}],['Create below it',{type:'create'}],['Override to left/right',{type:'screen',display:'B',orientation:'x'}]]},
   {name:'Window kinds & restart',note:'Dialogs start floating. Normal windows use the focused screen even if their requested initial position is elsewhere. Observation loss retains state; restart rebuilds without a new persistence system.',steps:[['Create a dialog',{type:'create',kind:'dialog'}],['Normal window (app requested B)',{type:'create',initialDisplay:'B'}],['Interrupt observation',{type:'observations'}],['Resume observation',{type:'observations'}],['Simulate restart',{type:'restart'}]]},
   {name:'Collapse & rotate',note:'Removing W1 promotes the right subtree. W2/W3 change from top/bottom to left/right because orientation follows depth.',steps:[['Focus W1',{type:'focus',id:1}],['Delete W1',{type:'delete'}],['Resize the new root',{type:'resize',axis:'x',amount:.1}]]}
@@ -430,6 +436,7 @@ const scenarios=[
 function log(message){messages.unshift(message);messages=messages.slice(0,5);}
 function apply(action,free=true) {
   if(free)scenarioIndex=null;
+  if(Layout.isUnmanagedEvent(action)){model.dispatch(action);state=model.state;log(state.message);render();return;}
   const before=copy(model.gesture?.initial??state);
   if(action.type==='gestureBegin')model.begin({id:action.id});
   else if(action.type==='gestureMove') {
@@ -511,7 +518,7 @@ function renderScenario() {
   if(scenarioIndex==null)return;const steps=document.createElement('div');steps.className='steps';
   scenarios[scenarioIndex].steps.forEach(([label,action],index)=>{const b=document.createElement('button');b.textContent=`${index+1}. ${label}`;b.disabled=index!==stepIndex;b.classList.toggle('done',index<stepIndex);b.onclick=()=>{stepIndex++;apply(action,false);};steps.append(b);});panel.append(steps);
 }
-function createWindow(){apply({type:'create',kind:$('kind').value,bundleId:$('app-bundle').value.trim()||null});}
+function createWindow(){apply({type:'create',kind:$('kind').value,bundleId:$('app-bundle').value.trim()||null,fullscreenButton:$('fullscreen-button').value});}
 $('create').onclick=createWindow;$('delete').onclick=()=>apply({type:'delete'});$('float').onclick=()=>apply({type:'float'});
 $('floating-apps-apply').onclick=()=>apply({type:'floatingApps',bundleIds:$('floating-apps').value.split(',').map(id=>id.trim()).filter(Boolean)});
 $('transfer').onclick=()=>apply({type:'transfer',destination:$('destination').value});

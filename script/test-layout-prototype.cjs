@@ -207,8 +207,103 @@ function pointerFixture() {
       vm.runInContext('renderScenario()', context);
     } };
   }
-  return { api, down, emit, board, window, scenarioControls };
+  return { api, down, emit, board, window, scenarioControls, element, session: vm.runInContext('model', context) };
 }
+
+test('Claude eligibility guided controls retain dialog, fixed, overlay, and preference boundaries', () => {
+  const fixture = pointerFixture();
+  const scenario = fixture.scenarioControls('Claude window eligibility');
+  scenario.click(0);
+  assert.equal(fixture.api.state.windows[4].mode, 'tiled');
+  assert.equal(fixture.api.state.windows[4].fullscreenButton, 'missing');
+  scenario.click(1);
+  assert.equal(fixture.api.state.windows[5].mode, 'tiled');
+  assert.equal(fixture.api.state.windows[5].fullscreenButton, 'disabled');
+  const tiled = plain(fixture.api.state.displays[0].root);
+  scenario.click(2);
+  assert.equal(fixture.api.state.windows[6].mode, 'floating');
+  scenario.click(3);
+  assert.equal(fixture.api.state.windows[7].mode, 'floating');
+  scenario.click(4);
+  assert.equal(fixture.api.state.windows[7].mode, 'floating');
+  assert.match(fixture.api.state.message, /non-resizable/);
+  const beforeOverlay = plain(fixture.api.state.windows);
+  const focusBeforeOverlay = fixture.api.state.focused;
+  scenario.click(5);
+  assert.deepEqual(plain(fixture.api.state.windows), beforeOverlay);
+  assert.equal(fixture.api.state.focused, focusBeforeOverlay);
+  assert.match(fixture.api.state.message, /unmanaged/);
+  scenario.click(6);
+  assert.equal(fixture.api.state.windows[8].mode, 'floating');
+  scenario.click(7);
+  assert.equal(fixture.api.state.windows[4].mode, 'tiled');
+  assert.equal(fixture.api.state.windows[5].mode, 'tiled');
+  scenario.click(8);
+  assert.equal(fixture.api.state.windows[9].mode, 'floating');
+  assert.match(fixture.api.state.message, /app preference/);
+  assert.deepEqual(plain(fixture.api.state.displays[0].root), tiled);
+  assertValid({ state: fixture.api.state });
+});
+
+test('window creation controls supply fullscreen metadata and keep overlays out of managed windows', () => {
+  const { api, element } = pointerFixture();
+  element('kind').value = 'normal';
+  element('app-bundle').value = 'com.example.editor';
+  element('fullscreen-button').value = 'disabled';
+  element('create').onclick();
+  assert.equal(api.state.windows[4].mode, 'floating');
+  element('app-bundle').value = 'com.anthropic.claudefordesktop';
+  element('create').onclick();
+  assert.equal(api.state.windows[5].mode, 'tiled');
+  assert.equal(api.state.windows[5].fullscreenButton, 'disabled');
+  element('fullscreen-button').value = 'missing';
+  element('create').onclick();
+  assert.equal(api.state.windows[6].mode, 'tiled');
+  assert.equal(api.state.windows[6].fullscreenButton, 'missing');
+  const beforeOverlay = plain(api.state.windows);
+  element('kind').value = 'overlay';
+  element('create').onclick();
+  assert.deepEqual(plain(api.state.windows), beforeOverlay);
+  assert.equal(api.state.focused, 6);
+  assertValid({ state: api.state });
+});
+
+test('unmanaged overlay preserves distinct native fullscreen and logical focus', () => {
+  const fullscreen = Layout.reduce(Layout.seed(), { type: 'suspend', id: 3, reason: 'fullscreen' });
+  assert.equal(fullscreen.nativeFocused, 3);
+  assert.equal(fullscreen.focused, 2);
+  const overlay = { type: 'create', kind: 'overlay', bundleId: 'com.anthropic.claudefordesktop' };
+  const session = new Layout.DisplayLayoutState(fullscreen);
+  for (const result of [Layout.reduce(fullscreen, overlay), session.dispatch(overlay)]) {
+    assert.deepEqual(plain({ ...result, message: fullscreen.message }), plain(fullscreen));
+    assert.match(result.message, /unmanaged/);
+  }
+});
+
+test('unmanaged overlay control preserves the active drag owner, preview, and pointer stream', () => {
+  const { api, element, down, emit, board, session } = pointerFixture();
+  down(3);
+  const first = center(api.Layout.frames(api.state).find(rect => rect.id === 1));
+  emit(board, 'pointermove', { clientX: first.x, clientY: first.y });
+  const destination = center(api.Layout.display(api.state, 'B'));
+  emit(board, 'pointermove', { clientX: destination.x, clientY: destination.y });
+  const gesture = session.gesture;
+  assert(gesture?.preview);
+  const before = plain(api.state);
+  const preview = plain(gesture.preview);
+  element('kind').value = 'overlay';
+  element('app-bundle').value = 'com.anthropic.claudefordesktop';
+  element('fullscreen-button').value = 'missing';
+  element('create').onclick();
+  assert.equal(session.gesture, gesture);
+  assert.deepEqual(plain(api.gesture.preview), preview);
+  assert.deepEqual(plain({ ...api.state, message: before.message }), before);
+  assert.equal(board.hasPointerCapture(7), true);
+  emit(board, 'pointerup', { clientX: destination.x, clientY: destination.y });
+  assert.equal(api.gesture, null);
+  assert.equal(api.state.windows[3].display, 'B');
+  assertValid({ state: api.state });
+});
 
 test('native resize timing guided buttons exercise the complete delayed-observation sequence', () => {
   const fixture = pointerFixture();
