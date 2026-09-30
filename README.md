@@ -29,8 +29,8 @@ tile to grow a different branch of the tree.
 
 The layout engine is a value-type binary tree, with native Accessibility adapters handling macOS
 windows. The app ships as a self-contained Apple silicon binary. Its three library dependencies cover
-TOML parsing, collections, and global shortcuts; the core is free of the legacy workspace and container
-machinery. Configuration is five concepts: gaps, floating apps, insertion side, orientation, and bindings.
+TOML parsing, collections, and global shortcuts. A purpose-built layout model keeps the dependency
+surface small. Configuration is five concepts: gaps, floating apps, insertion side, orientation, and bindings.
 
 Try the [interactive layout prototype](dev-docs/layout-prototype.html) in Chrome to explore splits,
 resizing, swaps, and screen changes. It is a standalone file. The [tiling rules](dev-docs/tiling-rules.md)
@@ -187,4 +187,4 @@ model rebuilt around alternating binary splits. Original copyright and third-par
 
 The logo echoes those splits with a Mondrian-inspired palette. Its editable vector is
 [resources/tile.svg](resources/tile.svg); run `swift script/render-logo.swift` on macOS to regenerate
-it, the README PNG, and the app icon from the same geometry.
+it, a PNG preview, and the app icon from the same geometry.

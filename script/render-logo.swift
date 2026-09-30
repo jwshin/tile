@@ -36,9 +36,10 @@ try svg.write(to: resources.appendingPathComponent("tile.svg"), atomically: true
 
 func color(_ hex: String) -> CGColor {
     let rgb = UInt32(hex, radix: 16)!
-    return CGColor(red: Double((rgb >> 16) & 255) / 255,
-                   green: Double((rgb >> 8) & 255) / 255,
-                   blue: Double(rgb & 255) / 255, alpha: 1)
+    return CGColor(colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, components: [
+        Double((rgb >> 16) & 255) / 255, Double((rgb >> 8) & 255) / 255,
+        Double(rgb & 255) / 255, 1,
+    ])!
 }
 
 func render(_ size: Int, to url: URL) throws {

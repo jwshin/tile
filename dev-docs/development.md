@@ -12,6 +12,7 @@ and otherwise the selected system Swift. They work with the macOS system Bash.
 - `./build-release.sh [output.app]`: build/sign `.release/tile.app` (or the supplied path) without installing or launching it.
   Use a separate output path while another build is running. Version metadata comes from `Sources/Common/version.swift`.
 - `./package-release.sh [output-directory]`: build/sign an Apple silicon app, bundle license notices, and create a ZIP and SHA-256 checksum. See [releasing](releasing.md).
+- `swift script/render-logo.swift`: regenerate the SVG logo, PNG preview, and ICNS app icon from shared geometry using macOS graphics tools.
 
 Open `Package.swift` in Xcode. Running the debug executable from Terminal lets macOS request Accessibility
 permission for that host. The release app has a separate bundle identity and permission grant. Stop the

@@ -9,7 +9,7 @@ The app retains its `local.jwshin.tile` bundle ID so installations share one Acc
 1. Set the numeric `major.minor.patch` version in `Sources/Common/version.swift`.
 2. Run `./test.sh`, then `./package-release.sh .release/dist`.
 3. Verify the archived app after extraction: its signature, bundle version, minimum OS, arm64 architecture,
-   default config, and license notices must match the release. Confirm `Contents/MacOS/tile --version`.
+   app icon, default config, and license notices must match the release. Confirm `Contents/MacOS/tile --version`.
 4. Commit and push the release source. Tag that commit `v<version>`. Publish subsequent releases under
    a new version and keep the release archive, checksum, and cask synchronized.
 
