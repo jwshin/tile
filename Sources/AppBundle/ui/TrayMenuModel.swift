@@ -6,7 +6,6 @@ public final class TrayMenuModel {
     public static let shared = TrayMenuModel()
     private init() {}
     let launchAtLogin = LaunchAtLogin(service: NativeLoginItemService())
-    var trayText = "tile"
     var isEnabled: Bool { ConfigurationApplication.shared.isEnabled }
     var axPermissionStatus: AxPermissionStatus = .waitingWithPrompt
     var secureInput = false
@@ -14,8 +13,7 @@ public final class TrayMenuModel {
 
 enum AxPermissionStatus: Equatable { case granted, waiting, waitingWithPrompt }
 
-@MainActor func updateTrayText() {
+@MainActor func updateTrayStatus() {
     let model = TrayMenuModel.shared
     model.secureInput = IsSecureEventInputEnabled()
-    model.trayText = model.secureInput ? "tile 🔒" : "tile"
 }
