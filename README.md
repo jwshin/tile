@@ -1,39 +1,44 @@
+<p align="center"><img src="resources/tile.svg" width="144" height="144" alt="tile: nested screen divisions in red, blue, yellow, and ivory"></p>
+
 # tile
 
-A personal, keyboard-driven fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace).
-Each connected monitor has one permanent layout. There are no virtual workspace switches,
-CLI server, external automation callbacks, or binding modes.
+A focused, opinionated tiling window manager for macOS. Built for responsive keyboard and mouse
+control, with a compact native Swift core, one layout per screen, and a small set of predictable rules.
 
-## Layout
+## A screen, split simply
 
-Each section is one window or two child sections. Split directions alternate by depth, starting
-left/right on a wide screen and top/bottom on a portrait screen. New splits start at 50/50 and can
-be resized. New windows split the remembered tiled target using **Outer** (toward the nearer screen
-edge) or **Inner** placement. Floating focus does not replace that tiled target.
+Start with one window filling the screen. The next window splits it left/right; the next splits
+its focused section top/bottom. Keep going and the directions alternate, forming a spiral of nested
+rectangles. Underneath, it is a simple binary tree: every section is either one window or two smaller
+sections. Each split begins at 50/50, and you can resize it whenever you need more room.
 
-Moves carry the selected window's width for horizontal moves or height for vertical moves.
-For example, moving the wide window across a 70/30 split produces 30/70. Neighboring dividers adjust
-to preserve the allocation. Moving toward the immediate sibling swaps the whole sibling section;
-moving beyond the parent swaps individual windows. Closing or floating a window promotes its sibling,
-with split directions following the new depth.
+New windows divide the last focused tile. **Outer** placement puts the new window toward the nearer
+screen edge; **Inner** puts it toward the center. A portrait screen starts top/bottom. Focus a different
+tile to grow a different branch of the tree.
 
-Tiles have a 160 × 100 point baseline minimum, raised when an application demonstrates a larger limit.
-A new window floats if its insertion cannot fit. Resizing clamps at minimums. Screen changes and collapse
-adjust ratios as needed, then float the least recently focused tiles only if necessary.
+- **Move without losing your size.** Horizontal moves carry the window's width; vertical moves carry
+  its height. Move the wide side of a 70/30 split across the screen and the split becomes 30/70.
+- **Keep layout predictable.** Moving within a parent exchanges sibling sections; moving beyond it
+  swaps individual windows. Closing a tile promotes its sibling into the space.
+- **Make room on a laptop.** Tiles can shrink to 160 × 100 logical points. Larger application limits
+  still apply. A new window floats if its split cannot fit; existing tiles keep their allocation.
+- **Use every screen.** Directional focus follows the physical display arrangement. Transfers have
+  their own shortcuts. Disconnecting a screen moves its windows to a surviving screen.
 
-Focus follows per-screen history, including floats. Directional focus visits tiles, crosses screens
-in their physical arrangement, skips empty screens, and does not wrap. Directional moves stay on the
-current screen; monitor transfer is a separate action. Disconnected-screen windows migrate individually
-to the most recently focused remaining screen, falling back to the main screen. Reconnected screens
-start empty. There is no persistent layout store.
+## Small by design
 
-The [tiling rules](dev-docs/tiling-rules.md) are the authoritative specification.
-Open the retained [interactive prototype](dev-docs/layout-prototype.html) directly in Chrome to experiment
-with layouts, minimums, screen changes, and window lifecycle events. It needs no server or dependencies.
+The layout engine is a value-type binary tree, with native Accessibility adapters handling macOS
+windows. The app ships as a self-contained Apple silicon binary. Its three library dependencies cover
+TOML parsing, collections, and global shortcuts; the core is free of the legacy workspace and container
+machinery. Configuration is five concepts: gaps, floating apps, insertion side, orientation, and bindings.
+
+Try the [interactive layout prototype](dev-docs/layout-prototype.html) in Chrome to explore splits,
+resizing, swaps, and screen changes. It is a standalone file. The [tiling rules](dev-docs/tiling-rules.md)
+record the exact behavior, including recovery and native integration boundaries.
 
 ## Install
 
-Release 0.4.0 supports Apple silicon Macs running macOS 27 or later. With current Homebrew:
+Release 0.5.0 supports Apple silicon Macs running macOS 27 or later. With current Homebrew:
 
 ```sh
 brew tap jwshin/tap
@@ -176,4 +181,10 @@ unregistered; re-enable from the menu. Quitting leaves window positions as they 
 - `axDumps`: native window-classification fixtures.
 
 See [architecture](dev-docs/architecture.md) and [development](dev-docs/development.md).
-Original copyright and third-party licenses remain in `LICENSE.txt` and `legal/`.
+tile grew from [AeroSpace](https://github.com/nikitabobko/AeroSpace), with its layout and interaction
+model rebuilt around alternating binary splits. Original copyright and third-party licenses remain in
+`LICENSE.txt` and `legal/`.
+
+The logo echoes those splits with a Mondrian-inspired palette. Its editable vector is
+[resources/tile.svg](resources/tile.svg); run `swift script/render-logo.swift` on macOS to regenerate
+it, the README PNG, and the app icon from the same geometry.

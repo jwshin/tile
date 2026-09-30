@@ -12,6 +12,7 @@ app_path="${1:-.release/tile.app}"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 cp "$(swift build -c release --show-bin-path)/tile" "$app_path/Contents/MacOS/tile"
 cp resources/default-config.toml LICENSE.txt "$app_path/Contents/Resources/"
+cp resources/tile.icns "$app_path/Contents/Resources/"
 cp -R legal "$app_path/Contents/Resources/"
 cat > "$app_path/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -20,6 +21,7 @@ cat > "$app_path/Contents/Info.plist" <<PLIST
 <key>CFBundleIdentifier</key><string>local.jwshin.tile</string>
 <key>CFBundleName</key><string>tile</string>
 <key>CFBundleExecutable</key><string>tile</string>
+<key>CFBundleIconFile</key><string>tile.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>$version</string>
 <key>CFBundleShortVersionString</key><string>$version</string>

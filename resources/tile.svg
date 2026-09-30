@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">tile</title>
+  <desc id="description">A screen divided into nested red, blue, yellow, and ivory panes by alternating binary splits.</desc>
+  <defs><clipPath id="screen"><rect x="46" y="46" width="420" height="420" rx="30"/></clipPath></defs>
+  <rect x="32" y="32" width="448" height="448" rx="44" fill="#202423"/>
+  <g clip-path="url(#screen)">
+    <rect x="46" y="46" width="166" height="420" fill="#E44838"/>
+    <rect x="226" y="46" width="240" height="166" fill="#F6F2E8"/>
+    <rect x="226" y="226" width="100" height="240" fill="#2669B8"/>
+    <rect x="340" y="226" width="126" height="100" fill="#F3C542"/>
+    <rect x="340" y="340" width="52" height="126" fill="#F6F2E8"/>
+    <rect x="406" y="340" width="60" height="56" fill="#F6F2E8"/>
+    <rect x="406" y="410" width="60" height="56" fill="#E44838"/>
+  </g>
+</svg>
