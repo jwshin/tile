@@ -243,6 +243,53 @@ test('floating cancellation guided controls preserve restoration and independent
   assert(fixture.api.state.windows[4]);
 });
 
+test('laptop minimum guided controls allow smaller tiles and retain known application limits', () => {
+  const fixture = pointerFixture();
+  const scenario = fixture.scenarioControls('Laptop minimum');
+  scenario.click(0);
+  scenario.click(1);
+  const nested = fixture.api.Layout.frames(fixture.api.state).find(rect => rect.id === 5);
+  assert(nested.w < 320 && nested.h < 200);
+  scenario.click(2);
+  scenario.click(3);
+  const minimum = fixture.api.Layout.frames(fixture.api.state).find(rect => rect.id === 5);
+  assert(Math.abs(minimum.w - 160) < 1e-9);
+  assert(Math.abs(minimum.h - 100) < 1e-9);
+  scenario.click(4);
+  const known = fixture.api.Layout.frames(fixture.api.state).find(rect => rect.id === 5);
+  assert(known.w >= 240 && known.h >= 180);
+  const before = plain(fixture.api.state.displays[0].root);
+  scenario.click(5);
+  assert.equal(fixture.api.state.windows[6].mode, 'floating');
+  assert.deepEqual(plain(fixture.api.state.displays[0].root), before);
+  assertValid({ state: fixture.api.state });
+});
+
+test('minimum rejection and recovery guided controls still demonstrate their policies', () => {
+  const fixture = pointerFixture();
+  const minimum = fixture.scenarioControls('Minimum sizes');
+  minimum.click(0);
+  const before = plain(fixture.api.state.displays[0].root);
+  minimum.click(1);
+  minimum.click(2);
+  assert.equal(fixture.api.state.windows[4].mode, 'floating');
+  assert.deepEqual(plain(fixture.api.state.displays[0].root), before);
+  minimum.click(3);
+  const width = fixture.api.Layout.frames(fixture.api.state).find(rect => rect.id === 1).w;
+  minimum.click(4);
+  assert(Math.abs(fixture.api.Layout.frames(fixture.api.state).find(rect => rect.id === 1).w - width) < 1e-9);
+  const recovery = fixture.scenarioControls('Recovery');
+  recovery.click(0);
+  assert(fixture.api.state.displays[0].root.ratio < .85);
+  assert.equal(fixture.api.state.recovered.length, 0);
+  recovery.click(1);
+  assert(fixture.api.state.recovered.length > 0);
+  const floating = Object.values(fixture.api.state.windows).filter(window => window.mode === 'floating').map(window => window.id);
+  recovery.click(2);
+  assert.deepEqual(Object.values(fixture.api.state.windows).filter(window => window.mode === 'floating').map(window => window.id), floating);
+  assertValid({ state: fixture.api.state });
+});
+
 test('pointercancel rolls back the gesture and accepts the very next drag', () => {
   const { api, down, emit, board } = pointerFixture();
   down();

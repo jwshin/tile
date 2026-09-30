@@ -64,7 +64,7 @@ For the example above, inserting at W2 splits W2 left/right. Outer creates to it
 
 ## 4. Minimum sizes and recovery
 
-The initial minimum tile size is **320 × 200 logical points**. Larger window-specific minimums take precedence when known. Lack of a reliable application minimum must not prevent operation: use the baseline and handle observed constraints through the native window adapter.
+The minimum tile size is **160 × 100 logical points**. This engineering default replaces 320 × 200 so smaller laptop screens allow more subdivision and resizing before reaching the baseline. It is a lower bound, not a preferred window size. Larger window-specific minimums take precedence when known. Lack of a reliable application minimum must not prevent operation: use the baseline and handle observed constraints through the native window adapter.
 
 - Clamp interactive resizing before any affected leaf falls below its minimum.
 - Float an arriving window when insertion cannot fit, including on an otherwise empty screen.
@@ -178,7 +178,7 @@ Keep the prototype as a small executable reference beside this specification: on
 | Binary sections, depth-based directions, removal and promotion | Implemented |
 | Outer / Inner for creation, retiling, returning windows, and transfers | Implemented, including centered tie rule |
 | Live section/window swaps and drag cancellation | Implemented in the model-owned gesture session; independent owners and lifecycle cancellation have a guided scenario; moves preserve the selected width/height |
-| Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at minimums; native resize timing scenario simulates the first-observation delay and protected frame writes |
+| Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at 160 × 100 or larger known minimums; laptop scenario covers nested insertion; native resize timing simulates the first-observation delay and protected frame writes |
 | Automatic floating and minimum-size recovery | Implemented; known per-window limits can be supplied in debug controls |
 | Recent-focus history and directional focus | Implemented; arrows skip floats, cross screens, and do not wrap |
 | Physical screen arrangement and orientation | Implemented; edit screen X/Y and dimensions, use Auto or an explicit root override |
@@ -205,6 +205,7 @@ The **Native resize timing** scenario displays a simulated native frame before t
 - Retile and transfer at targets in each screen half: Outer / Inner must select the same side as new-window creation, for both axes.
 - Resize W3 in the example: width affects the entire right column; height affects only W2/W3. Move the wide window across a 70/30 split and verify the split becomes 30/70 while its width stays unchanged. Move a narrow window into a wider destination and verify that its width also stays unchanged.
 - Attempt an insertion below the minimum: only the arriving window floats. Move an existing wide window into the narrow destination: grow the destination to its previous width. Exercise a nested destination that needs both local and ancestor dividers adjusted, and verify exact width and every window’s minimum. If the required allocation cannot be represented, verify that the entire move remains unchanged.
+- On a 1280 × 800 usable screen, split a half-width column again and then split its half-height tile. Accept tiles below the former 320 × 200 baseline, clamp at 160 × 100, and still reject an insertion that violates a larger known application minimum. Actual application limits and their Accessibility feedback require native validation.
 - Close a window whose promotion rotates a subtree, and shrink a screen: retain valid ratios, clamp when needed, then float least-recently-focused tiles only if necessary.
 - Close the focused window after visiting a float: focus returns to that float if it is the most recent surviving available window. Directional focus still skips floats.
 - Focus beyond an edge with an empty screen between populated screens: continue in the physical direction without wrapping.
