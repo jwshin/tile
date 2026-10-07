@@ -109,9 +109,13 @@ notification fallback can repair disabled native reads without an app restart.
 Opus review found that caching a failed setup prevented later subscription recovery. The follow-up
 patch retries only failed keys/observer creation on ordinary AX-thread refreshes, retains existing
 sources, and clears recovered diagnostic errors. The initial smoke test above predates that retry
-follow-up; its native recovery behavior is covered by automated orchestration tests rather than
-live failure injection. The follow-up full suite passes 149 Swift tests, the warnings-as-errors
-app build, and 20 prototype checks. No periodic polling was added.
+follow-up; subscription recovery is covered by helper-level orchestration tests rather than
+live failure injection. The follow-up full suite passes 151 Swift tests, the warnings-as-errors
+app build, and 20 prototype checks. A setup request that returns `cannotComplete` defers the remaining
+batch until the next ordinary refresh, avoiding repeated timeout waits within that batch. The retry
+wiring and cancellation dedupe in the native adapter remain covered by static review rather than
+live failure injection. `sw_vers` independently confirms the recorded macOS version/build.
+No periodic polling was added.
 
 | Additional native validation | Status |
 | --- | --- |

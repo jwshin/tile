@@ -126,7 +126,8 @@ Notification setup is best effort and does not gate app/window registration. Suc
 remain active when another notification fails; readable AXWindows and native focus still drive
 discovery during ordinary refreshes. An independent Foundation port keeps each AX thread alive even
 when observer creation fails. Ordinary refreshes retry failed keys/observers without replacing working
-subscriptions, and diagnostics report only the remaining app/window setup errors. No periodic
+subscriptions. A `cannotComplete` result defers the remaining batch to a later refresh instead of
+repeating potentially slow calls. Diagnostics report remaining setup errors and deferred attempts. No periodic
 fallback polling is added, so unsupported notifications rely on subsequent desktop/action refreshes.
 Initial classification checks `floating-apps` against the raw bundle identifier after popup filtering. The list is a default for newly detected windows; reload does not rewrite existing membership, and manual tiling survives transfers and temporary exclusion.
 Resizable capability is queried through Accessibility, with unknown capability allowed. After successful

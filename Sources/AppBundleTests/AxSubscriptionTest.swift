@@ -5,6 +5,64 @@ import Testing
 
 extension CoreTests {
     struct AxSubscriptionTest {
+        @Test func unresponsiveNotificationDefersRemainingKeysAndHandlersUntilNextRefresh() throws {
+            let mappings = [(0, ["AXWindowCreated", "AXFocusedWindowChanged"]), (1, ["AXMoved"])]
+            var created: [Int] = []
+            var attempted: [String] = []
+            let stalled = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable),
+                create: {
+                    created.append($0)
+                    return ($0, .success)
+                },
+                subscribe: { _, key in
+                    attempted.append(key)
+                    return .cannotComplete
+                }, activate: { _ in })
+            #expect(created == [0])
+            #expect(attempted == ["AXWindowCreated"])
+            #expect(stalled.failures.contains("AXWindowCreated: error=\(AXError.cannotComplete.rawValue)"))
+            #expect(stalled.failures.contains { $0.contains("Deferred") && $0.contains("AXFocusedWindowChanged") })
+            attempted = []
+            let recovered = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable), retrying: stalled,
+                create: {
+                    created.append($0)
+                    return ($0, .success)
+                },
+                subscribe: { _, key in
+                    attempted.append(key)
+                    return .success
+                }, activate: { _ in })
+            #expect(created == [0, 1])
+            #expect(attempted == ["AXWindowCreated", "AXFocusedWindowChanged", "AXMoved"])
+            #expect(recovered.subscriptions == [0, 1])
+            #expect(recovered.failures.isEmpty)
+        }
+
+        @Test func unresponsiveObserverDefersOtherHandlersWithoutDroppingWorkingSources() throws {
+            let mappings = [(0, ["AXMoved"]), (1, ["AXResized"]), (2, ["AXUIElementDestroyed"])]
+            var created: [Int] = []
+            let stalled = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable),
+                create: { handler -> (Int?, AXError) in
+                    created.append(handler)
+                    return handler == 1 ? (nil, .cannotComplete) : (handler, .success)
+                }, subscribe: { _, _ in .success }, activate: { _ in })
+            #expect(created == [0, 1])
+            #expect(stalled.subscriptions == [0])
+            let recovered = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable), retrying: stalled,
+                create: {
+                    created.append($0)
+                    return ($0, .success)
+                },
+                subscribe: { _, _ in .success }, activate: { _ in })
+            #expect(created == [0, 1, 1, 2])
+            #expect(recovered.subscriptions == [0, 1, 2])
+            #expect(recovered.failures.isEmpty)
+        }
+
         @Test func refreshRetriesOnlyFailedKeysAndClearsRecoveredDiagnostics() throws {
             let mappings = [(0, ["AXWindowCreated", "AXFocusedWindowChanged"]), (1, ["AXMoved", "AXResized"])]
             var created: [Int] = []
@@ -49,7 +107,7 @@ extension CoreTests {
             let mappings = [(0, ["AXMoved"]), (1, ["AXResized"])]
             let initial = try subscribeAxNotifications(
                 mappings, job: RunLoopJob(.nonCancellable),
-                create: { ($0 == 0 ? nil : $0, $0 == 0 ? .cannotComplete : .success) },
+                create: { ($0 == 0 ? nil : $0, $0 == 0 ? .failure : .success) },
                 subscribe: { _, _ in .success }, activate: { _ in })
             var created: [Int] = []
             var attempted: [String] = []
@@ -80,11 +138,12 @@ extension CoreTests {
                 create: {
                     created += 1
                     return ($0, .success)
-                }, subscribe: { _, _ in .cannotComplete },
+                }, subscribe: { _, _ in .notificationUnsupported },
                 activate: { _ in })
             #expect(created == 0)
             #expect(retried.subscriptions == [0])
-            #expect(retried.failures == mappings[0].1.map { "\($0): error=\(AXError.cannotComplete.rawValue)" })
+            #expect(
+                retried.failures == mappings[0].1.map { "\($0): error=\(AXError.notificationUnsupported.rawValue)" })
         }
 
         @Test func unsupportedNotificationKeepsSupportedAppAndWindowNotifications() throws {
@@ -107,7 +166,7 @@ extension CoreTests {
         @Test func noSupportedNotificationsStillRetainsTheObserverForReadableWindows() throws {
             let batch = try subscribeAxNotifications(
                 [(0, ["AXWindowCreated", "AXFocusedWindowChanged"])], job: RunLoopJob(.cancellable),
-                create: { ($0, .success) }, subscribe: { _, _ in .cannotComplete }, activate: { _ in })
+                create: { ($0, .success) }, subscribe: { _, _ in .apiDisabled }, activate: { _ in })
             #expect(batch.subscriptions == [0])
             #expect(batch.failures.count == 2)
         }
@@ -119,11 +178,11 @@ extension CoreTests {
                 job: RunLoopJob(.cancellable),
                 create: { handler -> (Int?, AXError) in
                     attempted.append(handler)
-                    return handler == 1 ? (nil, .cannotComplete) : (handler, .success)
+                    return handler == 1 ? (nil, .failure) : (handler, .success)
                 }, subscribe: { _, _ in .success }, activate: { _ in })
             #expect(batch.subscriptions == [0, 2])
             #expect(attempted == [0, 1, 2])
-            #expect(batch.failures == ["AXObserverCreate (AXMoved): error=\(AXError.cannotComplete.rawValue)"])
+            #expect(batch.failures == ["AXObserverCreate (AXMoved): error=\(AXError.failure.rawValue)"])
         }
 
         @Test func cancellationStopsSetupBeforeSubmittingMoreNativeCalls() throws {

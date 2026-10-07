@@ -88,7 +88,8 @@ notification must not exclude an application or window whose AX window list or f
 available. Retain supported notifications and discover readable windows during ordinary refreshes,
 even when no notification can be installed. Retry failed keys and observer creation during ordinary
 refreshes, reusing working observers and clearing recovered setup errors. Native app threads must
-remain usable without observers.
+remain usable without observers. If an AX setup call returns `cannotComplete`, defer the remainder
+of that subscription batch to the next ordinary refresh rather than repeating potentially slow calls.
 This fallback relies on subsequent refresh events; it does not add periodic polling or guarantee timely
 delivery of an unsupported notification. Record notification setup error codes in diagnostics.
 
@@ -208,7 +209,7 @@ Keep the prototype as a small executable reference beside this specification: on
 | Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; fullscreen/Space guided scenario separates native from logical focus; actual native events need an adapter |
 | Window classification | Simulated normal/dialog/palette/non-resizable kinds, unmanaged non-normal overlays, exact bundle-ID floating preferences, and Claude’s missing/disabled fullscreen-button exception; raw Accessibility attributes and native classification remain app integration |
 | Temporary observation loss and restart | Simulated; observation interruption retains state, restart demonstrates rebuilding without persistent layout storage |
-| Native discovery when notifications fail | The **Native discovery without notifications** scenario and native snapshot controls discover readable main windows, avoid duplicates, and retain tiles through unavailable reads; actual observer creation, subscriptions, and AX run-loop liveness require native adapters |
+| Native discovery when notifications fail | The **Native discovery without notifications** scenario and native snapshot controls discover readable main windows, defer unresponsive setup, recover notification support, avoid duplicates, and retain tiles through unavailable reads; actual observer creation, subscriptions, and AX run-loop liveness require native adapters |
 | Read-only state diagnostics | Capture/copy and the **State diagnostics** guided scenario preserve layout and gestures; native AX caches, notification setup errors, Window Server observations, capture deadlines, session history, and save-panel behavior require macOS integration checks |
 
 Run `node --test script/test-layout-prototype.cjs` to exercise the diagnostic controls and guided scenario
@@ -227,7 +228,8 @@ Guided experiments cover floating-app preferences and manual overrides, insertio
 
 **Native discovery without notifications** starts with one ChatGPT tile and an observed Chrome app.
 The native snapshot controls simulate one main window per bundle ID, notification setup status, and
-whether reads are available. Refresh inserts Chrome even with no notifications, repeats without a
+whether reads are available. Unresponsive setup defers the remaining batch; later refreshes recover
+partial and then complete notification support. Refresh inserts Chrome even with no notifications, repeats without a
 duplicate, and preserves existing tiles through unavailable reads. This demonstrates the policy, not
 actual macOS subscription setup or discovery timing. Native popup classification and minimum-size
 checks still apply after discovery.
@@ -300,8 +302,8 @@ Gesture ownership validation: Swift regressions cover independent state instance
 Claude classification validation: the prototype’s guided controls cover the narrow exception and its dialog, fixed-window, overlay, and explicit-preference boundaries. Live raw Accessibility attributes, actual window classification, native resizing, and behavior after rediscovery with the patched app remain unverified native integration checks. The observed UI tree alone is not a raw Accessibility dump and does not establish the cause of the reported untiled window.
 
 Native discovery validation (2026-10-06): Swift regressions cover partial/all notification failures,
-failed observer creation, refresh retries that preserve working subscriptions and clear recovered
-errors, cancellation, and observer-free AX work scheduling. The prototype's guided controls cover
+failed observer creation, helper-level refresh retries that preserve working subscriptions and clear
+recovered errors, unresponsive setup deferral, cancellation, and observer-free AX work scheduling. The prototype's guided controls cover
 notification recovery, readable discovery, duplicate prevention, and unavailable-read retention.
 An initial patch build passed a single-display ChatGPT/Chrome geometry check after Chrome restarted;
 see the [investigation record](development.md#chrome-discovery-investigation-2026-10-06) for the build,
