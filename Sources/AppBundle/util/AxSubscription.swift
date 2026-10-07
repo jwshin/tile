@@ -15,14 +15,15 @@ final class AxSubscription {
         self.ax = ax
     }
 
-    private func subscribe(_ key: String) throws -> Bool {
+    private func subscribe(_ key: String) -> AXError {
         axThreadToken.checkEquals(axTaskLocalAppThreadToken)
-        if AXObserverAddNotification(obs, ax, key as CFString, nil) == .success {
+        // A cancelled retry may have installed this key before its batch was published.
+        if notifKeys.contains(key) { return .success }
+        let error = AXObserverAddNotification(obs, ax, key as CFString, nil)
+        if error == .success {
             notifKeys.insert(key)
-            return true
-        } else {
-            return false
         }
+        return error
     }
 
     static func bulkSubscribe(
@@ -30,22 +31,23 @@ final class AxSubscription {
         _ ax: AXUIElement,
         _ job: RunLoopJob,
         _ handlerToNotifKeyMapping: HandlerToNotifKeyMapping,
-    ) throws -> [AxSubscription] {
-        var result: [AxSubscription] = []
+        retrying previous: AxSubscriptionBatch<AxSubscription>? = nil,
+    ) throws -> AxSubscriptionBatch<AxSubscription> {
         var visitedNotifKeys: Set<String> = []
-        for unsafe (handler, notifKeys) in unsafe handlerToNotifKeyMapping {
-            try job.checkCancellation()
-            guard let obs = unsafe AXObserver.new(nsApp.processIdentifier, handler) else { return [] }
-            let subscription = AxSubscription(obs: obs, ax: ax)
-            for key: String in notifKeys {
-                try job.checkCancellation()
+        return try unsafe subscribeAxNotifications(
+            handlerToNotifKeyMapping, job: job, retrying: previous,
+            create: { handler in
+                var observer: AXObserver?
+                let error = unsafe AXObserverCreate(nsApp.processIdentifier, handler, &observer)
+                return (observer.map { AxSubscription(obs: $0, ax: ax) }, error)
+            },
+            subscribe: { subscription, key in
                 assert(visitedNotifKeys.insert(key).inserted)
-                if try !subscription.subscribe(key) { return [] }
-            }
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(obs), .defaultMode)
-            result.append(subscription)
-        }
-        return result
+                return subscription.subscribe(key)
+            },
+            activate: { subscription in
+                CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(subscription.obs), .defaultMode)
+            })
     }
 
     deinit {

@@ -83,6 +83,16 @@ Minimizing, hiding, or entering native fullscreen also removes a window from the
 
 Distinguish those explicit lifecycle changes from transient observation failures, such as temporary inaccessibility during screen lock. Reuse the app's existing reconciliation/restoration mechanisms where practical; a missed observation alone is not a close or minimize event.
 
+Accessibility notification support is independent of window eligibility. A failed observer or unsupported
+notification must not exclude an application or window whose AX window list or focused-window read is
+available. Retain supported notifications and discover readable windows during ordinary refreshes,
+even when no notification can be installed. Retry failed keys and observer creation during ordinary
+refreshes, reusing working observers and clearing recovered setup errors. Native app threads must
+remain usable without observers. If an AX setup call returns `cannotComplete`, defer the remainder
+of that subscription batch to the next ordinary refresh rather than repeating potentially slow calls.
+This fallback relies on subsequent refresh events; it does not add periodic polling or guarantee timely
+delivery of an unsupported notification. Record notification setup error codes in diagnostics.
+
 **State diagnostics:** the menu's **Open diagnostics…** captures Tile's stored state without refreshing,
 registering windows, editing layouts, or importing native focus. Include every registered window kind,
 display membership, tree ratios, logical/imported focus, gesture state, and restoration snapshots.
@@ -199,7 +209,8 @@ Keep the prototype as a small executable reference beside this specification: on
 | Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; fullscreen/Space guided scenario separates native from logical focus; actual native events need an adapter |
 | Window classification | Simulated normal/dialog/palette/non-resizable kinds, unmanaged non-normal overlays, exact bundle-ID floating preferences, and Claude’s missing/disabled fullscreen-button exception; raw Accessibility attributes and native classification remain app integration |
 | Temporary observation loss and restart | Simulated; observation interruption retains state, restart demonstrates rebuilding without persistent layout storage |
-| Read-only state diagnostics | Capture/copy and the **State diagnostics** guided scenario preserve layout and gestures; native AX caches, error codes, Window Server observations, capture deadlines, session history, and save-panel behavior require macOS integration checks |
+| Native discovery when notifications fail | The **Native discovery without notifications** scenario and native snapshot controls discover readable main windows, defer unresponsive setup, recover notification support, avoid duplicates, and retain tiles through unavailable reads; actual observer creation, subscriptions, and AX run-loop liveness require native adapters |
+| Read-only state diagnostics | Capture/copy and the **State diagnostics** guided scenario preserve layout and gestures; native AX caches, notification setup errors, Window Server observations, capture deadlines, session history, and save-panel behavior require macOS integration checks |
 
 Run `node --test script/test-layout-prototype.cjs` to exercise the diagnostic controls and guided scenario
 with local DOM doubles. This verifies snapshot isolation and gesture preservation, but does not
@@ -214,6 +225,14 @@ The display layout state owns gesture transitions in the DOM-independent model. 
 Browser `pointercancel` ends the input stream: restore the gesture’s original layout and accept the next drag immediately, without waiting for a `pointerup` that will not follow. Escape, lost pointer capture, and lifecycle edits can cancel while the pointer remains held; block further drag attempts until release or terminal browser cancellation, including when that event arrives outside the board. The **Pointer cancellation** guided scenario demonstrates terminal cancellation during a live swap and a transfer preview.
 
 Guided experiments cover floating-app preferences and manual overrides, insertion, section/window swaps, resizing, minimum-size rejection, recovery, recent focus, screen transfers and disconnection, lifecycle events, orientation, window kinds, and the permitted restart fallback. Cross-screen pointer behavior can be exercised directly with both screens visible. All state stays in memory; the restart button simulates the chosen fallback rather than adding a storage layer.
+
+**Native discovery without notifications** starts with one ChatGPT tile and an observed Chrome app.
+The native snapshot controls simulate one main window per bundle ID, notification setup status, and
+whether reads are available. Unresponsive setup defers the remaining batch; later refreshes recover
+partial and then complete notification support. Refresh inserts Chrome even with no notifications, repeats without a
+duplicate, and preserves existing tiles through unavailable reads. This demonstrates the policy, not
+actual macOS subscription setup or discovery timing. Native popup classification and minimum-size
+checks still apply after discovery.
 
 The **Native resize timing** scenario displays a simulated native frame before the model observes it, refreshes while the pointer is held, delivers the observation, then releases. It makes the protected window and neighboring frame-write policy executable. It does not reproduce macOS AX thread scheduling, in-flight calls, or display animation.
 
@@ -240,6 +259,7 @@ The **Claude window eligibility** scenario exercises missing and disabled fullsc
 - Add an app to `floating-apps`: its existing windows stay put; a new matching window floats. Tile it manually, transfer it, and minimize/restore it: retain the manual choice. Remove the rule: only future windows return to automatic classification. Matching must not turn unmanaged popups into managed floats.
 - Create standard resizable Claude windows with missing and disabled Accessibility fullscreen buttons: tile both when insertion fits. Keep Claude dialogs and fixed windows floating and non-normal overlays unmanaged. Apply an explicit Claude floating-app preference: future managed windows float. Confirm that the generic missing-button fallback still floats an app without this exception.
 - Launch a normal window with an initial rectangle on a different screen: insert on the screen that was focused when creation began.
+- Fail some or all Accessibility notifications for a readable Chrome main window: discover it beside an existing ChatGPT tile on refresh. Retain other working notifications, avoid duplicate windows on later refreshes, and preserve existing membership through a temporary failed read. Confirm a native app thread continues processing reads even if observer creation fails.
 
 No further product decisions are blocking the initial implementation. Persistent layout storage, general rule scripting, and general rebalancing are outside its scope; the `floating-apps` list is the supported app-level exception.
 
@@ -280,3 +300,13 @@ Issue #5 validation boundary: adapter regressions cover fullscreen focus preserv
 Gesture ownership validation: Swift regressions cover independent state instances, matching window IDs, preview cleanup, frame-write and size-feedback isolation, restoration invalidation, and cancellation until release. The prototype’s model and guided controls exercise interruption by creation, close, and screen disconnection. Pointer-adapter regressions simulate browser cancellation and release both during a drag and after Escape or lifecycle cancellation; rendering is stubbed in these tests. Actual pressed-button sampling, Accessibility notification ordering, native preview rendering, and physical displays remain native integration checks.
 
 Claude classification validation: the prototype’s guided controls cover the narrow exception and its dialog, fixed-window, overlay, and explicit-preference boundaries. Live raw Accessibility attributes, actual window classification, native resizing, and behavior after rediscovery with the patched app remain unverified native integration checks. The observed UI tree alone is not a raw Accessibility dump and does not establish the cause of the reported untiled window.
+
+Native discovery validation (2026-10-06): Swift regressions cover partial/all notification failures,
+failed observer creation, helper-level refresh retries that preserve working subscriptions and clear
+recovered errors, unresponsive setup deferral, cancellation, and observer-free AX work scheduling. The prototype's guided controls cover
+notification recovery, readable discovery, duplicate prevention, and unavailable-read retention.
+An initial patch build passed a single-display ChatGPT/Chrome geometry check after Chrome restarted;
+see the [investigation record](development.md#chrome-discovery-investigation-2026-10-06) for the build,
+configuration, and observed errors. Multi-display behavior, live notification-failure/retry injection,
+and broader native lifecycle checks have not been performed with this patch. App restart recovery,
+actual AX identity validity, and native observer timing remain integration boundaries.

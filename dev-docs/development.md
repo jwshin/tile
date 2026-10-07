@@ -61,6 +61,68 @@ The required native validation remains open until the following checks are perfo
 
 Record the build/commit, displays, application names, results, and any reproduction details when completing these checks.
 
+## Chrome discovery investigation: 2026-10-06
+
+The Tile 0.7.0 diagnostics snapshot at `2026-10-07T06:04:06Z` shows one display, enabled management,
+Accessibility granted, and no floating-app preferences. The host runs macOS 27.2 (Build 26B5091g);
+configuration is `gap=4`, `new-window-placement=outer`, and `root-orientation=auto`.
+ChatGPT (`com.openai.codex`) W4081 is correctly
+tiled at 1912 × 967 points. Chrome (`com.google.Chrome`) W5930 is on-screen at 1274 × 976 points but
+its application is absent from Tile's AX registry. Its overlap with ChatGPT is 1270 × 967 points.
+The snapshot does not include Chrome's notification setup error.
+
+Reproduction: keep ChatGPT and Chrome open on the same display with Tile enabled and Accessibility
+granted, activate each main window, and capture diagnostics while they overlap. In the supplied
+report Chrome was visible but unregistered; ChatGPT remained the sole tile. The initial patch was
+built from base `3fd9bafb`; its app source is committed as `ec001d83`. The installed executable SHA-256
+was `644c184007d393b789b06d2488c9a1e70a0785b215a2dfe50ee35a4544d04a8d`.
+This describes the observed environment rather than a deterministic way to induce Chrome's AX failure.
+
+Notification setup previously discarded the whole app/window when a single subscription failed.
+The patch retains supported notifications and permits readable windows without notification support,
+keeps AX threads alive with an independent Foundation port, and includes setup errors in diagnostics.
+The full Swift suite passed 146 tests; the warnings-as-errors build and 20 prototype checks passed.
+A final thread-lifetime adjustment passed the three run-loop tests, and the release app built and
+verified its signature. Guided controls were exercised through the DOM harness; the Chrome extension
+was unavailable for visual browser validation.
+
+The initial patched local 0.7.0 bundle was installed and restarted, with the previous signed bundle
+retained for rollback. The first read-only geometry check after restart still reported the same overlap. The standalone probe has no AX grant
+and cannot establish Tile's permission status; Tile's own report supplies that evidence below.
+
+The follow-up native report at `2026-10-07T06:17:52Z` confirms `Accessibility=true` for the patched
+Tile process. Chrome is now AX-registered, but its `AXWindows`, `AXFocusedWindow`, and both application
+notifications return `-25211` (`kAXErrorAPIDisabled`); ChatGPT's reads succeed. Thus notification
+fallback cannot by itself recover Chrome while window reads are disabled. The running Chrome process
+started at 17:59:57 PDT and has framework 155.0.8059.39 loaded, whereas the installed bundle contains
+155.0.8059.40 and was updated around 22:54 PDT. Restarting Chrome was chosen as the next recovery check;
+the version mismatch is confirmed, but its causal relationship to the AX failure is not established.
+The Chrome extension was unavailable in this session, so the user performed that browser action.
+
+After the user restarted Chrome on 2026-10-07 UTC, the new Chrome process loaded framework
+155.0.8059.40. The same native geometry check passed: ChatGPT W4081 occupies `(4, 34, 954, 967)`
+and Chrome W6009 occupies `(962, 34, 954, 967)`, leaving the configured 4-point gap. Tile
+remained running throughout the Chrome restart. Recovery of the reported layout is verified;
+the check does not establish that the pending update caused Chrome's earlier AX failure or that
+notification fallback can repair disabled native reads without an app restart.
+
+Opus review found that caching a failed setup prevented later subscription recovery. The follow-up
+patch retries only failed keys/observer creation on ordinary AX-thread refreshes, retains existing
+sources, and clears recovered diagnostic errors. The initial smoke test above predates that retry
+follow-up; subscription recovery is covered by helper-level orchestration tests rather than
+live failure injection. The follow-up full suite passes 151 Swift tests, the warnings-as-errors
+app build, and 20 prototype checks. A setup request that returns `cannotComplete` defers the remaining
+batch until the next ordinary refresh, avoiding repeated timeout waits within that batch. The retry
+wiring and cancellation dedupe in the native adapter remain covered by static review rather than
+live failure injection. `sw_vers` independently confirms the recorded macOS version/build.
+No periodic polling was added.
+
+| Additional native validation | Status |
+| --- | --- |
+| Notification fallback/retry: inject failed observers/keys, then recover reads and notification support without restarting the app | Not run |
+| Multi-display desktop checks with this patch | Not run; only one display was available |
+| Broader native lifecycle checks with this patch (lock/unlock, minimize/restore, fullscreen, hide/show) | Not run |
+
 ## Launch at login
 
 The menu uses `SMAppService.mainApp` through `LaunchAtLogin`. Registration is opt-in and belongs to

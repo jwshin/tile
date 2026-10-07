@@ -2,6 +2,22 @@ import Common
 import Foundation
 import Synchronization
 
+/// Observer creation can fail, so AX work needs a run-loop source independent of observers.
+final class AxAppRunLoop {
+    private let keepAlive = Port()
+
+    init() {
+        RunLoop.current.add(keepAlive, forMode: .default)
+    }
+
+    func run() { withExtendedLifetime(self) { CFRunLoopRun() } }
+
+    deinit {
+        RunLoop.current.remove(keepAlive, forMode: .default)
+        keepAlive.invalidate()
+    }
+}
+
 extension Thread {
     @discardableResult
     func runInLoopAsync(
