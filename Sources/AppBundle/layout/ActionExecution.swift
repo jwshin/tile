@@ -15,6 +15,7 @@ enum ActionInput { case shortcut, menu }
     static var shared = ActionExecution(desktop: NativeDesktopSessionAdapter())
     private let desktop: any DesktopSessionAdapter
     private var activeRefreshTask: Task<Void, Never>?
+    let diagnostics = SessionDiagnostics()
 
     init(desktop: any DesktopSessionAdapter) { self.desktop = desktop }
 
@@ -25,7 +26,9 @@ enum ActionInput { case shortcut, menu }
             return CmdResult(stdout: [], stderr: [], exitCode: .fail)
         }
         DisplayLayoutState.shared.cancelPointer()
-        return try await runSession(input == .menu ? .menuBarButton : .hotkeyBinding, .forceRun) {
+        return try await runSession(
+            input == .menu ? .menuBarButton : .hotkeyBinding, .forceRun, action: action.rawValue
+        ) {
             let command = action.command
             let io = CmdIo()
             let result =
@@ -57,7 +60,15 @@ enum ActionInput { case shortcut, menu }
     ) async {
         let interval = signposter.beginInterval(#function, "event: \(event)")
         defer { signposter.endInterval(#function, interval) }
+        let session = diagnostics.begin(
+            "refresh \(event)", windowIds: DisplayLayoutState.shared.allWindows.map(\.windowId))
+        var outcome = "disabled"
+        defer {
+            diagnostics.finish(
+                session, outcome: outcome, windowIds: DisplayLayoutState.shared.allWindows.map(\.windowId))
+        }
         guard ConfigurationApplication.shared.isEnabled else { return }
+        outcome = "completed"
         do {
             try await $refreshSessionEvent.withValue(event) {
                 // Reconcile departures before importing macOS's possibly automatic focus replacement.
@@ -98,30 +109,49 @@ enum ActionInput { case shortcut, menu }
                 DisplayLayoutState.shared.takeFocusRecovery()?.windowOrNil?.nativeFocus()
             }
         } catch is CancellationError {
+            outcome = "cancelled"
             check(assumeCancellable, "Non cancellable refresh session was canceled")
-        } catch { die("Illegal error: \(error)") }
+        } catch {
+            outcome = "failed: \(error)"
+            die("Illegal error: \(error)")
+        }
     }
 
     func runSession<T>(
         _ event: RefreshSessionEvent, _: RunSessionGuard,
+        action: String? = nil,
         body: @MainActor () async throws -> T
     ) async throws -> T {
         let interval = signposter.beginInterval(#function, "event: \(event)")
         defer { signposter.endInterval(#function, interval) }
+        let session = diagnostics.begin(
+            "session \(event)\(action.map { " action=\($0)" } ?? "")",
+            windowIds: DisplayLayoutState.shared.allWindows.map(\.windowId))
+        var outcome = "interrupted"
+        defer {
+            diagnostics.finish(
+                session, outcome: outcome, windowIds: DisplayLayoutState.shared.allWindows.map(\.windowId))
+        }
         cancelRefresh()
-        return try await $refreshSessionEvent.withValue(event) {
-            DisplayLayoutState.shared.importNativeFocus(try await desktop.focusedWindow())
-            let focusBefore = focus.windowOrNil
-            refreshModel()
-            let result = try await body()
-            refreshModel()
-            let focusAfter = focus.windowOrNil
-            desktop.updateStatus()
-            try await layoutWorkspaces()
-            let recovery = DisplayLayoutState.shared.takeFocusRecovery()
-            if recovery != nil || focusBefore != focusAfter { focusAfter?.nativeFocus() }
-            scheduleRefresh(event)
-            return result
+        do {
+            return try await $refreshSessionEvent.withValue(event) {
+                DisplayLayoutState.shared.importNativeFocus(try await desktop.focusedWindow())
+                let focusBefore = focus.windowOrNil
+                refreshModel()
+                let result = try await body()
+                refreshModel()
+                let focusAfter = focus.windowOrNil
+                desktop.updateStatus()
+                try await layoutWorkspaces()
+                let recovery = DisplayLayoutState.shared.takeFocusRecovery()
+                if recovery != nil || focusBefore != focusAfter { focusAfter?.nativeFocus() }
+                scheduleRefresh(event)
+                outcome = "completed"
+                return result
+            }
+        } catch {
+            outcome = error is CancellationError ? "cancelled" : "failed: \(error)"
+            throw error
         }
     }
 

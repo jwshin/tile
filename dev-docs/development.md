@@ -7,7 +7,7 @@ and otherwise the selected system Swift. They work with the macOS system Bash.
 - `./run-debug.sh`: build and start the app; this manages real desktop windows.
 - `./swift-test.sh`: run the serialized Swift Testing suites.
 - `./test.sh`: tests followed by an app build treating warnings as errors.
-- `node --test script/test-layout-prototype.cjs`: test the retained prototype’s model-owned gestures, lifecycle interruption, resizing, cross-screen release, and pointer-event cancellation without a browser or external packages; the pointer-adapter tests stub rendering.
+- `node --test script/test-layout-prototype.cjs`: test the retained prototype’s model-owned gestures, lifecycle interruption, resizing, cross-screen release, pointer-event cancellation, and read-only diagnostic capture/copy without a browser or external packages; the pointer-adapter tests stub rendering.
 - `./lint.sh`: warnings-as-errors app build.
 - `./build-release.sh [output.app]`: build/sign `.release/tile.app` (or the supplied path) without installing or launching it.
   Use a separate output path while another build is running. Version metadata comes from `Sources/Common/version.swift`.
@@ -57,6 +57,7 @@ The required native validation remains open until the following checks are perfo
 | Lock/unlock | Lock and unlock with tiles and floats present. Temporary observation loss does not lose windows or corrupt the layout. | Not run |
 | Native lifecycle | Minimize/restore, hide/show, and enter/exit native fullscreen. Excluded windows leave the tree; return uses ordinary insertion. Verify dialogs still float. | Not run |
 | Configuration lifecycle | Disable/re-enable tiling and reload valid configuration. Shortcuts and layout remain operational. | Not run |
+| State diagnostics | Open diagnostics with tiled, floating, minimized, and fullscreen windows across displays. Check model/cache/native IDs and geometry, recapture, copy, and save. Verify access while disabled or permission is missing, partial reports for stalled apps, and that opening the view does not rearrange windows. | Not run |
 
 Record the build/commit, displays, application names, results, and any reproduction details when completing these checks.
 

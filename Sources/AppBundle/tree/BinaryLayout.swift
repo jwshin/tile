@@ -72,6 +72,16 @@ struct BinaryLayout: Equatable {
     private var root: Node?
     var rootAxis: Orientation = .h
     var windowIds: [UInt32] { root?.ids ?? [] }
+    var diagnosticTree: String {
+        func describe(_ node: Node, axis: Orientation) -> String {
+            switch node {
+            case .window(let id): "W\(id)"
+            case .split(let ratio, let a, let b):
+                "\(axis == .h ? "horizontal" : "vertical")@\(ratio) [\(describe(a, axis: axis.opposite)), \(describe(b, axis: axis.opposite))]"
+            }
+        }
+        return root.map { describe($0, axis: rootAxis) } ?? "empty"
+    }
     static let baseline = CGSize(width: 160, height: 100)
     typealias Minimums = [UInt32: CGSize]
 

@@ -83,6 +83,16 @@ Minimizing, hiding, or entering native fullscreen also removes a window from the
 
 Distinguish those explicit lifecycle changes from transient observation failures, such as temporary inaccessibility during screen lock. Reuse the app's existing reconciliation/restoration mechanisms where practical; a missed observation alone is not a close or minimize event.
 
+**State diagnostics:** the menu's **Open diagnostics…** captures Tile's stored state without refreshing,
+registering windows, editing layouts, or importing native focus. Include every registered window kind,
+display membership, tree ratios, logical/imported focus, gesture state, and restoration snapshots.
+Compare that frozen model with later read-only AX cache/AXWindows observations and the on-screen Window
+Server list. List differences as evidence, not proof that a window was lost: off-screen windows and
+unmanaged overlays legitimately differ. Native observations have a deadline; unresponsive threads remain
+explicitly unavailable while other evidence stays readable. Capture again replaces the snapshot;
+copy/save exports its text. Window titles and document contents are omitted. Keep the last 50 completed
+refresh/action sessions in memory, including cancellations and changes in registered window IDs.
+
 ## 6. Moving tiled windows
 
 There are two operations:
@@ -189,6 +199,11 @@ Keep the prototype as a small executable reference beside this specification: on
 | Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; fullscreen/Space guided scenario separates native from logical focus; actual native events need an adapter |
 | Window classification | Simulated normal/dialog/palette/non-resizable kinds, unmanaged non-normal overlays, exact bundle-ID floating preferences, and Claude’s missing/disabled fullscreen-button exception; raw Accessibility attributes and native classification remain app integration |
 | Temporary observation loss and restart | Simulated; observation interruption retains state, restart demonstrates rebuilding without persistent layout storage |
+| Read-only state diagnostics | Capture/copy and the **State diagnostics** guided scenario preserve layout and gestures; native AX caches, error codes, Window Server observations, capture deadlines, session history, and save-panel behavior require macOS integration checks |
+
+Run `node --test script/test-layout-prototype.cjs` to exercise the diagnostic controls and guided scenario
+with local DOM doubles. This verifies snapshot isolation and gesture preservation, but does not
+replace visual checks in Chrome or native checks of the diagnostics window and export controls.
 
 The simulator starts with two 1440 × 900 screens and 12-unit gaps. Screen sizes and positions can be changed independently. These are simulation settings, not requirements for real screens. Use **All screens** for cross-screen dragging or **Active screen** for a larger view of one layout.
 
