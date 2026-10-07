@@ -33,6 +33,12 @@ restoration through the owner, and window disappearance/restoration uses the sam
 
 
 `Sources/tile/TileApp.swift` creates the menu and message scenes and calls `initAppBundle`.
+It also creates a separate state-diagnostics scene. `DiagnosticsModel` freezes stored layout/focus/
+restoration state before requesting read-only observations on existing per-app AX threads. It never
+enters `ActionExecution` or registers native windows. The report compares model IDs, cached IDs, fresh
+AXWindows IDs, and on-screen Window Server entries. A three-second deadline retains partial evidence;
+cancelled/stale callbacks cannot overwrite a newer capture. `ActionExecution` retains the last 50
+session outcomes and window-ID deltas in memory. Diagnostics omit window titles and document contents.
 `Package.swift` defines the executable, internal AppBundle and Common modules, PrivateApi bridge, and tests.
 The release script packages the executable and default configuration into a local macOS app bundle.
 
@@ -128,6 +134,7 @@ Configuration application and display layout state can also be constructed indep
 ## Platform baseline
 
 The executable and release bundle require macOS 27. UI models use Observation and are isolated to the main actor.
-The diagnostics window uses SwiftUI window controls and selectable read-only text; its Close button handles Return.
+The configuration-error window uses SwiftUI window controls and selectable read-only text; its Close button handles Return.
+The separate state-diagnostics window provides capture, copy, and save controls with selectable report text.
 Cancellation uses a `Synchronization.Atomic<Bool>` flag. Native `Task` initialization preserves actor context without
 an extra wrapper. Accessibility callbacks still use a dedicated run-loop thread per app, including thread-affine cleanup.

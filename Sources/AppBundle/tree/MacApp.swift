@@ -163,6 +163,37 @@ final class MacApp: AbstractApp {
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
     }
 
+    /// Inspect the cache on its owning thread without registering or removing any windows.
+    func captureDiagnostics(_ receive: @escaping @MainActor @Sendable (AppDiagnosticObservation) -> Void) -> RunLoopJob
+    {
+        let job = RunLoopJob(.cancellable)
+        guard let thread else { return job }
+        thread.runInLoopAsync(job: job) { [windows, pid] job in
+            let cached = windows.threadGuarded.keys.sorted()
+            // Separate AX element: the short timeout must not affect normal Tile operations.
+            let diagnosticApp = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(diagnosticApp, 1)
+            var rawWindows: AnyObject?
+            let error = unsafe AXUIElementCopyAttributeValue(
+                diagnosticApp, kAXWindowsAttribute as CFString, &rawWindows)
+            let listed = (rawWindows as? [AXUIElement])?.compactMap { $0.containingWindowId() }
+            var rawFocus: AnyObject?
+            let focusError = unsafe AXUIElementCopyAttributeValue(
+                diagnosticApp, kAXFocusedWindowAttribute as CFString, &rawFocus)
+            let focused = rawFocus.flatMap { value -> UInt32? in
+                guard focusError == .success, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+                return (value as! AXUIElement).containingWindowId()
+            }
+            let observation = AppDiagnosticObservation(
+                cachedWindowIds: cached, listedWindowIds: error == .success ? listed : nil,
+                focusedWindowId: focused,
+                status: "AXWindows error=\(error.rawValue); AXFocusedWindow error=\(focusError.rawValue)")
+            guard !job.isCancelled else { return }
+            Task { @MainActor in receive(observation) }
+        }
+        return job
+    }
+
     func getAxRect(_ windowId: UInt32, _ cm: CancellationMode) async throws -> Rect? {
         try await withWindow(windowId, cm) { window, job in
             try AppBundle.getAxRect(window: window, job: job)

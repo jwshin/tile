@@ -164,8 +164,17 @@ Minimized, hidden, and native fullscreen windows leave the tree and reinsert on 
 remain floating. In-memory snapshots support recovery from temporary Accessibility observation loss.
 Restart rebuilds from discovered windows rather than writing layouts to disk.
 
-The menu provides enable/disable, config access, permission status, and quit. Disabled shortcuts are
-unregistered; re-enable from the menu. Quitting leaves window positions as they are.
+The menu provides enable/disable, config access, permission status, state diagnostics, and quit. Disabled
+shortcuts are unregistered; re-enable from the menu. Quitting leaves window positions as they are.
+
+If Tile seems to lose a window, use **Open diagnostics…** before restarting. The report captures all
+tracked windows (including floats and temporarily unavailable windows), layout trees, focus,
+restoration snapshots, and recent refresh activity. It compares Tile's model with its Accessibility
+cache, a fresh AX window list, and macOS's on-screen window list without refreshing or repairing the
+layout. Slow Accessibility threads are marked unavailable after three seconds. **Capture again**
+takes a new snapshot; **Copy report** and **Save report…** export it for investigation. App names,
+bundle IDs, window IDs, and geometry are included; window titles and document contents are omitted.
+The view is available while tiling is disabled or Accessibility permission is missing.
 
 ## Source map
 

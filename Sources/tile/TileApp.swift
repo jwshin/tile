@@ -13,6 +13,7 @@ struct TileApp: App {
 
     var body: some Scene {
         menuBar(viewModel: viewModel)
+        diagnosticsWindow(model: DiagnosticsModel.shared)
         getMessageWindow(messageModel: messageModel)
             .onChange(of: messageModel.message, initial: true) {
                 if messageModel.message != nil {

@@ -144,6 +144,7 @@ test('native resize keeps the held frame through refresh before and after observ
 function pointerFixture() {
   const elements = new Map();
   const listeners = new Map();
+  let copied = null;
   const window = { addEventListener: listen };
   function makeElement(tagName = 'div') {
     return {
@@ -178,7 +179,8 @@ function pointerFixture() {
     });
     return elements.get(id);
   }
-  const context = vm.createContext({ structuredClone, window, document: {
+  const context = vm.createContext({ structuredClone, window,
+    navigator: { clipboard: { async writeText(text) { copied = text; } } }, document: {
     getElementById: element, querySelectorAll: () => [], createElement: makeElement,
   } });
   const ui = html.match(/<script id="prototype-ui">([\s\S]*?)<\/script>/)[1];
@@ -207,8 +209,42 @@ function pointerFixture() {
       vm.runInContext('renderScenario()', context);
     } };
   }
-  return { api, down, emit, board, window, scenarioControls, element, session: vm.runInContext('model', context) };
+  return { api, down, emit, board, window, scenarioControls, element,
+    get copied() { return copied; }, session: vm.runInContext('model', context) };
 }
+
+test('diagnostics controls preserve all window kinds, active gestures, and frozen evidence', async () => {
+  const fixture = pointerFixture();
+  const { api, element, session } = fixture;
+  const scenario = fixture.scenarioControls('State diagnostics');
+  for (let index = 0; index < 10; index++) {
+    const label = scenario.controls()[index].textContent;
+    const before = plain(session.diagnostics());
+    const previous = element('diagnostics-report').textContent;
+    scenario.click(index);
+    if (label.includes('Capture')) {
+      assert.deepEqual(plain(session.diagnostics()), before);
+      const captured = JSON.parse(element('diagnostics-report').textContent);
+      if (index === 4) {
+        assert.equal(captured.state.windows[1].mode, 'tiled');
+        assert.equal(captured.state.windows[3].mode, 'floating');
+        assert.equal(captured.state.windows[4].mode, 'suspended');
+      }
+      if (index === 6) assert.equal(captured.gesture.id, 3);
+      if (index === 9) assert.equal(captured.state.observationsPaused, true);
+    } else assert.equal(element('diagnostics-report').textContent, previous);
+  }
+  const before = plain(session.diagnostics());
+  element('capture-diagnostics').onclick();
+  await element('copy-diagnostics').onclick();
+  assert.equal(fixture.copied, element('diagnostics-report').textContent);
+  assert.deepEqual(plain(session.diagnostics()), before);
+  const detached = session.diagnostics();
+  detached.state.windows[1].mode = 'changed copy';
+  assert.equal(api.state.windows[1].mode, 'tiled');
+  assert.equal(element('diagnostics-panel').open, true);
+  assertValid({ state: api.state });
+});
 
 test('Claude eligibility guided controls retain dialog, fixed, overlay, and preference boundaries', () => {
   const fixture = pointerFixture();

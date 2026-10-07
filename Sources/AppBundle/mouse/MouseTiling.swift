@@ -34,6 +34,15 @@ import Foundation
     private(set) var preview: Preview?
     var manipulatedWindow: Window? { gesture?.window }
     var isHandlingPointer: Bool { gesture != nil || blockedUntilRelease }
+    var diagnosticReport: String {
+        let destination =
+            preview.map { "display=\($0.workspace.name) frame=\($0.frame) floating=\($0.floating)" } ?? "none"
+        guard let gesture else { return "blockedUntilRelease=\(blockedUntilRelease) preview=\(destination)" }
+        return "window=\(gesture.window.windowId) source=\(gesture.workspace.name) kind=\(gesture.kind) "
+            + "resizing=\(gesture.resizing) individualSwap=\(gesture.windowSwapMode) "
+            + "original=\(gesture.original.diagnosticTree) expected=\(gesture.expected.diagnosticTree) "
+            + "blockedUntilRelease=\(blockedUntilRelease) preview=\(destination)"
+    }
 
     /// Independent lifecycle edits call this *before* mutating membership.
     func cancel() {

@@ -28,6 +28,7 @@
 <div class="controls"><button data-suspend="minimized">Minimize</button><button data-suspend="hidden">Hide</button><button data-suspend="fullscreen">Native fullscreen</button><select id="suspended" aria-label="Unavailable window"></select><button id="restore">Restore window</button><button id="observations">Interrupt observations</button><button id="restart">Simulate restart</button></div>
 <p class="caption">These controls simulate native events. Reconnection starts empty; restart rebuilds open windows without saved layout storage. X/Y positions describe the physical screen arrangement.</p>
 </details>
+<details class="panel" id="diagnostics-panel"><summary>State diagnostics</summary><div class="controls"><button id="capture-diagnostics">Capture diagnostics</button><button id="copy-diagnostics" disabled>Copy report</button></div><p class="caption">Read-only snapshot of every simulated window, including floats and unavailable windows. Capture again to update it. Native AX caches, Window Server reads, deadlines, and session history are app integration boundaries.</p><pre id="diagnostics-report">No snapshot captured.</pre></details>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 <div id="board" class="board" aria-label="Simulated desktop"></div>
 <p class="caption">Click to focus. Drag tiles to swap; drag a gap to resize. Drop on another screen to transfer. Floating windows drag freely; their bottom-right corner resizes. Blue = focused. Escape cancels.<br>Keyboard: arrows focus · Shift + arrows move · Alt + left/right shrink/grow width · Alt + up/down shrink/grow height · N creates · F toggles floating · Delete closes · Ctrl/Cmd + Z undoes.</p>
@@ -332,6 +333,7 @@ const Layout = (() => {
       this.pendingNativeResize=null;this.cancel();this.state=reduce(this.state,action);return this.state;
     }
     visibleFrames(){return frames(this.state).map(r=>r.id===this.pendingNativeResize?.id?this.pendingNativeResize.frame:r);}
+    diagnostics(){return clone({scope:'simulation only',state:this.state,gesture:this.gesture,blockedUntilRelease:this.blocked,pendingNativeResize:this.pendingNativeResize,rectangles:frames(this.state)});}
     layoutWrites(){return frames(this.state).filter(r=>r.id!==this.pendingNativeResize?.id&&r.id!==this.gesture?.id);}
     simulateNativeResize(action){
       if(action.type==='nativeResizeStart') {
@@ -410,6 +412,7 @@ const $=id=>document.getElementById(id),copy=x=>structuredClone(x);
 const model=new Layout.DisplayLayoutState();
 let state=model.state,history=[],messages=[state.message],drag=null,scenarioIndex=null,stepIndex=0,world=null;
 const scenarios=[
+  {name:'State diagnostics',note:'Capture preserves the model and active gesture. A report includes tiled, floating, and temporarily unavailable windows; later edits leave that snapshot unchanged until recaptured. Native cache/list mismatches and stalled AX threads require the macOS diagnostics view.',steps:[['Capture initial state',{type:'diagnostics'}],['Float W3',{type:'float',id:3}],['Create W4',{type:'create'}],['Minimize W4',{type:'suspend',reason:'minimized'}],['Capture all window kinds',{type:'diagnostics'}],['Begin dragging W3',{type:'gestureBegin',id:3}],['Capture during gesture',{type:'diagnostics'}],['Cancel and release',{type:'gesturePointerCancel'}],['Interrupt observations',{type:'observations'}],['Capture observation status',{type:'diagnostics'}]]},
   {name:'Pointer cancellation',note:'Browser pointer cancellation ends the stream: roll back a live swap or transfer preview and accept the next drag immediately, without an extra click or release.',steps:[['Begin dragging W3',{type:'gestureBegin',id:3}],['Swap W3 onto W1',{type:'gestureMove',target:1}],['Browser cancels pointer stream',{type:'gesturePointerCancel'}],['Begin W3 again immediately',{type:'gestureBegin',id:3}],['Preview screen B',{type:'gestureMove',destination:'B'}],['Browser cancels transfer preview',{type:'gesturePointerCancel'}],['Begin W3 after stream ends',{type:'gestureBegin',id:3}],['Release pointer',{type:'gestureRelease'}]]},
   {name:'Gesture ownership',note:'The model owns the gesture. Lifecycle edits cancel its preview before changing windows; later pointer events cannot restore old state. A separate model has its own gesture even when window IDs match.',steps:[['Begin dragging W3',{type:'gestureBegin',id:3}],['Swap W3 onto W1',{type:'gestureMove',target:1}],['Edit a separate model',{type:'otherOwner'}],['Create W4; cancel this drag',{type:'create'}],['Stale move toward B (ignored)',{type:'gestureMove',destination:'B'}],['Release after cancellation',{type:'gestureRelease'}],['Begin dragging W3 again',{type:'gestureBegin',id:3}],['Preview screen B',{type:'gestureMove',destination:'B'}],['Close W3; cancel its preview',{type:'delete',id:3}],['Stale cancel (W3 stays closed)',{type:'gestureCancel'}],['Release pointer',{type:'gestureRelease'}],['Begin dragging W1',{type:'gestureBegin',id:1}],['Disconnect A during drag',{type:'disconnect',display:'A'}],['Stale release (keep migration)',{type:'gestureRelease'}]]},
   {name:'Floating cancellation',init:()=>Layout.reduce(Layout.seed(),{type:'float',id:3}),note:'Cancelling a floating drag restores its original rectangle before applying an independent creation. Stale movement while the pointer is held must preserve both the restored frame and the new window. Native queued AX restoration is covered separately by Swift adapter tests.',steps:[['Begin floating W3 drag',{type:'gestureBegin',id:3}],['Move W3 over W1',{type:'gestureMove',target:1}],['Create W4; restore W3 first',{type:'create'}],['Stale move over W2 (ignored)',{type:'gestureMove',target:2}],['Release pointer',{type:'gestureRelease'}]]},
@@ -435,6 +438,7 @@ const scenarios=[
 ];
 function log(message){messages.unshift(message);messages=messages.slice(0,5);}
 function apply(action,free=true) {
+  if(action.type==='diagnostics'){captureDiagnostics();renderScenario();return;}
   if(free)scenarioIndex=null;
   if(Layout.isUnmanagedEvent(action)){model.dispatch(action);state=model.state;log(state.message);render();return;}
   const before=copy(model.gesture?.initial??state);
@@ -529,6 +533,9 @@ $('screen-apply').onclick=()=>apply({type:'screen',...Object.fromEntries(['w','h
 $('disconnect').onclick=()=>apply({type:'disconnect'});$('add-screen').onclick=()=>apply({type:'connect'});$('reconnect').onclick=()=>apply({type:'connect',display:$('offline').value});
 $('minimum').onclick=()=>apply({type:'constraint',w:Number($('min-w').value),h:Number($('min-h').value)});
 $('restore').onclick=()=>apply({type:'restore',id:Number($('suspended').value)});$('observations').onclick=()=>apply({type:'observations'});$('restart').onclick=()=>apply({type:'restart'});
+function captureDiagnostics(){const snapshot=model.diagnostics();$('diagnostics-report').textContent=JSON.stringify(snapshot,null,2);$('diagnostics-panel').open=true;$('copy-diagnostics').disabled=false;}
+$('capture-diagnostics').onclick=captureDiagnostics;
+$('copy-diagnostics').onclick=async()=>{try{await navigator.clipboard.writeText($('diagnostics-report').textContent);log('Copied diagnostics.');}catch{log('Clipboard unavailable; select and copy the report text.');}render();};
 for(const key of ['move','focus','suspend'])document.querySelectorAll(`[data-${key}]`).forEach(b=>b.onclick=()=>apply(key==='suspend'?{type:'suspend',reason:b.dataset.suspend}:{type:key==='focus'?'focusDirection':'move',direction:b.dataset[key]}));
 document.querySelectorAll('[data-resize]').forEach(b=>b.onclick=()=>{const [axis,amount]=b.dataset.resize.split(':');apply({type:'resize',axis,amount:Number(amount)});});
 function undo(){if(model.gesture){finish(null,true);return;}if(history.length){model.reset(history.pop());state=model.state;scenarioIndex=null;log('Undid the last action.');render();}}

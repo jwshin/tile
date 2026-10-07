@@ -19,6 +19,8 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene {
             reloadConfigButton()
         }
         Divider()
+        OpenDiagnosticsButton()
+        Divider()
         LaunchAtLoginMenuItem(model: viewModel.launchAtLogin)
         Divider()
         Button("Quit") {

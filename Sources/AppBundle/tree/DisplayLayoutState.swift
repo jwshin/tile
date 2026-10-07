@@ -52,6 +52,58 @@ import Common
 
     var workspaces: [Workspace] { layouts.values.sorted() }
     var allWindows: [Window] { windows.values.sorted { $0.windowId < $1.windowId } }
+    /// Read stored focus directly: resolving live focus can create a fallback display layout.
+    var diagnosticReport: String {
+        let kinds: [WindowKind] = [.tiled, .floating, .popup, .minimized, .hidden, .nativeFullscreen]
+        let counts = kinds.map { kind in "\(kind)=\(allWindows.filter { $0.kind == kind }.count)" }
+        var lines = [
+            "MODEL (captured before native reads)",
+            "Registered windows: \(allWindows.count); \(counts.joined(separator: ", "))",
+            "Logical focus: display=\(frozenFocus?.workspaceName ?? "none") window=\(frozenFocus?.windowId?.description ?? "none")",
+            "Last imported native focus: \(lastKnownNativeFocusedWindowId?.description ?? "none"); recovery pending=\(pendingFocusRecovery)",
+            "Screen focus history: \(screenHistory)",
+            "Pointer: down=\(isPointerDown) handling=\(isHandlingPointer) \(mouseTiling.diagnosticReport)",
+        ]
+        for workspace in workspaces {
+            lines.append(
+                "Display \(workspace.name) (\(workspace.workspaceMonitor.name)): usable=\(workspace.layoutRect)")
+            lines.append(
+                "  tree=\(workspace.layout.diagnosticTree); override=\(String(describing: workspace.orientationOverride))"
+            )
+            for id in workspace.layout.windowIds {
+                if let window = windows[id] {
+                    if window.workspace !== workspace || window.kind != .tiled {
+                        lines.append(
+                            "  Membership inconsistency: leaf W\(id) has another display or kind=\(window.kind)")
+                    }
+                } else {
+                    lines.append("  Membership inconsistency: leaf W\(id) has no registered window")
+                }
+            }
+        }
+        for window in allWindows {
+            let expected = window.workspace?.tiledFrames[window.windowId]
+            if window.kind == .tiled && expected == nil {
+                lines.append("Membership inconsistency: tiled W\(window.windowId) is absent from its display tree")
+            }
+            lines.append(
+                "W\(window.windowId) pid=\(window.app.pid) app=\(window.app.name ?? "unknown") display=\(window.workspace?.name ?? "none") "
+                    + "kind=\(window.kind) resume=\(window.resumeKind) resizable=\(window.isResizable) tileFullscreen=\(window.isFullscreen) "
+                    + "minimum=\(window.minimumSize) focusSequence=\(window.lastFocusSequence) "
+                    + "tileAllocation=\(String(describing: expected)) lastApplied=\(String(describing: window.lastAppliedLayoutPhysicalRect))"
+            )
+        }
+        lines.append("Restoration snapshots: \(restoration.count)")
+        for (display, saved) in restoration.sorted(by: { $0.key < $1.key }) {
+            lines.append("  \(display): \(saved.layout.diagnosticTree)")
+            for id in saved.kinds.keys.sorted() {
+                let kind = saved.kinds[id].map { String(describing: $0) } ?? "unknown"
+                let resume = saved.resumeKinds[id].map { String(describing: $0) } ?? "unknown"
+                lines.append("    W\(id) kind=\(kind) resume=\(resume)")
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
     var mainWorkspace: Workspace {
         if let mainDisplayId, let workspace = layouts[mainDisplayId] { return workspace }
         return workspace(for: mainMonitorInfo)
