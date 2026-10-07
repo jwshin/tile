@@ -26,6 +26,7 @@
 <div class="controls"><label>New window fullscreen button <select id="fullscreen-button"><option value="enabled">Enabled</option><option value="missing">Missing</option><option value="disabled">Disabled</option></select></label><span class="caption">Simulated Accessibility metadata: normal Claude windows still tile without this button. Dialogs and fixed windows float; overlays stay unmanaged.</span></div>
 <div class="controls"><span class="caption">Focused window’s known minimum</span><label>Width<input id="min-w" type="number" min="0" step="20"></label><label>Height<input id="min-h" type="number" min="0" step="20"></label><button id="minimum">Apply minimum</button><span class="caption">0 = unknown; tiles still use the 160 × 100 baseline.</span></div>
 <div class="controls"><button data-suspend="minimized">Minimize</button><button data-suspend="hidden">Hide</button><button data-suspend="fullscreen">Native fullscreen</button><select id="suspended" aria-label="Unavailable window"></select><button id="restore">Restore window</button><button id="observations">Interrupt observations</button><button id="restart">Simulate restart</button></div>
+<div class="controls"><label>Native notifications <select id="native-notifications"><option value="all">All supported</option><option value="partial">Some fail</option><option value="none">All fail</option></select></label><label>Native window reads <select id="native-readable"><option value="yes">Readable</option><option value="no">Unavailable</option></select></label><button id="native-app">Observe app from fields above</button><button id="native-refresh">Refresh native windows</button><span class="caption">One simulated main window per bundle ID. Readable windows are discovered even when notifications fail.</span></div>
 <p class="caption">These controls simulate native events. Reconnection starts empty; restart rebuilds open windows without saved layout storage. X/Y positions describe the physical screen arrangement.</p>
 </details>
 <details class="panel" id="diagnostics-panel"><summary>State diagnostics</summary><div class="controls"><button id="capture-diagnostics">Capture diagnostics</button><button id="copy-diagnostics" disabled>Copy report</button></div><p class="caption">Read-only snapshot of every simulated window, including floats and unavailable windows. Capture again to update it. Native AX caches, Window Server reads, deadlines, and session history are app integration boundaries.</p><pre id="diagnostics-report">No snapshot captured.</pre></details>
@@ -44,6 +45,7 @@
 <li>Closing uses recent focus, including floats. Directional focus skips floats, crosses screens, and never wraps.</li>
 <li>Removal promotes the sibling. If a changed screen or rotation cannot fit, clamp ratios, then float the least recently focused tiles.</li>
 <li>Minimized, hidden, and fullscreen windows leave the tree. Disconnection migrates windows individually; reconnecting does not move them back.</li>
+<li>Native notifications help discovery; their failure does not exclude readable windows. An unavailable observation alone does not close a window.</li>
 </ul><ol id="log" class="log"></ol></section>
 </div>
 <section class="panel experiments"><h2>Guided experiments</h2><div id="tabs" class="tabs" role="tablist" aria-label="Experiments"></div><div id="scenario" role="tabpanel"></div></section>
@@ -244,13 +246,29 @@ const Layout = (() => {
   const isUnmanagedEvent=action=>action.type==='create'&&action.kind==='overlay';
   function seed(placement='outer') {
     const a=screen('A'),b=screen('B',1480);a.root={ratio:.5,children:[1,{ratio:.5,children:[2,3]}]};a.history=[3,2,1];
-    const s={placement,floatingApps:[],displays:[a,b],offline:[],windows:{},focused:3,nativeFocused:3,activeDisplay:'A',screenHistory:['A','B'],nextId:4,nextScreen:2,tick:3,message:'Ready. Focus a window or choose a guided experiment.',recovered:[],observationsPaused:false};
+    const s={placement,floatingApps:[],displays:[a,b],offline:[],windows:{},nativeApps:{},focused:3,nativeFocused:3,activeDisplay:'A',screenHistory:['A','B'],nextId:4,nextScreen:2,tick:3,message:'Ready. Focus a window or choose a guided experiment.',recovered:[],observationsPaused:false};
     for(const id of [1,2,3])s.windows[id]={...windowRecord(id,'A'),lastFocus:id};return s;
   }
   function reduce(state,action) {
     if(isUnmanagedEvent(action))return {...clone(state),message:'Non-normal overlay stays unmanaged; layout, focus, and gestures are unchanged.'};
     const s=clone(state),id=action.id??s.focused,w=s.windows[id];let d=display(s,action.display??s.activeDisplay);
     s.recovered=[];s.message='No layout change.';
+    if(action.type==='nativeApp') {
+      const bundleId=action.bundleId??'com.example.editor',previous=s.nativeApps[bundleId];
+      s.nativeApps[bundleId]={windowId:previous?.windowId??null,notifications:action.notifications??'all',readable:action.readable??true,kind:action.kind??'normal',fullscreenButton:action.fullscreenButton??'enabled'};
+      s.message=`Observed ${bundleId}: notifications ${s.nativeApps[bundleId].notifications}, reads ${s.nativeApps[bundleId].readable?'available':'unavailable'}. Existing layout retained.`;return s;
+    }
+    if(action.type==='nativeRefresh') {
+      let result=s,discovered=0,unavailable=0;
+      for(const [bundleId,app] of Object.entries(s.nativeApps)) {
+        if(!app.readable){unavailable++;continue;}
+        if(result.windows[app.windowId])continue;
+        const added=result.nextId;
+        result=reduce(result,{type:'create',bundleId,kind:app.kind,fullscreenButton:app.fullscreenButton});
+        if(result.windows[added]){result.nativeApps[bundleId].windowId=added;discovered++;}
+      }
+      result.message=`Native refresh discovered ${discovered} window(s), regardless of notification support.${unavailable?' Unavailable reads retain existing windows.':''}`;return result;
+    }
     if(action.type==='focus'){focus(s,id);s.message=`Focused W${id}.`;}
     else if(action.type==='display'&&d){s.activeDisplay=d.id;s.focused=null;rememberScreen(s,d.id);const next=recent(s,d);if(next!=null)focus(s,next);s.message=`Selected screen ${d.id}.`;}
     else if(action.type==='placement'){s.placement=action.placement;s.message=`All tiled insertions now use ${s.placement}.`;}
@@ -412,6 +430,7 @@ const $=id=>document.getElementById(id),copy=x=>structuredClone(x);
 const model=new Layout.DisplayLayoutState();
 let state=model.state,history=[],messages=[state.message],drag=null,scenarioIndex=null,stepIndex=0,world=null;
 const scenarios=[
+  {name:'Native discovery without notifications',init:()=>{let s=Layout.reduce(Layout.seed(),{type:'delete',id:3});s=Layout.reduce(s,{type:'delete',id:2});s.windows[1].bundleId='com.openai.codex';return s;},note:'W1 represents ChatGPT. Chrome remains discoverable from readable native windows even when notification setup fails. A later refresh does not duplicate Chrome; temporarily unavailable reads preserve its tile. If initial window reads are unavailable, the native snapshot controls defer discovery until reads recover. This models API availability, not a guarantee that restarting Chrome repairs it. Observer creation, raw AX errors, AX identity validity, and native run-loop liveness require Swift and macOS validation.',steps:[['Chrome notifications fail; reads work',{type:'nativeApp',bundleId:'com.google.Chrome',notifications:'none'}],['Refresh: tile Chrome beside ChatGPT',{type:'nativeRefresh'}],['Refresh again: no duplicate',{type:'nativeRefresh'}],['Chrome reads temporarily unavailable',{type:'nativeApp',bundleId:'com.google.Chrome',notifications:'none',readable:false}],['Refresh: retain both tiles',{type:'nativeRefresh'}],['Reads return; some notifications fail',{type:'nativeApp',bundleId:'com.google.Chrome',notifications:'partial'}],['Refresh: retain Chrome’s identity',{type:'nativeRefresh'}]]},
   {name:'State diagnostics',note:'Capture preserves the model and active gesture. A report includes tiled, floating, and temporarily unavailable windows; later edits leave that snapshot unchanged until recaptured. Native cache/list mismatches and stalled AX threads require the macOS diagnostics view.',steps:[['Capture initial state',{type:'diagnostics'}],['Float W3',{type:'float',id:3}],['Create W4',{type:'create'}],['Minimize W4',{type:'suspend',reason:'minimized'}],['Capture all window kinds',{type:'diagnostics'}],['Begin dragging W3',{type:'gestureBegin',id:3}],['Capture during gesture',{type:'diagnostics'}],['Cancel and release',{type:'gesturePointerCancel'}],['Interrupt observations',{type:'observations'}],['Capture observation status',{type:'diagnostics'}]]},
   {name:'Pointer cancellation',note:'Browser pointer cancellation ends the stream: roll back a live swap or transfer preview and accept the next drag immediately, without an extra click or release.',steps:[['Begin dragging W3',{type:'gestureBegin',id:3}],['Swap W3 onto W1',{type:'gestureMove',target:1}],['Browser cancels pointer stream',{type:'gesturePointerCancel'}],['Begin W3 again immediately',{type:'gestureBegin',id:3}],['Preview screen B',{type:'gestureMove',destination:'B'}],['Browser cancels transfer preview',{type:'gesturePointerCancel'}],['Begin W3 after stream ends',{type:'gestureBegin',id:3}],['Release pointer',{type:'gestureRelease'}]]},
   {name:'Gesture ownership',note:'The model owns the gesture. Lifecycle edits cancel its preview before changing windows; later pointer events cannot restore old state. A separate model has its own gesture even when window IDs match.',steps:[['Begin dragging W3',{type:'gestureBegin',id:3}],['Swap W3 onto W1',{type:'gestureMove',target:1}],['Edit a separate model',{type:'otherOwner'}],['Create W4; cancel this drag',{type:'create'}],['Stale move toward B (ignored)',{type:'gestureMove',destination:'B'}],['Release after cancellation',{type:'gestureRelease'}],['Begin dragging W3 again',{type:'gestureBegin',id:3}],['Preview screen B',{type:'gestureMove',destination:'B'}],['Close W3; cancel its preview',{type:'delete',id:3}],['Stale cancel (W3 stays closed)',{type:'gestureCancel'}],['Release pointer',{type:'gestureRelease'}],['Begin dragging W1',{type:'gestureBegin',id:1}],['Disconnect A during drag',{type:'disconnect',display:'A'}],['Stale release (keep migration)',{type:'gestureRelease'}]]},
@@ -533,6 +552,8 @@ $('screen-apply').onclick=()=>apply({type:'screen',...Object.fromEntries(['w','h
 $('disconnect').onclick=()=>apply({type:'disconnect'});$('add-screen').onclick=()=>apply({type:'connect'});$('reconnect').onclick=()=>apply({type:'connect',display:$('offline').value});
 $('minimum').onclick=()=>apply({type:'constraint',w:Number($('min-w').value),h:Number($('min-h').value)});
 $('restore').onclick=()=>apply({type:'restore',id:Number($('suspended').value)});$('observations').onclick=()=>apply({type:'observations'});$('restart').onclick=()=>apply({type:'restart'});
+$('native-app').onclick=()=>apply({type:'nativeApp',bundleId:$('app-bundle').value.trim()||'com.example.editor',notifications:$('native-notifications').value,readable:$('native-readable').value==='yes',kind:$('kind').value,fullscreenButton:$('fullscreen-button').value});
+$('native-refresh').onclick=()=>apply({type:'nativeRefresh'});
 function captureDiagnostics(){const snapshot=model.diagnostics();$('diagnostics-report').textContent=JSON.stringify(snapshot,null,2);$('diagnostics-panel').open=true;$('copy-diagnostics').disabled=false;}
 $('capture-diagnostics').onclick=captureDiagnostics;
 $('copy-diagnostics').onclick=async()=>{try{await navigator.clipboard.writeText($('diagnostics-report').textContent);log('Copied diagnostics.');}catch{log('Clipboard unavailable; select and copy the report text.');}render();};

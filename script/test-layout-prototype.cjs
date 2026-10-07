@@ -281,6 +281,57 @@ test('Claude eligibility guided controls retain dialog, fixed, overlay, and pref
   assertValid({ state: fixture.api.state });
 });
 
+test('native discovery guided controls tile Chrome beside ChatGPT without notifications', () => {
+  const fixture = pointerFixture();
+  const scenario = fixture.scenarioControls('Native discovery without notifications');
+  const initial = plain(fixture.api.state.displays[0].root);
+  assert.equal(fixture.api.state.windows[1].bundleId, 'com.openai.codex');
+  scenario.click(0);
+  assert.deepEqual(plain(fixture.api.state.displays[0].root), initial);
+  scenario.click(1);
+  const chrome = fixture.api.state.nativeApps['com.google.Chrome'].windowId;
+  assert.equal(fixture.api.state.windows[chrome].bundleId, 'com.google.Chrome');
+  assert.equal(fixture.api.state.windows[chrome].mode, 'tiled');
+  assert.deepEqual(plain(fixture.api.Layout.ids(fixture.api.state.displays[0].root)), [1, chrome]);
+  const tree = plain(fixture.api.state.displays[0].root);
+  for (const step of [2, 3, 4, 5, 6]) {
+    scenario.click(step);
+    assert.deepEqual(plain(fixture.api.state.displays[0].root), tree);
+    assert.equal(Object.keys(fixture.api.state.windows).length, 2);
+    assert.equal(fixture.api.state.nativeApps['com.google.Chrome'].windowId, chrome);
+  }
+  assertValid({ state: fixture.api.state });
+});
+
+test('native snapshot controls respect classification while notification support changes', () => {
+  const { api, element } = pointerFixture();
+  element('app-bundle').value = 'com.google.Chrome';
+  element('kind').value = 'normal';
+  element('fullscreen-button').value = 'enabled';
+  element('native-notifications').value = 'none';
+  element('native-readable').value = 'no';
+  element('native-app').onclick();
+  element('native-refresh').onclick();
+  assert.equal(Object.keys(api.state.windows).length, 3);
+  element('native-readable').value = 'yes';
+  element('native-app').onclick();
+  element('native-refresh').onclick();
+  assert.equal(api.state.windows[4].mode, 'tiled');
+  element('native-refresh').onclick();
+  assert.equal(Object.keys(api.state.windows).length, 4);
+  element('app-bundle').value = 'com.example.dialog';
+  element('kind').value = 'dialog';
+  element('native-app').onclick();
+  element('native-refresh').onclick();
+  assert.equal(api.state.windows[5].mode, 'floating');
+  element('app-bundle').value = 'com.example.overlay';
+  element('kind').value = 'overlay';
+  element('native-app').onclick();
+  element('native-refresh').onclick();
+  assert.equal(Object.keys(api.state.windows).length, 5);
+  assertValid({ state: api.state });
+});
+
 test('window creation controls supply fullscreen metadata and keep overlays out of managed windows', () => {
   const { api, element } = pointerFixture();
   element('kind').value = 'normal';

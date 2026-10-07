@@ -61,6 +61,43 @@ The required native validation remains open until the following checks are perfo
 
 Record the build/commit, displays, application names, results, and any reproduction details when completing these checks.
 
+## Chrome discovery investigation: 2026-10-06
+
+The Tile 0.7.0 diagnostics snapshot at `2026-10-07T06:04:06Z` shows one display, enabled management,
+Accessibility granted, and no floating-app preferences. ChatGPT (`com.openai.codex`) W4081 is correctly
+tiled at 1912 × 967 points. Chrome (`com.google.Chrome`) W5930 is on-screen at 1274 × 976 points but
+its application is absent from Tile's AX registry. Its overlap with ChatGPT is 1270 × 967 points.
+The snapshot does not include Chrome's notification setup error.
+
+Notification setup previously discarded the whole app/window when a single subscription failed.
+The patch retains supported notifications and permits readable windows without notification support,
+keeps AX threads alive with an independent Foundation port, and includes setup errors in diagnostics.
+The full Swift suite passed 146 tests; the warnings-as-errors build and 20 prototype checks passed.
+A final thread-lifetime adjustment passed the three run-loop tests, and the release app built and
+verified its signature. Guided controls were exercised through the DOM harness; the Chrome extension
+was unavailable for visual browser validation.
+
+The patched local 0.7.0 bundle is installed at `/Applications/tile.app` and has been restarted. The
+previous signed bundle is retained at `.release/tile-before-notification-fix.app`. The first read-only
+geometry check after restart still reported the same overlap. The standalone probe has no AX grant
+and cannot establish Tile's permission status; Tile's own report supplies that evidence below.
+
+The follow-up native report at `2026-10-07T06:17:52Z` confirms `Accessibility=true` for the patched
+Tile process. Chrome is now AX-registered, but its `AXWindows`, `AXFocusedWindow`, and both application
+notifications return `-25211` (`kAXErrorAPIDisabled`); ChatGPT's reads succeed. Thus notification
+fallback cannot by itself recover Chrome while window reads are disabled. The running Chrome process
+started at 17:59:57 PDT and has framework 155.0.8059.39 loaded, whereas the installed bundle contains
+155.0.8059.40 and was updated around 22:54 PDT. Restarting Chrome was chosen as the next recovery check;
+the version mismatch is confirmed, but its causal relationship to the AX failure is not established.
+The Chrome extension was unavailable in this session, so the user performed that browser action.
+
+After the user restarted Chrome on 2026-10-07 UTC, the new Chrome PID53165 loaded framework
+155.0.8059.40. The same native geometry check passed: ChatGPT W4081 occupies `(4, 34, 954, 967)`
+and Chrome W6009 occupies `(962, 34, 954, 967)`, leaving the configured 4-point gap. Tile PID49907
+remained running throughout the Chrome restart. Recovery of the reported layout is verified;
+the check does not establish that the pending update caused Chrome's earlier AX failure or that
+notification fallback can repair disabled native reads without an app restart.
+
 ## Launch at login
 
 The menu uses `SMAppService.mainApp` through `LaunchAtLogin`. Registration is opt-in and belongs to

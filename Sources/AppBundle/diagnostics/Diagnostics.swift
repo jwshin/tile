@@ -8,6 +8,7 @@ struct AppDiagnosticObservation: Sendable {
     let listedWindowIds: [UInt32]?
     let focusedWindowId: UInt32?
     let status: String
+    var subscriptionFailures: [String] = []
 
     func report(modelWindowIds: [UInt32]) -> String {
         let model = Set(modelWindowIds)
@@ -18,6 +19,11 @@ struct AppDiagnosticObservation: Sendable {
             "  Cached but absent from model=\(cached.subtracting(model).sorted())",
             "  Model but absent from cache=\(model.subtracting(cached).sorted())",
         ]
+        if !subscriptionFailures.isEmpty {
+            lines +=
+                ["  Notification setup failures (window reads remain enabled):"]
+                + subscriptionFailures.map { "    \($0)" }
+        }
         if let listedWindowIds {
             let listed = Set(listedWindowIds)
             lines += [

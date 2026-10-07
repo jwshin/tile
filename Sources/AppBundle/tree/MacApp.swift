@@ -9,6 +9,7 @@ final class MacApp: AbstractApp {
     let nsApp: NSRunningApplication
     private let axApp: ThreadGuardedValue<AXUIElement>
     private let appAxSubscriptions: ThreadGuardedValue<[AxSubscription]>  // keep subscriptions in memory
+    private let subscriptionFailures: [String]
     private let windows: ThreadGuardedValue<[UInt32: AxWindow]> = .init([:])
     private var windowsCount = 0
     var lastNativeFocusedWindowId: UInt32? = nil
@@ -27,7 +28,7 @@ final class MacApp: AbstractApp {
     private init(
         _ nsApp: NSRunningApplication,
         _ axApp: AXUIElement,
-        _ axSubscriptions: [AxSubscription],
+        _ registration: AxSubscriptionBatch<AxSubscription>,
         _ thread: Thread,
     ) {
         self.nsApp = nsApp
@@ -35,8 +36,8 @@ final class MacApp: AbstractApp {
         self.pid = nsApp.processIdentifier
         self.rawAppBundleId = nsApp.bundleIdentifier
         self.appId = nsApp.bundleIdentifier.flatMap { KnownBundleId.init(rawValue: $0) }
-        assert(!axSubscriptions.isEmpty)
-        self.appAxSubscriptions = .init(axSubscriptions)
+        self.appAxSubscriptions = .init(registration.subscriptions)
+        self.subscriptionFailures = registration.failures
         self.thread = thread
     }
 
@@ -66,27 +67,28 @@ final class MacApp: AbstractApp {
                     (refreshObs, [kAXWindowCreatedNotification, kAXFocusedWindowChangedNotification])
                 ]
                 let job = RunLoopJob(.cancellable)
-                let subscriptions = (try? unsafe AxSubscription.bulkSubscribe(nsApp, axApp, job, handlers)) ?? []
-                let isGood = !subscriptions.isEmpty
-                let app = isGood ? MacApp(nsApp, axApp, subscriptions, Thread.current) : nil
+                let registration =
+                    (try? unsafe AxSubscription.bulkSubscribe(nsApp, axApp, job, handlers))
+                    ?? AxSubscriptionBatch(failures: ["Application notification setup was cancelled."])
+                // AXWindows and focused-window reads work independently of notification support.
+                let app = MacApp(nsApp, axApp, registration, Thread.current)
 
-                let appAxSubscriptionsThreadGuarded = app?.appAxSubscriptions
-                let windowsThreadGuarded = app?.windows
-                let axAppThreadGuarded = app?.axApp
+                let appAxSubscriptionsThreadGuarded = app.appAxSubscriptions
+                let windowsThreadGuarded = app.windows
+                let axAppThreadGuarded = app.axApp
 
+                let appRunLoop = AxAppRunLoop()
                 _ = Task { @MainActor in
                     allAppsMap[pid] = app
                     wipPids[pid] = nil
                     await wip.signalToAll()
                 }
-                if isGood {
-                    CFRunLoopRun()
+                appRunLoop.run()
 
-                    // Destroy AX objects in reverse order of their creation
-                    appAxSubscriptionsThreadGuarded?.destroy()
-                    windowsThreadGuarded?.destroy()
-                    axAppThreadGuarded?.destroy()
-                }
+                // Destroy AX objects in reverse order of their creation
+                appAxSubscriptionsThreadGuarded.destroy()
+                windowsThreadGuarded.destroy()
+                axAppThreadGuarded.destroy()
             }
         }
         thread.name = "AxAppThread \(nsApp.idForDebug)"
@@ -168,7 +170,7 @@ final class MacApp: AbstractApp {
     {
         let job = RunLoopJob(.cancellable)
         guard let thread else { return job }
-        thread.runInLoopAsync(job: job) { [windows, pid] job in
+        thread.runInLoopAsync(job: job) { [windows, pid, subscriptionFailures] job in
             let cached = windows.threadGuarded.keys.sorted()
             // Separate AX element: the short timeout must not affect normal Tile operations.
             let diagnosticApp = AXUIElementCreateApplication(pid)
@@ -184,10 +186,15 @@ final class MacApp: AbstractApp {
                 guard focusError == .success, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
                 return (value as! AXUIElement).containingWindowId()
             }
+            let windowFailures = windows.threadGuarded.sorted { $0.key < $1.key }.flatMap { id, window in
+                window.subscriptionFailures.map { "W\(id) \($0)" }
+            }
+            let failures = subscriptionFailures + windowFailures
             let observation = AppDiagnosticObservation(
                 cachedWindowIds: cached, listedWindowIds: error == .success ? listed : nil,
                 focusedWindowId: focused,
-                status: "AXWindows error=\(error.rawValue); AXFocusedWindow error=\(focusError.rawValue)")
+                status: "AXWindows error=\(error.rawValue); AXFocusedWindow error=\(focusError.rawValue)",
+                subscriptionFailures: failures)
             guard !job.isCancelled else { return }
             Task { @MainActor in receive(observation) }
         }
@@ -351,16 +358,17 @@ private final class AxWindow {
     let ax: AXUIElement
     // periphery:ignore
     private let axSubscriptions: [AxSubscription]  // keep subscriptions in memory
+    let subscriptionFailures: [String]
 
-    private init(windowId: UInt32, _ ax: AXUIElement, _ axSubscriptions: [AxSubscription]) {
+    private init(windowId: UInt32, _ ax: AXUIElement, _ registration: AxSubscriptionBatch<AxSubscription>) {
         self.windowId = windowId
         self.ax = ax
-        assert(!axSubscriptions.isEmpty)
-        self.axSubscriptions = axSubscriptions
+        self.axSubscriptions = registration.subscriptions
+        self.subscriptionFailures = registration.failures
     }
 
     static func new(windowId: UInt32, _ ax: AXUIElement, _ nsApp: NSRunningApplication, _ job: RunLoopJob) throws
-        -> AxWindow?
+        -> AxWindow
     {
         let handlers: HandlerToNotifKeyMapping = unsafe [
             (
@@ -373,8 +381,8 @@ private final class AxWindow {
             (movedObs, [kAXMovedNotification]),
             (resizedObs, [kAXResizedNotification]),
         ]
-        let subscriptions = try unsafe AxSubscription.bulkSubscribe(nsApp, ax, job, handlers)
-        return !subscriptions.isEmpty ? AxWindow(windowId: windowId, ax, subscriptions) : nil
+        let registration = try unsafe AxSubscription.bulkSubscribe(nsApp, ax, job, handlers)
+        return AxWindow(windowId: windowId, ax, registration)
     }
 }
 
@@ -389,12 +397,9 @@ extension [UInt32: AxWindow] {
         // https://github.com/nikitabobko/AeroSpace/issues/1001
         if isLeftMouseButtonDown { return nil }
 
-        if let window = try AxWindow.new(windowId: id, axWindow, nsApp, job) {
-            self[id] = window
-            return window
-        } else {
-            return nil
-        }
+        let window = try AxWindow.new(windowId: id, axWindow, nsApp, job)
+        self[id] = window
+        return window
     }
 }
 
