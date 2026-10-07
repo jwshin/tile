@@ -21,7 +21,7 @@ struct AppDiagnosticObservation: Sendable {
         ]
         if !subscriptionFailures.isEmpty {
             lines +=
-                ["  Notification setup failures (window reads remain enabled):"]
+                ["  Notification setup failures:"]
                 + subscriptionFailures.map { "    \($0)" }
         }
         if let listedWindowIds {

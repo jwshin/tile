@@ -5,6 +5,88 @@ import Testing
 
 extension CoreTests {
     struct AxSubscriptionTest {
+        @Test func refreshRetriesOnlyFailedKeysAndClearsRecoveredDiagnostics() throws {
+            let mappings = [(0, ["AXWindowCreated", "AXFocusedWindowChanged"]), (1, ["AXMoved", "AXResized"])]
+            var created: [Int] = []
+            var attempted: [String] = []
+            var activated: [Int] = []
+            let initial = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable),
+                create: {
+                    created.append($0)
+                    return ($0, .success)
+                },
+                subscribe: { _, key in key == "AXWindowCreated" || key == "AXMoved" ? .apiDisabled : .success },
+                activate: { activated.append($0) })
+            let recovered = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable), retrying: initial,
+                create: {
+                    created.append($0)
+                    return ($0, .success)
+                },
+                subscribe: { _, key in
+                    attempted.append(key)
+                    return .success
+                },
+                activate: { activated.append($0) })
+            #expect(created == [0, 1])
+            #expect(activated == [0, 1])
+            #expect(attempted == ["AXWindowCreated", "AXMoved"])
+            #expect(recovered.subscriptions == [0, 1])
+            #expect(recovered.failures.isEmpty)
+            attempted = []
+            let repeated = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable), retrying: recovered, create: { ($0, .success) },
+                subscribe: { _, key in
+                    attempted.append(key)
+                    return .success
+                }, activate: { _ in })
+            #expect(attempted.isEmpty)
+            #expect(repeated.subscriptions == [0, 1])
+        }
+
+        @Test func refreshRetriesFailedObserverWithoutReplacingWorkingHandlers() throws {
+            let mappings = [(0, ["AXMoved"]), (1, ["AXResized"])]
+            let initial = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable),
+                create: { ($0 == 0 ? nil : $0, $0 == 0 ? .cannotComplete : .success) },
+                subscribe: { _, _ in .success }, activate: { _ in })
+            var created: [Int] = []
+            var attempted: [String] = []
+            let recovered = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable), retrying: initial,
+                create: {
+                    created.append($0)
+                    return ($0, .success)
+                },
+                subscribe: { _, key in
+                    attempted.append(key)
+                    return .success
+                }, activate: { _ in })
+            #expect(created == [0])
+            #expect(attempted == ["AXMoved"])
+            #expect(Set(recovered.subscriptions) == [0, 1])
+            #expect(recovered.failures.isEmpty)
+        }
+
+        @Test func repeatedFailureKeepsItsObserverAndUpdatesCurrentErrors() throws {
+            let mappings = [(0, ["AXWindowCreated", "AXFocusedWindowChanged"])]
+            let initial = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable), create: { ($0, .success) },
+                subscribe: { _, _ in .apiDisabled }, activate: { _ in })
+            var created = 0
+            let retried = try subscribeAxNotifications(
+                mappings, job: RunLoopJob(.nonCancellable), retrying: initial,
+                create: {
+                    created += 1
+                    return ($0, .success)
+                }, subscribe: { _, _ in .cannotComplete },
+                activate: { _ in })
+            #expect(created == 0)
+            #expect(retried.subscriptions == [0])
+            #expect(retried.failures == mappings[0].1.map { "\($0): error=\(AXError.cannotComplete.rawValue)" })
+        }
+
         @Test func unsupportedNotificationKeepsSupportedAppAndWindowNotifications() throws {
             let mappings = [(0, ["AXWindowCreated", "AXFocusedWindowChanged"]), (1, ["AXMoved", "AXResized"])]
             var attempted: [String] = []

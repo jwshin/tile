@@ -109,7 +109,7 @@ extension CoreTests {
                 cachedWindowIds: [5930], listedWindowIds: [5930], focusedWindowId: 5930, status: "AXWindows error=0",
                 subscriptionFailures: ["AXWindowCreated: error=-25207", "W5930 AXMoved: error=-25204"])
             let report = observation.report(modelWindowIds: [5930])
-            #expect(report.contains("Notification setup failures (window reads remain enabled)"))
+            #expect(report.contains("Notification setup failures"))
             #expect(report.contains("AXWindowCreated: error=-25207"))
             #expect(report.contains("W5930 AXMoved: error=-25204"))
             #expect(report.contains("Fresh AXWindows=[5930]"))

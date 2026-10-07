@@ -17,6 +17,8 @@ final class AxSubscription {
 
     private func subscribe(_ key: String) -> AXError {
         axThreadToken.checkEquals(axTaskLocalAppThreadToken)
+        // A cancelled retry may have installed this key before its batch was published.
+        if notifKeys.contains(key) { return .success }
         let error = AXObserverAddNotification(obs, ax, key as CFString, nil)
         if error == .success {
             notifKeys.insert(key)
@@ -29,10 +31,11 @@ final class AxSubscription {
         _ ax: AXUIElement,
         _ job: RunLoopJob,
         _ handlerToNotifKeyMapping: HandlerToNotifKeyMapping,
+        retrying previous: AxSubscriptionBatch<AxSubscription>? = nil,
     ) throws -> AxSubscriptionBatch<AxSubscription> {
         var visitedNotifKeys: Set<String> = []
         return try unsafe subscribeAxNotifications(
-            handlerToNotifKeyMapping, job: job,
+            handlerToNotifKeyMapping, job: job, retrying: previous,
             create: { handler in
                 var observer: AXObserver?
                 let error = unsafe AXObserverCreate(nsApp.processIdentifier, handler, &observer)

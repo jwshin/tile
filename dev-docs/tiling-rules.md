@@ -86,7 +86,9 @@ Distinguish those explicit lifecycle changes from transient observation failures
 Accessibility notification support is independent of window eligibility. A failed observer or unsupported
 notification must not exclude an application or window whose AX window list or focused-window read is
 available. Retain supported notifications and discover readable windows during ordinary refreshes,
-even when no notification can be installed. Native app threads must remain usable without observers.
+even when no notification can be installed. Retry failed keys and observer creation during ordinary
+refreshes, reusing working observers and clearing recovered setup errors. Native app threads must
+remain usable without observers.
 This fallback relies on subsequent refresh events; it does not add periodic polling or guarantee timely
 delivery of an unsupported notification. Record notification setup error codes in diagnostics.
 
@@ -297,24 +299,12 @@ Gesture ownership validation: Swift regressions cover independent state instance
 
 Claude classification validation: the prototype’s guided controls cover the narrow exception and its dialog, fixed-window, overlay, and explicit-preference boundaries. Live raw Accessibility attributes, actual window classification, native resizing, and behavior after rediscovery with the patched app remain unverified native integration checks. The observed UI tree alone is not a raw Accessibility dump and does not establish the cause of the reported untiled window.
 
-Native discovery validation (2026-10-06): a Tile 0.7.0 report records ChatGPT W4081 as correctly tiled
-and Chrome W5930 as on-screen while Chrome's app is absent from the Accessibility registry. The report
-does not contain the failing subscription's error code. Swift regressions exercise the production
-subscription orchestration with partial/all notification failures, failed observer creation, and
-cancellation; a real Foundation thread exercises AX work scheduling without an observer source.
-Prototype controls exercise refresh, insertion, duplicate prevention, and unavailable-read retention.
-These automated checks do not reproduce Chrome's native failure; native frame checks follow below.
-Read-only diagnostics now include app/window notification setup failures. The patched app was built,
-signed, installed with the previous signed bundle retained, and restarted. The first post-install
-geometry check still found the same overlap. The follow-up report at `2026-10-07T06:17:52Z` confirms
-Tile's permission and Chrome's registration,
-but Chrome returns `-25211` (`kAXErrorAPIDisabled`) for both window reads and notifications while
-ChatGPT reads succeed. Chrome has loaded framework 155.0.8059.39 while the installed bundle is
-155.0.8059.40. After the user restarted Chrome, its new process loaded 155.0.8059.40 and the native
-geometry check passed: ChatGPT W4081 at `(4, 34, 954, 967)` and Chrome W6009 at
-`(962, 34, 954, 967)` tile side by side with the configured 4-point gap. Tile remained running during
-that recovery. This verifies the reported layout now works, without establishing the pending update
-as the cause of the earlier AX failure. The simulator's unavailable native-read control models why a
-newly observed but unreadable window cannot be inserted, and why an unavailable list observation
-alone should preserve existing tiles. App restart recovery and actual AX identity validity remain
-native integration boundaries.
+Native discovery validation (2026-10-06): Swift regressions cover partial/all notification failures,
+failed observer creation, refresh retries that preserve working subscriptions and clear recovered
+errors, cancellation, and observer-free AX work scheduling. The prototype's guided controls cover
+notification recovery, readable discovery, duplicate prevention, and unavailable-read retention.
+An initial patch build passed a single-display ChatGPT/Chrome geometry check after Chrome restarted;
+see the [investigation record](development.md#chrome-discovery-investigation-2026-10-06) for the build,
+configuration, and observed errors. Multi-display behavior, live notification-failure/retry injection,
+and broader native lifecycle checks have not been performed with this patch. App restart recovery,
+actual AX identity validity, and native observer timing remain integration boundaries.

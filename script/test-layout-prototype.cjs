@@ -294,11 +294,13 @@ test('native discovery guided controls tile Chrome beside ChatGPT without notifi
   assert.equal(fixture.api.state.windows[chrome].mode, 'tiled');
   assert.deepEqual(plain(fixture.api.Layout.ids(fixture.api.state.displays[0].root)), [1, chrome]);
   const tree = plain(fixture.api.state.displays[0].root);
-  for (const step of [2, 3, 4, 5, 6]) {
+  for (const step of [2, 3, 4, 5, 6, 7, 8]) {
     scenario.click(step);
     assert.deepEqual(plain(fixture.api.state.displays[0].root), tree);
     assert.equal(Object.keys(fixture.api.state.windows).length, 2);
     assert.equal(fixture.api.state.nativeApps['com.google.Chrome'].windowId, chrome);
+    const support = fixture.api.state.nativeApps['com.google.Chrome'].subscribedNotifications;
+    assert.equal(support, step < 6 ? 'none' : step < 8 ? 'partial' : 'all');
   }
   assertValid({ state: fixture.api.state });
 });
