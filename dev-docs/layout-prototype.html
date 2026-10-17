@@ -8,7 +8,7 @@
 </style>
 </head>
 <body>
-<header><div class="eyebrow">Reference prototype · binary layout</div><h1>tile layout lab</h1><p>Explore the <a href="tiling-rules.md">agreed tiling rules</a>: alternating binary sections, Outer / Inner insertion, resizing, minimum sizes, focus history, and screen transfers.</p></header>
+<header><div class="eyebrow">Reference prototype · spiral binary layout</div><h1>tile layout lab</h1><p>Explore the <a href="tiling-rules.md">agreed tiling rules</a>: breadth-first spiral insertion (clockwise / counter-clockwise, up to 8 tiled windows), alternating binary sections, resizing, minimum sizes, focus history, and screen transfers.</p></header>
 <div class="controls" aria-label="Window controls">
 <button id="create" class="primary">+ New window</button><select id="kind" aria-label="New window kind"><option value="normal">Normal window</option><option value="dialog">Dialog</option><option value="palette">Palette</option><option value="fixed">Non-resizable</option><option value="overlay">Overlay · non-normal level</option></select><label>App bundle ID <input id="app-bundle" value="com.example.editor" aria-label="New window app bundle ID"></label><button id="delete">Delete focused</button><button id="float">Float focused</button><button id="transfer">Transfer to</button><select id="destination" aria-label="Transfer destination"></select><button id="undo">Undo</button><button id="reset">Reset</button>
 </div>
@@ -18,7 +18,7 @@
 <span class="control-group"><span class="caption">Resize focused</span><button data-resize="x:-0.05">Width −</button><button data-resize="x:0.05">Width +</button><button data-resize="y:-0.05">Height −</button><button data-resize="y:0.05">Height +</button></span>
 </div>
 <div class="controls">
-<label>Active screen <select id="active-screen"></select></label><label>Root split <select id="orientation"><option value="auto">Auto · screen shape</option><option value="x">Horizontal · left / right</option><option value="y">Vertical · top / bottom</option></select></label><button id="flip">Flip root</button><label>Insertion <select id="placement"><option value="outer">Outer · toward screen edge</option><option value="inner">Inner · toward screen center</option></select></label><label>View <select id="view"><option value="all">All screens</option><option value="active">Active screen</option></select></label><span id="insertion-hint" class="caption"></span>
+<label>Active screen <select id="active-screen"></select></label><label>Spiral <select id="spiral"><option value="clockwise">Clockwise · TL → TR → BR → BL</option><option value="counter-clockwise">Counter-clockwise · TL → BL → BR → TR</option></select></label><button id="flip">Flip spiral</button><label>View <select id="view"><option value="all">All screens</option><option value="active">Active screen</option></select></label><span id="insertion-hint" class="caption"></span>
 </div>
 <details class="panel"><summary>Screen, window constraints, and lifecycle experiments</summary>
 <div class="controls"><span class="caption">Active screen</span><label>Width<input id="screen-w" type="number" min="100" step="100"></label><label>Height<input id="screen-h" type="number" min="100" step="100"></label><label>X<input id="screen-x" type="number" step="100"></label><label>Y<input id="screen-y" type="number" step="100"></label><button id="screen-apply">Apply geometry</button><button id="disconnect">Disconnect</button><button id="add-screen">Add screen</button><select id="offline" aria-label="Disconnected screen"></select><button id="reconnect">Reconnect empty</button></div>
@@ -36,8 +36,8 @@
 <div class="panels">
 <section class="panel"><h2>Current model</h2><pre id="model"></pre><details><summary>Full state and calculated rectangles</summary><pre id="raw"></pre></details></section>
 <section class="panel"><h2>Current rules</h2><ul class="rules">
-<li>One window per leaf; exactly two children per split. Directions follow depth. New splits start 50/50; resizing retains their ratios.</li>
-<li>Every tiled insertion uses Outer / Inner. Windows that cannot fit float. The baseline minimum is 160 × 100, with larger known limits taking precedence.</li>
+<li>One window per leaf; exactly two children per split. Split axes alternate by depth from the spiral direction (clockwise starts horizontal; counter-clockwise starts vertical). New splits start 50/50; resizing retains their ratios.</li>
+<li>Every tiled insertion uses breadth-first spiral order: divide into four quadrants (`TL → TR → BR → BL` clockwise; `TL → BL → BR → TR` counter-clockwise), then split each quadrant once around the spiral up to 8 tiled windows (depth 3). Beyond 8 windows or when no leaf can fit, windows float. The baseline minimum is 160 × 100, with larger known limits taking precedence.</li>
 <li>Within the parent, swap whole sibling sections. Beyond it, swap individual windows. Moves carry the window’s width or height; surrounding dividers adjust while respecting minimum sizes.</li>
 <li>Apps in the floating list open floating by default. Reloading the list preserves existing windows; manual tiling overrides the initial preference.</li>
 <li>Claude’s standard resizable window can tile without an enabled fullscreen button. Dialogs and fixed windows float; non-normal overlays remain unmanaged.</li>
@@ -53,12 +53,12 @@
 <script id="layout-logic">
 // Executable decisions: dev-docs/tiling-rules.md. Pure model; no DOM or storage.
 const Layout = (() => {
-  const GAP=12, MIN_W=160, MIN_H=100, EPS=.001;
+  const GAP=12, MIN_W=160, MIN_H=100, MAX_DEPTH=3, EPS=.001;
   const clone=x=>structuredClone(x), flip=a=>a==='x'?'y':'x';
   const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
   const ids=n=>n==null?[]:typeof n==='number'?[n]:n.children.flatMap(ids);
   const display=(s,id=s.activeDisplay)=>s.displays.find(d=>d.id===id);
-  const axis=d=>d.orientation==='auto'?(d.w>=d.h?'x':'y'):d.orientation;
+  const axis=d=>(d?.spiral??'clockwise')==='counter-clockwise'?'y':'x';
   const available=w=>w&&w.display!=null&&w.mode!=='suspended';
   const floating=(s,id)=>s.windows[id]?.mode==='floating';
   const contains=(r,p)=>p.x>=r.x&&p.x<r.x+r.w&&p.y>=r.y&&p.y<r.y+r.h;
@@ -74,11 +74,21 @@ const Layout = (() => {
     return a==='x'?[{...r,w:first},{...r,x:r.x+first+gap,w:length-gap-first},{x:r.x+first,y:r.y,w:gap,h:r.h}]
       :[{...r,h:first},{...r,y:r.y+first+gap,h:length-gap-first},{x:r.x,y:r.y+first,w:r.w,h:gap}];
   }
+  const SLOT={'':0,'1':1,'0':2,'00':0,'10':1,'11':2,'01':3};
+  function spiralRank(path) {
+    let v=0;for(let i=2;i<path.length;i++)v=v*2+Number(path[i]);
+    return (SLOT[path.slice(0,2)]??0)*1024+v;
+  }
+  function leafStage(path) {
+    if(path.length===0)return 0;
+    if(path.length===1)return 1;
+    return path.length;
+  }
   function geometry(s) {
     const tiles=[],splits=[];
     function walk(n,r,a,d,path='') {
       if(n==null)return;
-      if(typeof n==='number'){tiles.push({id:n,display:d.id,...r,depth:path.length,nextSplit:a,path,floating:false});return;}
+      if(typeof n==='number'){tiles.push({id:n,display:d.id,...r,depth:path.length,stage:leafStage(path),slot:SLOT[path.slice(0,2)]??0,rank:spiralRank(path),nextSplit:a,path,floating:false});return;}
       const [first,second,divider]=partition(r,a,n.ratio);
       splits.push({display:d.id,path,axis:a,ratio:n.ratio,rect:r,divider,children:[first,second]});
       walk(n.children[0],first,flip(a),d,path+'0');walk(n.children[1],second,flip(a),d,path+'1');
@@ -110,8 +120,9 @@ const Layout = (() => {
     const parts=partition(r,a,n.ratio);return n.children.every((c,i)=>fit(s,c,parts[i],flip(a)));
   }
   function rememberScreen(s,id){s.screenHistory=[id,...s.screenHistory.filter(x=>x!==id)];}
-  function focus(s,id) {
+  function focus(s,id,auto=false) {
     const w=s.windows[id],d=w&&display(s,w.display);if(!available(w)||!d)return;
+    if(!auto&&w.mode==='tiled'){d.anchor=id;d.lastInserted=null;}
     s.focused=id;s.activeDisplay=d.id;w.lastFocus=++s.tick;
     d.history=[id,...d.history.filter(x=>x!==id)];rememberScreen(s,d.id);
   }
@@ -124,12 +135,21 @@ const Layout = (() => {
     if(available(s.windows[s.focused])&&display(s,s.windows[s.focused].display))return;
     const d=display(s);s.focused=null;if(d){const id=recent(s,d);if(id!=null)focus(s,id);}
   }
-  function insertion(s,d=display(s)) {
-    if(!d)return {target:null,order:'after',direction:null};
-    const id=target(s,d),r=frames(s).find(r=>r.id===id);if(!r)return {target:null,order:'after',direction:null};
-    const horizontal=r.nextSplit==='x',center=horizontal?r.x+r.w/2:r.y+r.h/2,mid=horizontal?d.x+d.w/2:d.y+d.h/2;
-    const before=s.placement==='outer'?center<mid:center>=mid;
-    return {target:id,order:before?'before':'after',direction:horizontal?(before?'left':'right'):(before?'top':'bottom')};
+  function canSplitLeaf(s,r,addedId) {
+    if(r.depth>=MAX_DEPTH)return false;
+    const [first,second]=partition(r,r.nextSplit,.5);
+    const m1=minimum(s,r.id),m2=addedId!=null&&s.windows[addedId]?minimum(s,addedId):{w:MIN_W,h:MIN_H};
+    return first.w+EPS>=m1.w&&first.h+EPS>=m1.h&&second.w+EPS>=m2.w&&second.h+EPS>=m2.h;
+  }
+  function insertion(s,d=display(s),addedId=null) {
+    if(!d||d.root==null)return {target:null,order:'after',direction:null,fits:d?area(d).w+EPS>=MIN_W&&area(d).h+EPS>=MIN_H:false,capped:false};
+    const leaves=frames(s).filter(r=>r.display===d.id&&!r.floating).sort((a,b)=>a.rank-b.rank);
+    const anchorIdx=d.anchor!=null?leaves.findIndex(r=>r.id===d.anchor):-1;
+    const startIndex=anchorIdx<0?0:d.lastInserted===d.anchor?(anchorIdx+1)%leaves.length:anchorIdx;
+    const rotated=[...leaves.slice(startIndex),...leaves.slice(0,startIndex)];
+    const ordered=rotated.slice().sort((a,b)=>a.stage-b.stage);
+    const chosen=ordered.find(r=>canSplitLeaf(s,r,addedId))??ordered[0];
+    return {target:chosen.id,order:'after',direction:chosen.nextSplit==='x'?'right':'bottom',fits:canSplitLeaf(s,chosen,addedId),capped:leaves.every(r=>r.depth>=MAX_DEPTH)};
   }
   function floatRect(s,id,source) {
     const w=s.windows[id],d=display(s,w.display);if(!d)return;
@@ -147,10 +167,12 @@ const Layout = (() => {
   }
   function detach(s,id) {const w=s.windows[id],d=w&&display(s,w.display);if(d)d.root=replace(d.root,id,null);return d;}
   function insert(s,d,id) {
-    const w=s.windows[id];w.display=d.id;const next=insertion(s,d),old=d.root;
+    const w=s.windows[id];w.display=d.id;const next=insertion(s,d,id),old=d.root;
     w.mode='tiled';d.root=old==null?id:replace(old,next.target,{ratio:.5,children:next.order==='before'?[id,next.target]:[next.target,id]});
-    if(!valid(s,d)){d.root=old;makeFloating(s,id);s.message=`W${id} floats: a 50/50 insertion would be too small.`;return false;}
-    s.message=`W${id} tiled on ${d.id}${next.target==null?'':` ${next.direction} of W${next.target}`} (${s.placement}).`;return true;
+    if(!next.fits||!valid(s,d)){d.root=old;makeFloating(s,id);s.message=`W${id} floats: ${next.capped?'8-window tiled limit (depth 3) reached':'no tiled section below depth 3 can fit a 50/50 split'}.`;return false;}
+    if(d.anchor!=null)d.anchor=id;
+    d.lastInserted=id;
+    s.message=`W${id} tiled on ${d.id}${next.target==null?'':` ${next.direction} of W${next.target}`} (${s.spiral} spiral).`;return true;
   }
   function peer(s,id) {
     const r=frames(s).find(r=>r.id===id&&!r.floating);if(!r||!r.path.length)return null;
@@ -240,13 +262,13 @@ const Layout = (() => {
     else if(w.mode==='floating') {w.rect=rect??w.rect??floatRect(s,id);w.rect.x=clamp(w.rect.x,0,Math.max(0,dest.w-w.rect.w));w.rect.y=clamp(w.rect.y,0,Math.max(0,dest.h-w.rect.h));}
   }
   function fallbackScreen(s){return s.screenHistory.map(id=>display(s,id)).find(Boolean)??s.displays[0];}
-  function screen(id,x=0,y=0,w=1440,h=900){return {id,x,y,w,h,orientation:'auto',root:null,history:[]};}
+  function screen(id,x=0,y=0,w=1440,h=900,spiral='clockwise'){return {id,x,y,w,h,spiral,root:null,history:[],anchor:null,lastInserted:null};}
   function windowRecord(id,d,kind='normal',bundleId='com.example.editor',fullscreenButton='enabled'){return {id,bundleId,display:d,mode:kind==='normal'?'tiled':'floating',kind,fullscreenButton,minW:0,minH:0,lastFocus:0,rect:null};}
   const startsFloating=(s,w)=>w.kind!=='normal'||(w.fullscreenButton!=='enabled'&&w.bundleId!=='com.anthropic.claudefordesktop')||(w.bundleId!=null&&s.floatingApps.includes(w.bundleId));
   const isUnmanagedEvent=action=>action.type==='create'&&action.kind==='overlay';
-  function seed(placement='outer') {
-    const a=screen('A'),b=screen('B',1480);a.root={ratio:.5,children:[1,{ratio:.5,children:[2,3]}]};a.history=[3,2,1];
-    const s={placement,floatingApps:[],displays:[a,b],offline:[],windows:{},nativeApps:{},focused:3,nativeFocused:3,activeDisplay:'A',screenHistory:['A','B'],nextId:4,nextScreen:2,tick:3,message:'Ready. Focus a window or choose a guided experiment.',recovered:[],observationsPaused:false};
+  function seed(spiral='clockwise') {
+    const a=screen('A',0,0,1440,900,spiral),b=screen('B',1480,0,1440,900,spiral);a.root={ratio:.5,children:[1,{ratio:.5,children:[2,3]}]};a.history=[3,2,1];a.lastInserted=3;
+    const s={spiral,floatingApps:[],displays:[a,b],offline:[],windows:{},nativeApps:{},focused:3,nativeFocused:3,activeDisplay:'A',screenHistory:['A','B'],nextId:4,nextScreen:2,tick:3,message:'Ready. Focus a window or choose a guided experiment.',recovered:[],observationsPaused:false};
     for(const id of [1,2,3])s.windows[id]={...windowRecord(id,'A'),lastFocus:id};return s;
   }
   function reduce(state,action) {
@@ -274,18 +296,23 @@ const Layout = (() => {
     }
     if(action.type==='focus'){focus(s,id);s.message=`Focused W${id}.`;}
     else if(action.type==='display'&&d){s.activeDisplay=d.id;s.focused=null;rememberScreen(s,d.id);const next=recent(s,d);if(next!=null)focus(s,next);s.message=`Selected screen ${d.id}.`;}
-    else if(action.type==='placement'){s.placement=action.placement;s.message=`All tiled insertions now use ${s.placement}.`;}
+    else if(action.type==='spiral'){
+      s.spiral=action.spiral;
+      for(const q of s.displays){q.spiral=s.spiral;recover(s,q);}
+      for(const q of s.offline)q.spiral=s.spiral;
+      s.message=`Spiral direction is now ${s.spiral} (${axis(s)==='x'?'horizontal then vertical':'vertical then horizontal'}).`;
+    }
     else if(action.type==='floatingApps'){s.floatingApps=[...action.bundleIds];s.message='Floating app list updated; existing windows keep their layout.';}
     else if(action.type==='create') {
       const added=s.nextId++,kind=action.kind??'normal',created=windowRecord(added,s.activeDisplay,kind,action.bundleId,action.fullscreenButton);s.windows[added]=created;
       const shouldFloat=startsFloating(s,created);created.mode=shouldFloat?'floating':'tiled';
-      if(d){if(!shouldFloat)insert(s,d,added);else{makeFloating(s,added);s.message=`W${added} floats (${kind!=='normal'?kind:s.floatingApps.includes(created.bundleId)?'app preference':'no enabled fullscreen button'}).`;}focus(s,added);}
+      if(d){if(!shouldFloat)insert(s,d,added);else{makeFloating(s,added);s.message=`W${added} floats (${kind!=='normal'?kind:s.floatingApps.includes(created.bundleId)?'app preference':'no enabled fullscreen button'}).`;}focus(s,added,created.mode==='tiled');}
       else{s.windows[added].display=null;s.message='No connected screen; placement deferred.';}
     }
-    else if(action.type==='delete'&&w){const source=detach(s,id);delete s.windows[id];for(const q of s.displays)q.history=q.history.filter(x=>x!==id);recover(s,source);s.message=`Closed W${id}.`;}
+    else if(action.type==='delete'&&w){const source=detach(s,id);delete s.windows[id];for(const q of s.displays){q.history=q.history.filter(x=>x!==id);if(q.anchor===id)q.anchor=null;}recover(s,source);s.message=`Closed W${id}.`;}
     else if(action.type==='float'&&available(w)) {
       d=display(s,w.display);if(w.mode==='floating'&&w.kind==='fixed')s.message=`W${id} remains floating: it is non-resizable.`;else if(w.mode==='floating')insert(s,d,id);
-      else{const old=frames(s).find(r=>r.id===id);detach(s,id);makeFloating(s,id,old);recover(s,d);s.message=`W${id} is floating.`;}focus(s,id);
+      else{const old=frames(s).find(r=>r.id===id);detach(s,id);if(d.anchor===id)d.anchor=null;makeFloating(s,id,old);recover(s,d);s.message=`W${id} is floating.`;}focus(s,id,w.mode==='tiled');
     }
     else if(action.type==='move'&&available(w)) {
       if(w.mode==='floating'){d=display(s,w.display);const v=w.rect;v.x=clamp(v.x+(action.direction==='right'?40:action.direction==='left'?-40:0),0,Math.max(0,d.w-v.w));v.y=clamp(v.y+(action.direction==='down'?40:action.direction==='up'?-40:0),0,Math.max(0,d.h-v.h));s.message=`Nudged W${id}.`;}
@@ -303,30 +330,32 @@ const Layout = (() => {
     }
     else if(action.type==='transfer'&&w) {
       const destination=action.destination??s.displays.find(q=>q.id!==w.display)?.id;
-      if(destination){transfer(s,id,destination,action.rect);focus(s,id);s.message=w.mode==='floating'?`Transferred W${id} to ${destination} as floating.`:s.message;}
+      if(destination){transfer(s,id,destination,action.rect);focus(s,id,w.mode==='tiled');s.message=w.mode==='floating'?`Transferred W${id} to ${destination} as floating.`:s.message;}
     }
     else if(action.type==='suspend'&&available(w)) {
-      const source=detach(s,id);w.restoreMode=w.mode;w.mode='suspended';w.reason=action.reason??'minimized';recover(s,source);s.message=`W${id} ${w.reason}; its tile is removed.`;
+      const source=detach(s,id);if(source&&source.anchor===id)source.anchor=null;w.restoreMode=w.mode;w.mode='suspended';w.reason=action.reason??'minimized';recover(s,source);s.message=`W${id} ${w.reason}; its tile is removed.`;
     }
     else if(action.type==='restore'&&w?.mode==='suspended') {
       d=display(s,w.display)??fallbackScreen(s);w.mode=w.restoreMode;delete w.restoreMode;delete w.reason;
-      if(d){w.display=d.id;if(w.mode==='tiled')insert(s,d,id);else if(!w.rect)makeFloating(s,id);focus(s,id);}
+      if(d){w.display=d.id;if(w.mode==='tiled')insert(s,d,id);else if(!w.rect)makeFloating(s,id);focus(s,id,w.mode==='tiled');}
     }
     else if(action.type==='constraint'&&w) {w.minW=Math.max(0,action.w);w.minH=Math.max(0,action.h);recover(s,display(s,w.display));if(w.mode==='floating'&&w.rect){w.rect.w=Math.max(w.rect.w,w.minW);w.rect.h=Math.max(w.rect.h,w.minH);}s.message=`Updated W${id} minimum size.`;}
     else if(action.type==='screen'&&d) {
       for(const k of ['w','h','x','y'])if(Number.isFinite(action[k]))d[k]=['w','h'].includes(k)?Math.max(100,action[k]):action[k];
-      if(action.orientation)d.orientation=action.orientation;recover(s,d);for(const item of Object.values(s.windows).filter(w=>w.display===d.id&&w.mode==='floating')){item.rect.x=clamp(item.rect.x,0,Math.max(0,d.w-item.rect.w));item.rect.y=clamp(item.rect.y,0,Math.max(0,d.h-item.rect.h));}s.message=`Updated screen ${d.id}; ${axis(d)==='x'?'left/right':'top/bottom'} root.`;
+      if(action.spiral){s.spiral=action.spiral;for(const q of s.displays){q.spiral=s.spiral;recover(s,q);}for(const q of s.offline)q.spiral=s.spiral;}
+      else recover(s,d);
+      for(const item of Object.values(s.windows).filter(w=>w.display===d.id&&w.mode==='floating')){item.rect.x=clamp(item.rect.x,0,Math.max(0,d.w-item.rect.w));item.rect.y=clamp(item.rect.y,0,Math.max(0,d.h-item.rect.h));}s.message=`Updated screen ${d.id}; ${axis(d)==='x'?'left/right':'top/bottom'} root (${d.spiral}).`;
     }
     else if(action.type==='disconnect'&&d) {
       const leaving=d,focused=s.focused,moving=[...ids(d.root),...Object.values(s.windows).filter(w=>w.display===d.id&&w.mode!=='tiled').map(w=>w.id)];
-      s.offline.push({id:d.id,x:d.x,y:d.y,w:d.w,h:d.h,orientation:d.orientation});s.displays=s.displays.filter(q=>q.id!==d.id);s.screenHistory=s.screenHistory.filter(x=>x!==d.id);
+      s.offline.push({id:d.id,x:d.x,y:d.y,w:d.w,h:d.h,spiral:d.spiral});s.displays=s.displays.filter(q=>q.id!==d.id);s.screenHistory=s.screenHistory.filter(x=>x!==d.id);
       const dest=fallbackScreen(s);for(const id of moving){if(dest)transfer(s,id,dest.id);else s.windows[id].display=null;}
       if(s.activeDisplay===leaving.id)s.activeDisplay=dest?.id??null;
-      if(available(s.windows[focused]))focus(s,focused);s.message=`Disconnected ${leaving.id}; windows migrated individually${dest?` to ${dest.id}`:' when a screen becomes available'}.`;
+      if(available(s.windows[focused]))focus(s,focused,true);s.message=`Disconnected ${leaving.id}; windows migrated individually${dest?` to ${dest.id}`:' when a screen becomes available'}.`;
     }
     else if(action.type==='connect') {
       const old=s.offline.find(q=>q.id===action.display);if(old)s.offline=s.offline.filter(q=>q.id!==old.id);
-      const added=old?{...old,root:null,history:[]}:screen(String.fromCharCode(65+s.nextScreen++),Math.max(0,...s.displays.map(q=>q.x+q.w))+40);
+      const added=old?{...old,spiral:s.spiral,root:null,history:[],anchor:null,lastInserted:null}:screen(String.fromCharCode(65+s.nextScreen++),Math.max(0,...s.displays.map(q=>q.x+q.w))+40,0,1440,900,s.spiral);
       s.displays.push(added);if(s.activeDisplay==null)s.activeDisplay=added.id;
       for(const w of Object.values(s.windows).filter(w=>w.display==null)){w.display=added.id;if(w.mode==='tiled')insert(s,added,w.id);else if(w.mode==='floating')makeFloating(s,w.id);}
       s.message=`Connected ${added.id}; no old screen layout restored.`;
@@ -334,9 +363,9 @@ const Layout = (() => {
     else if(action.type==='spaceChange'){s.message='Space changed; native focus is preserved. No replacement window is activated.';}
     else if(action.type==='observations'){s.observationsPaused=!s.observationsPaused;s.message=s.observationsPaused?'Observation interrupted; retaining the layout.':'Observation resumed; layout retained.';}
     else if(action.type==='restart') {
-      for(const q of s.displays){q.root=null;q.history=[];}const focused=s.focused;s.focused=null;
+      for(const q of s.displays){q.root=null;q.history=[];q.anchor=null;q.lastInserted=null;}const focused=s.focused;s.focused=null;
       for(const item of Object.values(s.windows).filter(w=>w.mode!=='suspended')){const dest=display(s,item.display);if(startsFloating(s,item))makeFloating(s,item.id);else if(dest)insert(s,dest,item.id);else item.mode='tiled';}
-      focus(s,focused);s.message='Restart simulated: rebuilt open windows without persistent layout storage.';
+      focus(s,focused,true);s.message='Restart simulated: rebuilt open windows without persistent layout storage.';
     }
     repairFocus(s);
     s.nativeFocused=action.type==='suspend'&&action.reason==='fullscreen'?id:action.type==='spaceChange'?(action.nativeFocused??s.nativeFocused):s.focused;
@@ -424,7 +453,7 @@ const Layout = (() => {
     }
     cancel(){if(this.gesture){this.release(true);this.blocked=true;}}
   }
-  return {DisplayLayoutState,seed,reduce,isUnmanagedEvent,frames,geometry,ids,axis,display,contains,peer,ancestor,insertion,moveAction,focusTarget,dragAction,valid,required,minimum,available,floating,screen,GAP,MIN_W,MIN_H};
+  return {DisplayLayoutState,seed,reduce,isUnmanagedEvent,frames,geometry,ids,axis,display,contains,peer,ancestor,insertion,moveAction,focusTarget,dragAction,valid,required,minimum,available,floating,screen,GAP,MIN_W,MIN_H,MAX_DEPTH};
 })();
 
 </script>
@@ -439,11 +468,11 @@ const scenarios=[
   {name:'Gesture ownership',note:'The model owns the gesture. Lifecycle edits cancel its preview before changing windows; later pointer events cannot restore old state. A separate model has its own gesture even when window IDs match.',steps:[['Begin dragging W3',{type:'gestureBegin',id:3}],['Swap W3 onto W1',{type:'gestureMove',target:1}],['Edit a separate model',{type:'otherOwner'}],['Create W4; cancel this drag',{type:'create'}],['Stale move toward B (ignored)',{type:'gestureMove',destination:'B'}],['Release after cancellation',{type:'gestureRelease'}],['Begin dragging W3 again',{type:'gestureBegin',id:3}],['Preview screen B',{type:'gestureMove',destination:'B'}],['Close W3; cancel its preview',{type:'delete',id:3}],['Stale cancel (W3 stays closed)',{type:'gestureCancel'}],['Release pointer',{type:'gestureRelease'}],['Begin dragging W1',{type:'gestureBegin',id:1}],['Disconnect A during drag',{type:'disconnect',display:'A'}],['Stale release (keep migration)',{type:'gestureRelease'}]]},
   {name:'Floating cancellation',init:()=>Layout.reduce(Layout.seed(),{type:'float',id:3}),note:'Cancelling a floating drag restores its original rectangle before applying an independent creation. Stale movement while the pointer is held must preserve both the restored frame and the new window. Native queued AX restoration is covered separately by Swift adapter tests.',steps:[['Begin floating W3 drag',{type:'gestureBegin',id:3}],['Move W3 over W1',{type:'gestureMove',target:1}],['Create W4; restore W3 first',{type:'create'}],['Stale move over W2 (ignored)',{type:'gestureMove',target:2}],['Release pointer',{type:'gestureRelease'}]]},
   {name:'Window & section swaps',note:'W3 moving left exchanges individual windows. W1 at the root can exchange places with the entire right section. Moves carry the selected width or height; surrounding dividers adjust.',steps:[['W3 left',{type:'move',direction:'left'}],['Focus W1',{type:'focus',id:1}],['W1 left',{type:'move',direction:'left'}],['W1 right (whole section)',{type:'move',direction:'right'}]]},
-  {name:'All insertions',note:'Creation, retiling, and transfers all use the same Outer / Inner choice. Floating focus remembers the last focused tile.',steps:[['Focus W2',{type:'focus',id:2}],['Create outside (right)',{type:'create'}],['Float W4',{type:'float'}],['Choose Inner',{type:'placement',placement:'inner'}],['Retile W4 inside (left)',{type:'float'}],['Transfer to B',{type:'transfer',destination:'B'}],['Transfer back to A',{type:'transfer',destination:'A'}]]},
+  {name:'Spiral insertions',note:'Creation, retiling, and transfers follow breadth-first spiral order (TL → TR → BR → BL when clockwise) up to 8 tiled windows (depth 3: at most 2 windows per quadrant). Beyond 8 windows, new windows float.',steps:[['Create W4 at BL (complete 4 quadrants)',{type:'create'}],['Create W5 in TL (1st quadrant)',{type:'create'}],['Create W6 in TR (2nd quadrant)',{type:'create'}],['Create W7 in BR (3rd quadrant)',{type:'create'}],['Create W8 in BL (4th quadrant, 8-tile cap)',{type:'create'}],['Create W9 → floats at 8-window limit',{type:'create'}],['Close W8 in BL',{type:'delete',id:8}],['Tile W9 into vacated BL quadrant',{type:'float',id:9}],['Transfer W9 to B',{type:'transfer',destination:'B'}],['Transfer W9 back to A',{type:'transfer',destination:'A'}]]},
   {name:'Resize & swap',note:'Resize W3 horizontally to adjust the whole right column; vertically to adjust only W2/W3. Moving W1 to the right carries its width: a 70/30 root becomes 30/70. You can also drag any divider: window identifiers stay in their sections while the ratio changes. Native move/resize notification ordering is covered separately by Swift regression tests.',steps:[['Grow right column',{type:'resize',axis:'x',amount:.1}],['Grow W3 height',{type:'resize',axis:'y',amount:.1}],['Set root to 70/30',{type:'ratio',display:'A',path:'',ratio:.7}],['Focus W1',{type:'focus',id:1}],['Move W1 right, keep its width',{type:'move',direction:'right'}]]},
   {name:'Native resize timing',note:'Simulate macOS expanding W3 from its left edge before the first AX observation. A background refresh must keep the held window’s native frame. Once observed, the neighboring column follows. Queued AX writes and real macOS timing are covered by native adapter tests and require a desktop recording to validate.',steps:[['Start native edge resize (+120)',{type:'nativeResizeStart',id:3,axis:'x',amount:120}],['Refresh before AX observation',{type:'nativeResizeRefresh'}],['Deliver resize observation',{type:'nativeResizeObserve'}],['Refresh while held',{type:'nativeResizeRefresh'}],['Release pointer',{type:'nativeResizeRelease'}]]},
-  {name:'Laptop minimum',init:()=>Layout.reduce(Layout.seed(),{type:'screen',display:'A',w:1280,h:800}),note:'The 160 × 100 baseline allows another width and height subdivision on a small laptop. W5 fits below the old 320 × 200 floor. Resizing still clamps, and a larger known application minimum still prevents an insertion that cannot fit.',steps:[['Split W3 horizontally: create W4',{type:'create'}],['Split W4 vertically: create W5',{type:'create'}],['Shrink W5 width to 160',{type:'resize',axis:'x',amount:-1}],['Shrink W5 height to 100',{type:'resize',axis:'y',amount:-1}],['W5 requires 240 × 180',{type:'constraint',w:240,h:180}],['Create W6: no room, so float',{type:'create'}]]},
-  {name:'Minimum sizes',init:()=>{const s=Layout.seed();s.displays[0].root.ratio=.8;s.windows[1].minW=600;return s;},note:'Creating in the narrow column floats the new window. Moving W1 there instead carries its existing width and grows the destination; the former narrow column is not a fixed limit.',steps:[['Focus W3',{type:'focus',id:3}],['Create: too small, so float',{type:'create'}],['Attempt retiling (still too small)',{type:'float'}],['Focus W1',{type:'focus',id:1}],['Move right, preserve W1 width',{type:'move',direction:'right'}]]},
+  {name:'Laptop minimum',init:()=>{const s=Layout.reduce(Layout.seed(),{type:'screen',display:'A',w:1280,h:800});s.displays[0].root.children[1].ratio=.76;s.windows[1].minH=400;return s;},note:'The 160 × 100 baseline allows depth-3 subdivision on a small laptop. W1’s 400pt minimum height prevents splitting the left column, so spiral insertion splits W2 and W3 into depth-3 tiles below the old 320 × 200 floor. Resizing still clamps, and once all quadrants are either at depth 3 or blocked by minimums, W6 floats.',steps:[['Skip W1, split W2 in TR: create W4',{type:'create'}],['Split W3 in BR: create W5',{type:'create'}],['Shrink W5 width to 160',{type:'resize',axis:'x',amount:-1}],['Shrink W5 height to 100',{type:'resize',axis:'y',amount:-1}],['W5 requires 240 × 180',{type:'constraint',w:240,h:180}],['Create W6: no room below depth 3, so float',{type:'create'}]]},
+  {name:'Minimum sizes',init:()=>{const s=Layout.seed();s.displays[0].root.ratio=.8;s.windows[1].minW=600;s.windows[1].minH=500;return s;},note:'Creating when no leaf can fit a 50/50 split floats the new window. Moving W1 into the narrow column instead carries its existing width and grows the destination; the former narrow column is not a fixed limit.',steps:[['Focus W3',{type:'focus',id:3}],['Create: too small, so float',{type:'create'}],['Attempt retiling (still too small)',{type:'float'}],['Focus W1',{type:'focus',id:1}],['Move right, preserve W1 width',{type:'move',direction:'right'}]]},
   {name:'Nested size preservation',init:()=>{let s=Layout.reduce(Layout.seed(),{type:'screen',display:'A',w:1800});s=Layout.reduce(s,{type:'create'});return Layout.reduce(s,{type:'ratio',display:'A',path:'',ratio:.6});},note:'Move the wide W1 into W3’s nested section. Its immediate split and the screen-level split both adjust to preserve W1’s width. Moving it back also preserves that width.',steps:[['Focus W1',{type:'focus',id:1}],['Swap with nested W3',{type:'windowSwap',target:3,axis:'x'}],['Swap back, keep width',{type:'windowSwap',target:3,axis:'x'}]]},
   {name:'Recovery',init:()=>{const s=Layout.seed();s.displays[0].root.ratio=.85;return s;},note:'Shrinking first clamps the 85/15 ratio. Shrinking further floats the least recently used windows until the tree can fit. Growing again does not automatically retile floats.',steps:[['Shrink A to 900 × 600',{type:'screen',display:'A',w:900,h:600}],['Shrink A to 300 × 190',{type:'screen',display:'A',w:300,h:190}],['Grow A again',{type:'screen',display:'A',w:1440,h:900}]]},
   {name:'Recent focus',init:()=>{let s=Layout.reduce(Layout.seed(),{type:'create',kind:'dialog'});return Layout.reduce(s,{type:'focus',id:3});},note:'W4 is a floating dialog, focused immediately before W3. Both minimizing and closing W3 focus W4. The native app must apply that focus even if macOS initially selects another window; this simulator has no native focus events. Directional focus then navigates only tiled windows.',steps:[['Minimize W3 → focus W4',{type:'suspend',reason:'minimized'}],['Restore and focus W3',{type:'restore',id:3}],['Close W3 → focus W4',{type:'delete'}],['Focus left (skip floats)',{type:'focusDirection',direction:'left'}],['Focus right',{type:'focusDirection',direction:'right'}]]},
@@ -454,7 +483,7 @@ const scenarios=[
   {name:'Lifecycle',note:'A temporarily unavailable window leaves the tree. Focus a different tile before restoring W3 to demonstrate normal insertion instead of restoring its old position.',steps:[['Minimize W3',{type:'suspend',reason:'minimized'}],['Focus W1',{type:'focus',id:1}],['Restore W3 beside W1',{type:'restore',id:3}],['Fullscreen W3',{type:'suspend',reason:'fullscreen'}],['Return W3',{type:'restore',id:3}],['Hide W3',{type:'suspend',reason:'hidden'}],['Show W3',{type:'restore',id:3}]]},
   {name:'Floating apps',note:'Adding com.example.editor leaves W1–W3 tiled but makes new matching windows float. You can tile one manually, and it stays tiled when transferred. Removing the rule affects new windows; existing floats stay put. Use the app bundle ID input and floating-app list to try your own IDs.',steps:[['Float new editor windows',{type:'floatingApps',bundleIds:['com.example.editor']}],['Create editor W4 → floating',{type:'create',bundleId:'com.example.editor'}],['Tile W4 manually',{type:'float'}],['Transfer W4 to B → still tiled',{type:'transfer',destination:'B'}],['Create editor W5 → floating',{type:'create',bundleId:'com.example.editor'}],['Clear app list',{type:'floatingApps',bundleIds:[]}],['Create editor W6 → tiled',{type:'create',bundleId:'com.example.editor'}],['Focus W5 → still floating',{type:'focus',id:5}]]},
   {name:'Claude window eligibility',note:'A standard resizable Claude window tiles even when its Accessibility fullscreen button is missing or disabled. The exception does not include dialogs, fixed windows, non-normal overlays, or an explicit floating-app preference. These are simulated attributes; this does not read Claude’s live Accessibility metadata or verify native classification.',steps:[['Claude W4: missing button → tiled',{type:'create',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'missing'}],['Claude W5: disabled button → tiled',{type:'create',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'disabled'}],['Claude dialog W6 → floating',{type:'create',kind:'dialog',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'missing'}],['Claude fixed W7 → floating',{type:'create',kind:'fixed',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'missing'}],['Try tiling W7 → stays floating',{type:'float'}],['Claude overlay → unmanaged',{type:'create',kind:'overlay',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'missing'}],['Generic W8: missing button → floating',{type:'create',bundleId:'com.example.editor',fullscreenButton:'missing'}],['Prefer floating for Claude',{type:'floatingApps',bundleIds:['com.anthropic.claudefordesktop']}],['Claude W9 → floating by preference',{type:'create',bundleId:'com.anthropic.claudefordesktop',fullscreenButton:'disabled'}]]},
-  {name:'Screen shape',note:'A portrait screen automatically starts top/bottom. An explicit override flips it to left/right. Root changes recover minimum sizes if needed.',steps:[['Select B',{type:'display',display:'B'}],['Make B portrait',{type:'screen',display:'B',w:900,h:1440}],['Create first tile',{type:'create'}],['Create below it',{type:'create'}],['Override to left/right',{type:'screen',display:'B',orientation:'x'}]]},
+  {name:'Spiral direction',note:'Clockwise starts horizontal (TL → TR → BR → BL); counter-clockwise starts vertical (TL → BL → BR → TR). Flipping spiral direction rotates the axes and recovers minimum sizes if needed.',steps:[['Select B',{type:'display',display:'B'}],['Switch to counter-clockwise',{type:'spiral',spiral:'counter-clockwise'}],['Create W4 (Top-Left anchor)',{type:'create'}],['Create W5 (Bottom-Left)',{type:'create'}],['Create W6 (Bottom-Right)',{type:'create'}],['Create W7 (Top-Right)',{type:'create'}],['Flip spiral to clockwise',{type:'spiral',spiral:'clockwise'}]]},
   {name:'Window kinds & restart',note:'Dialogs start floating. Normal windows use the focused screen even if their requested initial position is elsewhere. Observation loss retains state; restart rebuilds without a new persistence system.',steps:[['Create a dialog',{type:'create',kind:'dialog'}],['Normal window (app requested B)',{type:'create',initialDisplay:'B'}],['Interrupt observation',{type:'observations'}],['Resume observation',{type:'observations'}],['Simulate restart',{type:'restart'}]]},
   {name:'Collapse & rotate',note:'Removing W1 promotes the right subtree. W2/W3 change from top/bottom to left/right because orientation follows depth.',steps:[['Focus W1',{type:'focus',id:1}],['Delete W1',{type:'delete'}],['Resize the new root',{type:'resize',axis:'x',amount:.1}]]}
 ];
@@ -521,20 +550,20 @@ function render() {
   options($('offline'),state.offline.map(d=>[d.id,`Screen ${d.id}`]));
   options($('suspended'),Object.values(state.windows).filter(w=>w.mode==='suspended').map(w=>[w.id,`W${w.id} · ${w.reason}`]));
   $('floating-apps').value=state.floatingApps.join(', ');
-  $('orientation').value=screen?.orientation??'auto';$('placement').value=state.placement;
+  $('spiral').value=state.spiral;
   for(const k of ['w','h','x','y'])$('screen-'+k).value=screen?.[k]??0;
   $('min-w').value=w?.minW??0;$('min-h').value=w?.minH??0;
-  const next=Layout.insertion(state);$('insertion-hint').textContent=screen?(next.target==null?'Next: fill screen (or float if too small)':`Next: ${next.direction} of W${next.target}, if it fits`):'Placement deferred';
+  const next=Layout.insertion(state);$('insertion-hint').textContent=screen?(next.target==null?'Next: fill screen (or float if too small)':next.fits?`Next: ${next.direction} of W${next.target} (${state.spiral})`:next.capped?'Next: float (8-window tiled limit reached)':'Next: float (no tile can fit 50/50 split)'):'Placement deferred';
   $('float').textContent=w?.mode==='floating'?'Tile focused':'Float focused';
   for(const id of ['delete','float','minimum'])$(id).disabled=!Layout.available(w);
-  for(const id of ['disconnect','screen-apply','orientation','flip'])$(id).disabled=!screen;
+  for(const id of ['disconnect','screen-apply','spiral','flip'])$(id).disabled=!screen;
   $('transfer').disabled=!Layout.available(w)||!$('destination').value;$('restore').disabled=!$('suspended').value;$('reconnect').disabled=!$('offline').value;$('undo').disabled=!history.length;
   $('observations').textContent=state.observationsPaused?'Resume observations':'Interrupt observations';
   document.querySelectorAll('[data-move]').forEach(b=>b.disabled=!Layout.available(w)||(!Layout.floating(state,w.id)&&!Layout.moveAction(state,w.id,b.dataset.move)));
   document.querySelectorAll('[data-focus]').forEach(b=>b.disabled=Layout.focusTarget(state,b.dataset.focus)==null);
   document.querySelectorAll('[data-resize]').forEach(b=>b.disabled=w?.mode!=='tiled'||!Layout.ancestor(state,w.id,b.dataset.resize[0]));
   document.querySelectorAll('[data-suspend]').forEach(b=>b.disabled=!Layout.available(w));
-  $('model').textContent=`Floating apps: ${state.floatingApps.join(', ')||'none'}\nSimulated native focus: ${state.nativeFocused==null?'none':`W${state.nativeFocused}`}\nFocused app: ${w?.bundleId??'none'}\nInsertion: ${state.placement}\nMinimum tile: 160 × 100 + larger known window limits\n\n`+state.displays.map(d=>`Screen ${d.id}${d.id===state.activeDisplay?' · active':''} · ${d.orientation}\n${tree(d.root,Layout.axis(d))}\nFloating: ${Object.values(state.windows).filter(w=>w.display===d.id&&w.mode==='floating').map(w=>`W${w.id}`).join(', ')||'none'}\nRecent focus: ${d.history.filter(id=>state.windows[id]?.display===d.id&&Layout.available(state.windows[id])).map(id=>`W${id}`).join(' → ')||'none'}`).join('\n\n')+`\n\nUnavailable: ${Object.values(state.windows).filter(w=>w.mode==='suspended').map(w=>`W${w.id} (${w.reason})`).join(', ')||'none'}\nAwaiting a screen: ${Object.values(state.windows).filter(w=>w.display==null).map(w=>`W${w.id}`).join(', ')||'none'}`;
+  $('model').textContent=`Floating apps: ${state.floatingApps.join(', ')||'none'}\nSimulated native focus: ${state.nativeFocused==null?'none':`W${state.nativeFocused}`}\nFocused app: ${w?.bundleId??'none'}\nSpiral: ${state.spiral} (max depth 3 · 8 tiles/screen)\nMinimum tile: 160 × 100 + larger known window limits\n\n`+state.displays.map(d=>`Screen ${d.id}${d.id===state.activeDisplay?' · active':''} · ${d.spiral} spiral\n${tree(d.root,Layout.axis(d))}\nFloating: ${Object.values(state.windows).filter(w=>w.display===d.id&&w.mode==='floating').map(w=>`W${w.id}`).join(', ')||'none'}\nRecent focus: ${d.history.filter(id=>state.windows[id]?.display===d.id&&Layout.available(state.windows[id])).map(id=>`W${id}`).join(' → ')||'none'}`).join('\n\n')+`\n\nUnavailable: ${Object.values(state.windows).filter(w=>w.mode==='suspended').map(w=>`W${w.id} (${w.reason})`).join(', ')||'none'}\nAwaiting a screen: ${Object.values(state.windows).filter(w=>w.display==null).map(w=>`W${w.id}`).join(', ')||'none'}`;
   $('raw').textContent=JSON.stringify({state,gesture:model.gesture?{id:model.gesture.id,kind:model.gesture.kind,source:model.gesture.source,destination:model.gesture.destination,windowMode:model.gesture.windowMode}:null,blockedUntilRelease:model.blocked,rectangles:Layout.frames(state),transferPreview:model.gesture?.preview?Layout.frames(model.gesture.preview):null},null,2);
   $('log').replaceChildren(...messages.map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));renderScenario();
 }
@@ -548,8 +577,8 @@ function createWindow(){apply({type:'create',kind:$('kind').value,bundleId:$('ap
 $('create').onclick=createWindow;$('delete').onclick=()=>apply({type:'delete'});$('float').onclick=()=>apply({type:'float'});
 $('floating-apps-apply').onclick=()=>apply({type:'floatingApps',bundleIds:$('floating-apps').value.split(',').map(id=>id.trim()).filter(Boolean)});
 $('transfer').onclick=()=>apply({type:'transfer',destination:$('destination').value});
-$('active-screen').onchange=e=>apply({type:'display',display:e.target.value});$('placement').onchange=e=>apply({type:'placement',placement:e.target.value});
-$('orientation').onchange=e=>apply({type:'screen',orientation:e.target.value});$('flip').onclick=()=>apply({type:'screen',orientation:Layout.axis(Layout.display(state))==='x'?'y':'x'});
+$('active-screen').onchange=e=>apply({type:'display',display:e.target.value});$('spiral').onchange=e=>apply({type:'spiral',spiral:e.target.value});
+$('flip').onclick=()=>apply({type:'spiral',spiral:state.spiral==='clockwise'?'counter-clockwise':'clockwise'});
 $('view').onchange=()=>{if(model.gesture)finish(null,true);render();};
 $('screen-apply').onclick=()=>apply({type:'screen',...Object.fromEntries(['w','h','x','y'].map(k=>[k,Number($('screen-'+k).value)]))});
 $('disconnect').onclick=()=>apply({type:'disconnect'});$('add-screen').onclick=()=>apply({type:'connect'});$('reconnect').onclick=()=>apply({type:'connect',display:$('offline').value});
@@ -563,7 +592,7 @@ $('copy-diagnostics').onclick=async()=>{try{await navigator.clipboard.writeText(
 for(const key of ['move','focus','suspend'])document.querySelectorAll(`[data-${key}]`).forEach(b=>b.onclick=()=>apply(key==='suspend'?{type:'suspend',reason:b.dataset.suspend}:{type:key==='focus'?'focusDirection':'move',direction:b.dataset[key]}));
 document.querySelectorAll('[data-resize]').forEach(b=>b.onclick=()=>{const [axis,amount]=b.dataset.resize.split(':');apply({type:'resize',axis,amount:Number(amount)});});
 function undo(){if(model.gesture){finish(null,true);return;}if(history.length){model.reset(history.pop());state=model.state;scenarioIndex=null;log('Undid the last action.');render();}}
-$('undo').onclick=undo;$('reset').onclick=()=>{if(drag)finish(null,true);model.reset(Layout.seed(state.placement));state=model.state;history=[];messages=[state.message];scenarioIndex=null;render();};
+$('undo').onclick=undo;$('reset').onclick=()=>{if(drag)finish(null,true);model.reset(Layout.seed(state.spiral));state=model.state;history=[];messages=[state.message];scenarioIndex=null;render();};
 function point(e){const r=$('board').getBoundingClientRect();return {x:world.x+(e.clientX-r.left)/r.width*world.w,y:world.y+(e.clientY-r.top)/r.height*world.h};}
 function screenAt(p){return state.displays.find(d=>($('view').value==='all'||d.id===state.activeDisplay)&&Layout.contains(d,p));}
 function showGhost(e) {

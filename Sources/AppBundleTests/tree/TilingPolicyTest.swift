@@ -21,7 +21,7 @@ extension CoreTests {
             #expect(workspace.insertionTarget == 1)
         }
 
-        @Test func failedInsertionFloatsOnlyArrivalAndExplicitRetileUsesPlacement() {
+        @Test func failedInsertionFloatsOnlyArrivalAndEighthWindowCapsTiling() {
             let workspace = focus.workspace
             let a = TestWindow.new(id: 1, workspace: workspace)
             TestWindow.new(id: 2, workspace: workspace)
@@ -32,10 +32,16 @@ extension CoreTests {
             #expect(arriving.kind == .floating && workspace.layout == before)
             arriving.minimumSize = BinaryLayout.baseline
             _ = a.focusWindow()
-            ConfigurationApplication.shared.apply("new-window-placement = 'inner'")
             workspace.state.place(arriving, on: workspace, kind: .tiled)
             #expect(arriving.kind == .tiled)
-            #expect(workspace.tiledFrames[3]!.maxY < workspace.tiledFrames[1]!.minY)
+            #expect(workspace.tiledFrames[1]!.maxY < workspace.tiledFrames[3]!.minY)
+            for id: UInt32 in 4...8 {
+                let window = TestWindow.new(id: id, workspace: workspace)
+                #expect(window.kind == .tiled)
+            }
+            let ninth = TestWindow.new(id: 9, workspace: workspace)
+            #expect(ninth.kind == .floating)
+            #expect(workspace.layout.windowIds.count == 8)
         }
 
         @Test func screenShrinkFloatsLeastRecentAndDoesNotAutomaticallyRetileLater() {
@@ -107,7 +113,7 @@ extension CoreTests {
         }
 
         @Test func explicitRootOrientationAndPerScreenFlipSurviveGeometryChange() async {
-            ConfigurationApplication.shared.apply("root-orientation = 'vertical'")
+            ConfigurationApplication.shared.apply("spiral = 'counter-clockwise'")
             let workspace = focus.workspace
             workspace.recover()
             let a = TestWindow.new(id: 1, workspace: workspace)

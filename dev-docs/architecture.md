@@ -62,8 +62,8 @@ Commands operate on the current focus. Action execution invalidates restoration 
 frames after each action, including failures. Monitor navigation retains directions and wrapping next/previous;
 moving a window between monitors always follows it. Directional tile focus crosses screens in their physical arrangement without wrapping.
 
-Configuration has `gap`, `floating-apps`, `new-window-placement`, `root-orientation`, and `[bindings]`. All displays use the same inner/outer gap,
-with 8 points as the default. Key names use fixed QWERTY positions. Omitting the binding table inherits defaults; an explicit table replaces them.
+Configuration has `gap`, `floating-apps`, `spiral`, and `[bindings]`. All displays use the same inner/outer gap,
+with 8 points as the default. `spiral` is `clockwise` (default) or `counter-clockwise`. Key names use fixed QWERTY positions. Omitting the binding table inherits defaults; an explicit table replaces them.
 Parsing collects diagnostics and rejects the entire reload on error. The config path is fixed to
 `~/.tile.toml`; the internal URL override exists only for bundled startup validation and tests.
 
@@ -75,7 +75,8 @@ remove, swap, move, resize, recover, balance, or request geometry without editin
 have no root; removal promotes a sibling. There are no parent pointers, adaptive weights, or normalization passes.
 Parent and sibling-region queries belong to this module, so gesture handling does not interpret tree paths.
 
-Insertion checks a local 50/50 split using Outer/Inner placement. Failure leaves the tree unchanged;
+Insertion uses a breadth-first spiral across four screen quadrants up to binary depth 3 (8 tiled windows per screen),
+checking a 50/50 split against minimum sizes and advancing in spiral order when a leaf cannot fit. Failure leaves the tree unchanged;
 the owner floats the arriving window. Minimum section dimensions are calculated bottom-up. Interactive
 resize clamps the nearest matching divider while retaining child ratios. Recovery after unavoidable
 geometry/topology changes keeps valid ratios, clamps the rest, then removes least-recently-focused tiles

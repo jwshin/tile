@@ -125,8 +125,7 @@ import Foundation
                 current.kind == .tiled
                 && layout.insert(
                     current.window.windowId, beside: destination.insertionTarget,
-                    placement: config.newWindowPlacement, in: destination.layoutRect, gap: CGFloat(config.gap),
-                    minimums: minimums)
+                    in: destination.layoutRect, gap: CGFloat(config.gap), minimums: minimums)
             let frame =
                 tiled
                 ? layout.frames(in: destination.layoutRect, gap: CGFloat(config.gap))[current.window.windowId]!

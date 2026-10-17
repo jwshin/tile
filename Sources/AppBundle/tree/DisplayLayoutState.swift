@@ -138,13 +138,15 @@ import Common
         window.lastAppliedLayoutPhysicalRect = nil
         source?.recover()
         destination.layout.rootAxis = destination.resolvedAxis
-        if window.kind == .tiled
-            && !destination.layout.insert(
-                window.windowId, beside: destination.insertionTarget, placement: config.newWindowPlacement,
+        if window.kind == .tiled {
+            if destination.layout.insert(
+                window.windowId, beside: destination.insertionTarget,
                 in: destination.layoutRect, gap: CGFloat(config.gap), minimums: destination.minimums
-            )
-        {
-            window.kind = .floating
+            ) {
+                destination.lastInsertedId = window.windowId
+            } else {
+                window.kind = .floating
+            }
         }
         if previous.windowOrNil === window {
             setFocus(
@@ -176,7 +178,11 @@ import Common
         }
         if window?.windowId != lastKnownNativeFocusedWindowId {
             // Cache macOS's automatic replacement without overwriting the recent-focus fallback.
-            if !pendingFocusRecovery, let live = window?.toLiveFocusOrNil() { _ = setFocus(to: live) }
+            if !pendingFocusRecovery, let live = window?.toLiveFocusOrNil() {
+                let newlyInserted = window?.windowId == window?.workspace?.lastInsertedId
+                window?.workspace?.lastInsertedId = nil
+                _ = setFocus(to: live, explicit: !newlyInserted)
+            }
             lastKnownNativeFocusedWindowId = window?.windowId
         }
     }
@@ -191,11 +197,11 @@ import Common
         return focus
     }
 
-    @discardableResult func setFocus(to newFocus: LiveFocus) -> Bool {
+    @discardableResult func setFocus(to newFocus: LiveFocus, explicit: Bool = true) -> Bool {
         frozenFocus = newFocus.frozen
         focusSequence += 1
         newFocus.windowOrNil?.lastFocusSequence = focusSequence
-        newFocus.windowOrNil?.markRecent()
+        newFocus.windowOrNil?.markRecent(explicit: explicit)
         screenHistory.removeAll { $0 == newFocus.workspace.name }
         screenHistory.insert(newFocus.workspace.name, at: 0)
         return contains(newFocus.workspace)
@@ -299,7 +305,7 @@ import Common
             workspace.recover()
             for extra in extras {
                 if !workspace.layout.insert(
-                    extra.windowId, beside: workspace.insertionTarget, placement: config.newWindowPlacement,
+                    extra.windowId, beside: workspace.insertionTarget,
                     in: workspace.layoutRect, gap: CGFloat(config.gap), minimums: workspace.minimums)
                 {
                     extra.kind = .floating

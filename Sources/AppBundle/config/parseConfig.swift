@@ -87,17 +87,11 @@ struct ParseConfigResult {
             if let apps = parseArrayOfStrings(value, path).getOrNil(appendErrorTo: &errors) {
                 parsed.floatingApps = apps
             }
-        case "new-window-placement":
-            if let raw = value.asStringOrNil, let placement = BinaryLayout.Placement(rawValue: raw) {
-                parsed.newWindowPlacement = placement
+        case "spiral":
+            if let raw = value.asStringOrNil, let spiral = BinaryLayout.SpiralDirection(rawValue: raw) {
+                parsed.spiral = spiral
             } else {
-                errors.append(.init(path, "Expected outer or inner"))
-            }
-        case "root-orientation":
-            if let raw = value.asStringOrNil, let orientation = RootOrientation(rawValue: raw) {
-                parsed.rootOrientation = orientation
-            } else {
-                errors.append(.init(path, "Expected auto, horizontal, or vertical"))
+                errors.append(.init(path, "Expected clockwise or counter-clockwise"))
             }
         case "bindings":
             parsed.bindings = parseBindings(value, path, &errors)

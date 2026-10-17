@@ -24,11 +24,14 @@ Example: `[W1, [W2, W3]]` on a screen with a horizontal root:
 └──────────┴──────────┘
 ```
 
-## 2. Orientation and split ratios
+## 2. Spiral direction and split ratios
 
-**Horizontal** means children sit left/right; **vertical** means top/bottom. Choose a screen's initial root direction from its usable shape: horizontal for wide screens, vertical for portrait screens. Allow an explicit override and a command to flip the root direction. If shape information is unavailable, fall back to horizontal.
+**Horizontal** means children sit left/right; **vertical** means top/bottom. Each screen’s split axes follow the configured **spiral direction**, which defaults to **clockwise** and can be switched or flipped to **counter-clockwise**:
 
-Every deeper level uses the opposite direction. Direction follows current depth rather than remaining attached to a section. Promoting a section after removal can therefore rotate its subdivisions.
+- **Clockwise** (default, `Top-Left → Top-Right → Bottom-Right → Bottom-Left`): even depths (`0, 2`) split **horizontally** (left/right) and odd depth (`1`) splits **vertically** (top/bottom).
+- **Counter-clockwise** (`Top-Left → Bottom-Left → Bottom-Right → Top-Right`): even depths (`0, 2`) split **vertically** (top/bottom) and odd depth (`1`) splits **horizontally** (left/right).
+
+Every deeper level uses the opposite direction up to **maximum binary depth 3** (at most two tiled windows per quadrant, or **8 tiled windows per screen**). Direction follows current depth rather than remaining attached to a section. Promoting a section after removal can therefore rotate its subdivisions.
 
 Every new split starts at **50/50** after accounting for the gap. Support keyboard and mouse resizing, retaining the resulting ratio for that split. Resizing a window edge must not exchange window positions, even when the edge changes both position and size. Resizing adjusts the nearest ancestor split on the requested axis. In the example, resizing W3 horizontally adjusts the W1/right-column boundary; resizing it vertically adjusts the W2/W3 boundary.
 
@@ -36,42 +39,47 @@ During a native pointer resize, passive refreshes must preserve the held window'
 
 A move carries the selected window’s allocation: horizontal moves preserve its actual width, and vertical moves preserve its actual height. Destination columns or rows and their ancestors adjust around it. Moving a wide window right in a 70% left / 30% right split makes it 30/70; moving a narrow window into the wide side likewise preserves the narrow window’s width. This supersedes the earlier decision to leave dividers fixed. Other ratios stay unchanged where possible and adjust as needed for minimum sizes.
 
-## 3. One insertion rule
+## 3. One insertion rule: breadth-first spiral
 
-Use the same rule for creating a tiled window, retiling a floating window, returning a previously tiled window from minimization/hiding/fullscreen, transferring a tiled window, and receiving windows from a disconnected screen:
+Use the same breadth-first spiral rule for creating a tiled window, retiling a floating window, returning a previously tiled window from minimization/hiding/fullscreen, transferring a tiled window, and receiving windows from a disconnected screen:
 
 1. Resolve the destination screen. Newly created application windows use the currently focused screen, regardless of the application's initial placement. Explicit transfers use their requested destination.
 2. On an empty tiled layout, use the whole tiling area.
-3. Otherwise split the destination's remembered tiled target into the existing window and the arriving window, initially 50/50. Prefer its focused tile; floating focus does not replace the remembered tiled target.
-4. Use Outer / Inner to choose which child receives the arriving window.
-5. If the proposed placement cannot satisfy both windows' minimum sizes, leave the existing tree unchanged and make the arriving window floating on the destination screen. Do not resize surrounding sections to make room for an insertion.
+3. Otherwise divide the screen into four quadrants first (stages `0` and `1`: horizontal and vertical 2×2 division), and then spread at most one additional split across all four quadrants in spiral order (stage `2`, producing leaves at depth `3`, for a maximum of **8 tiled windows per screen**). Choose the shallowest incomplete stage (`stage < 3`) and select the next leaf in spiral order around the screen (`TL → TR → BR → BL` for clockwise; `TL → BL → BR → TR` for counter-clockwise), starting from the top-left quadrant by default or from an explicitly focused tile when the user selected one.
+4. Split the chosen target leaf 50/50: the existing window stays in the first child (`left` / `top`) and the arriving window takes the second child (`right` / `bottom`), except on the **fourth quadrant split** (`depth 1 → 2` on the first half of the screen, where the spiral turns back toward `Top-Left`), where the arriving window takes the spiral quadrant (`Bottom-Left` in clockwise, `Top-Right` in counter-clockwise) while `W1` anchors `Top-Left`.
+5. Leaves at **depth 3** (stage 3) are never subdivided further. If the preferred candidate is already at depth 3 or cannot satisfy both windows' minimum sizes at 50/50, try the next leaf in spiral order (preferring the shallowest incomplete stage `< 3`) that can satisfy minimum sizes. When all four quadrants have already split once (8 tiled windows) or no leaf below depth 3 on the destination screen can fit the split, leave the existing tree unchanged and make the arriving window floating on the destination screen. Do not resize surrounding sections to make room for an insertion.
 6. User-created windows and explicitly transferred windows receive focus. Manual retiling retains focus on the same window.
 
 Returning windows do not restore their former tree position.
 
-**Outer / Inner** applies across all screens and affects future insertions only. Outer is the default. Compare the target tile's center with the screen midpoint along the new split's axis:
+### Quadrant formation and spiral passes
 
-| Target position along that axis | Outer | Inner |
+For the first four windows on an empty screen:
+
+| Window | Clockwise (`TL → TR → BR → BL`) | Counter-clockwise (`TL → BL → BR → TR`) |
 | --- | --- | --- |
-| Left half | New window on the left | New window on the right |
-| Right half | New window on the right | New window on the left |
-| Top half | New window above | New window below |
-| Bottom half | New window below | New window above |
+| **W1** | Full screen (anchors at **Top-Left**) | Full screen (anchors at **Top-Left**) |
+| **W2** | Splits W1 horizontally → W1 **Left**, W2 **Right** | Splits W1 vertically → W1 **Top**, W2 **Bottom** |
+| **W3** | Splits W2 vertically → W2 **Top-Right**, W3 **Bottom-Right** | Splits W2 horizontally → W2 **Bottom-Left**, W3 **Bottom-Right** |
+| **W4** | Splits W1 vertically → W1 **Top-Left**, W4 **Bottom-Left** | Splits W1 horizontally → W1 **Top-Left**, W4 **Top-Right** |
 
-Outer means toward the nearer **screen edge**; Inner means the opposite side, toward the screen center. This remains screen-relative at every depth. Retain the prototype's deterministic tie rule: exactly centered targets use right/bottom for Outer and left/top for Inner.
+Once all four quadrants exist, further insertions spread across all four quadrants in spiral order (`TL → TR → BR → BL` clockwise; `TL → BL → BR → TR` counter-clockwise) before stopping at the 8-window cap:
 
-For the example above, inserting at W2 splits W2 left/right. Outer creates to its right; Inner creates to its left. Mirroring the column to the left reverses those results.
+1. **Pass 1 (Windows 5–8, 2 per quadrant, depth 3):** Each quadrant splits once along the even-depth axis (horizontally in clockwise, vertically in counter-clockwise) in spiral order (`TL`, then `TR`/`BL`, then `BR`, then `BL`/`TR`), placing `W5, W6, W7, W8` in the second half of each quadrant.
+2. **Depth-3 / 8-window cap (Windows 9+):** Tiled tree depth is capped at **depth 3** (at most one split / two windows per quadrant, 8 tiled windows per screen). Once every quadrant has two tiled windows (or no shallower leaf can satisfy minimum sizes), any arriving window starts **floating** on the destination screen, leaving the tiled layout unchanged.
+
+If the user explicitly focuses a tiled window, insertion starts at that window (if it is at the shallowest incomplete stage `< 3`) and continues from there in spiral order around the screen.
 
 ## 4. Minimum sizes and recovery
 
 The minimum tile size is **160 × 100 logical points**. This engineering default replaces 320 × 200 so smaller laptop screens allow more subdivision and resizing before reaching the baseline. It is a lower bound, not a preferred window size. Larger window-specific minimums take precedence when known. Lack of a reliable application minimum must not prevent operation: use the baseline and handle observed constraints through the native window adapter.
 
 - Clamp interactive resizing before any affected leaf falls below its minimum.
-- Float an arriving window when insertion cannot fit, including on an otherwise empty screen.
+- During insertion, skip any candidate at depth 3 or whose 50/50 split would violate minimum sizes and use the next eligible leaf (`depth < 3`) in spiral order; float the arriving window when all leaves have reached depth 3 or no leaf on the screen can fit, including on an otherwise empty screen.
 - When moving, redistribute space to preserve the selected window’s width or height and satisfy all window minimums. A narrower destination alone is not a reason to reject or float a window. Commit the structural swap and ratio changes together. If that tree structure cannot represent the required allocation, leave the whole layout unchanged; do not silently shrink the selected window or float other windows to complete the move.
-- For unavoidable changes, such as a shrinking screen or rotation after deletion, preserve ratios where possible; otherwise adjust them only enough to satisfy minimum sizes. If the layout still cannot fit, float its least recently focused tiled windows until the remaining tree can fit.
+- For unavoidable changes, such as a shrinking screen, flipping spiral direction, or rotation after deletion, preserve ratios where possible; otherwise adjust them only enough to satisfy minimum sizes. If the layout still cannot fit, float its least recently focused tiled windows until the remaining tree can fit.
 
-There is no additional depth limit or general tree rebalancing in the initial design. Minimum sizes bound useful subdivision.
+Tiled subdivision is capped at binary depth 3 (at most two tiled windows per quadrant, or eight tiled windows per screen) so the mental model stays predictable. There is no general tree rebalancing.
 
 For implementation, minimum section sizes can be calculated bottom-up. A horizontal split needs the sum of its children's minimum widths plus the gap, and the larger minimum height; a vertical split uses the corresponding height sum and larger width. Use these bounds when clamping ratios, then validate the actual leaf rectangles. Retry recovery after each removal because promotion changes split axes.
 
@@ -168,9 +176,9 @@ The prototype's smaller centered rectangle on entering floating mode is an exper
 
 ## 9. Screen disconnection and restart
 
-When a screen disconnects, permanently migrate its windows to a remaining screen. Insert tiled windows **individually** through normal Outer / Inner insertion; float arrivals that cannot fit. Floating windows remain floating. Do not preserve the disconnected layout as a group for later restoration.
+When a screen disconnects, permanently migrate its windows to a remaining screen. Insert tiled windows **individually** through normal breadth-first spiral insertion; float arrivals that cannot fit. Floating windows remain floating. Do not preserve the disconnected layout as a group for later restoration.
 
-A newly connected or reconnected screen receives an empty tile layout; windows are not automatically moved back. Its initial orientation follows its usable shape or configured override. Reconnection does not imply that it is the same physical monitor.
+A newly connected or reconnected screen receives an empty tile layout; windows are not automatically moved back. Its split axes follow the configured spiral direction. Reconnection does not imply that it is the same physical monitor.
 
 Restart restoration is best effort. Reuse existing support if practical, but **do not add a persistent window-layout storage system for the initial implementation**. If layout and ratio restoration would require that extra system, rebuild from currently open windows. In-memory recovery from temporary observation loss remains useful and is distinct from restart persistence or monitor reconnection.
 
@@ -178,8 +186,8 @@ Restart restoration is best effort. Reuse existing support if practical, but **d
 
 The interview settles product behavior above. Use these modest defaults where exact mechanics were not specified:
 
-- A square screen uses horizontal orientation. A surviving split retains its ratio when promoted onto a different axis, subject to minimum-size recovery.
-- With no usable focus history, choose the last eligible leaf in tree order as the insertion target. Break other ordering ties deterministically.
+- A surviving split retains its ratio when promoted onto a different axis or when flipping spiral direction, subject to minimum-size recovery.
+- With no explicit focus override, start each breadth-first pass at the top-left quadrant (`slot 0`). Break other ordering ties deterministically.
 - Selecting a screen restores its most recently focused available window. When an unavailable window leaves focus, use the same recent-focus fallback as deletion.
 - Entering native fullscreen removes the window from tiling but must not activate a replacement window or pull macOS back to another Space. A Space-change refresh must likewise preserve native activation, including discarding queued recovery across cancellation. Logical focus may select an available tile for later commands; close and minimize still apply recent-focus recovery.
 - For directional focus, reuse the move target geometry ordering without its sibling-swap rule; a floating source may supply the origin rectangle but is never a directional focus target.
@@ -198,12 +206,12 @@ Keep the prototype as a small executable reference beside this specification: on
 | Behavior | Current prototype |
 | --- | --- |
 | Binary sections, depth-based directions, removal and promotion | Implemented |
-| Outer / Inner for creation, retiling, returning windows, and transfers | Implemented, including centered tie rule |
+| Breadth-first spiral insertion (`clockwise` / `counter-clockwise`) for creation, retiling, returning windows, and transfers | Implemented, including quadrant formation (`TL → TR → BR → BL` clockwise; `TL → BL → BR → TR` counter-clockwise), single subdivision pass across quadrants up to depth 3 (8 tiled windows max), manual-focus targeting, and minimum-size candidate fallback |
 | Live section/window swaps and drag cancellation | Implemented in the model-owned gesture session; independent owners and lifecycle cancellation have a guided scenario; moves preserve the selected width/height |
-| Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at 160 × 100 or larger known minimums; laptop scenario covers nested insertion; native resize timing simulates the first-observation delay and protected frame writes |
+| Adjustable ratios and minimum sizes | Implemented; keyboard/buttons and draggable dividers clamp at 160 × 100 or larger known minimums; laptop scenario covers nested insertion and candidate fallback; native resize timing simulates the first-observation delay and protected frame writes |
 | Automatic floating and minimum-size recovery | Implemented; known per-window limits can be supplied in debug controls |
 | Recent-focus history and directional focus | Implemented; arrows skip floats, cross screens, and do not wrap |
-| Physical screen arrangement and orientation | Implemented; edit screen X/Y and dimensions, use Auto or an explicit root override |
+| Physical screen arrangement and spiral direction | Implemented; edit screen X/Y and dimensions, switch or flip between clockwise and counter-clockwise spiral |
 | Cross-screen dragging | Implemented; preview on hover, transfer on release, discard source swaps |
 | Disconnection and reconnection | Simulated; migrate individually, support deferred placement with no screens, reconnect empty |
 | Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; fullscreen/Space guided scenario separates native from logical focus; actual native events need an adapter |
@@ -224,7 +232,7 @@ The display layout state owns gesture transitions in the DOM-independent model. 
 
 Browser `pointercancel` ends the input stream: restore the gesture’s original layout and accept the next drag immediately, without waiting for a `pointerup` that will not follow. Escape, lost pointer capture, and lifecycle edits can cancel while the pointer remains held; block further drag attempts until release or terminal browser cancellation, including when that event arrives outside the board. The **Pointer cancellation** guided scenario demonstrates terminal cancellation during a live swap and a transfer preview.
 
-Guided experiments cover floating-app preferences and manual overrides, insertion, section/window swaps, resizing, minimum-size rejection, recovery, recent focus, screen transfers and disconnection, lifecycle events, orientation, window kinds, and the permitted restart fallback. Cross-screen pointer behavior can be exercised directly with both screens visible. All state stays in memory; the restart button simulates the chosen fallback rather than adding a storage layer.
+Guided experiments cover floating-app preferences and manual overrides, breadth-first spiral insertion, clockwise and counter-clockwise spiral direction, section/window swaps, resizing, minimum-size fallback and rejection, recovery, recent focus, screen transfers and disconnection, lifecycle events, window kinds, and the permitted restart fallback. Cross-screen pointer behavior can be exercised directly with both screens visible. All state stays in memory; the restart button simulates the chosen fallback rather than adding a storage layer.
 
 **Native discovery without notifications** starts with one ChatGPT tile and an observed Chrome app.
 The native snapshot controls simulate one main window per bundle ID, notification setup status, and
@@ -240,11 +248,11 @@ The **Claude window eligibility** scenario exercises missing and disabled fullsc
 
 ## 12. Acceptance scenarios
 
-- Retile and transfer at targets in each screen half: Outer / Inner must select the same side as new-window creation, for both axes.
+- Create four windows in clockwise mode (`W1=TL, W2=TR, W3=BR, W4=BL`) and counter-clockwise mode (`W1=TL, W2=BL, W3=BR, W4=TR`), then continue through 8 windows: verify that Windows 5–8 split each quadrant once in spiral order (reaching depth 3, 2 windows per quadrant) and Window 9 floats without changing the tiled tree. Close a tiled window and retile Window 9 to verify it takes the vacated slot, and verify that explicit focus on a shallow tile starts subdivision at that tile.
 - Resize W3 in the example: width affects the entire right column; height affects only W2/W3. Move the wide window across a 70/30 split and verify the split becomes 30/70 while its width stays unchanged. Move a narrow window into a wider destination and verify that its width also stays unchanged.
-- Attempt an insertion below the minimum: only the arriving window floats. Move an existing wide window into the narrow destination: grow the destination to its previous width. Exercise a nested destination that needs both local and ancestor dividers adjusted, and verify exact width and every window’s minimum. If the required allocation cannot be represented, verify that the entire move remains unchanged.
-- On a 1280 × 800 usable screen, split a half-width column again and then split its half-height tile. Accept tiles below the former 320 × 200 baseline, clamp at 160 × 100, and still reject an insertion that violates a larger known application minimum. Actual application limits and their Accessibility feedback require native validation.
-- Close a window whose promotion rotates a subtree, and shrink a screen: retain valid ratios, clamp when needed, then float least-recently-focused tiles only if necessary.
+- Attempt an insertion when the preferred candidate is below minimum size or already at depth 3: verify that insertion advances to the next candidate leaf below depth 3 that can fit, and floats only the arriving window when no leaf on the screen can fit. Move an existing wide window into the narrow destination: grow the destination to its previous width. Exercise a nested destination that needs both local and ancestor dividers adjusted, and verify exact width and every window’s minimum. If the required allocation cannot be represented, verify that the entire move remains unchanged.
+- On a 1280 × 800 usable screen, subdivide into depth-3 tiles below the former 320 × 200 baseline, clamp at 160 × 100, skip a candidate whose known application minimum prevents splitting, and float an insertion once all leaves are either at depth 3 or blocked by minimums. Actual application limits and their Accessibility feedback require native validation.
+- Close a window whose promotion rotates a subtree, flip spiral direction, and shrink a screen: retain valid ratios, clamp when needed, then float least-recently-focused tiles only if necessary.
 - Close the focused window after visiting a float: focus returns to that float if it is the most recent surviving available window. Directional focus still skips floats.
 - Focus beyond an edge with an empty screen between populated screens: continue in the physical direction without wrapping.
 - Swap unequal-width sections, hover another screen, and return over the sibling inside the former target region: permit a new swap without requiring an extra detour.
@@ -265,9 +273,9 @@ No further product decisions are blocking the initial implementation. Persistent
 
 ## 13. Native implementation and validation boundary
 
-The native app implements the accepted rules in `BinaryLayout`, `Workspace`, `DisplayLayoutState`, and
+The native app implements the binary tree and interaction policies in `BinaryLayout`, `Workspace`, `DisplayLayoutState`, and
 `MouseTiling`. Direction follows depth; moves preserve the selected dimension through allocation bounds;
-all insertions share Outer/Inner and the same 50/50 fit check. Focus history includes floats, and native
+all insertions share the breadth-first spiral rule (`clockwise` / `counter-clockwise`, capped at depth 3 / 8 tiled windows) and 50/50 fit check across candidates. Focus history includes floats, and native
 minimize/hide/fullscreen handling keeps unavailable windows outside the tree. Disconnect migrates leaves
 individually and preserves the focused window.
 
@@ -277,9 +285,7 @@ Passive refreshes protect the native-focused window while the pointer is down an
 
 The 2026-09-29 investigation replayed a 120-point leading-edge resize on both release 0.3.0 (`041d4af0`, immediately before gesture ownership refactoring) and unpatched 0.4.0. Both reset the native X position from 844 to 964 and width from 1068 to 948 when a refresh preceded the first observation. This establishes that this specific snap-back race predates `d3be185e`; it does not establish that every flicker in the attached recording has that cause.
 
-Native engineering choices: `floating-apps` is an array of bundle-ID strings and defaults to `[]`; invalid array entries reject the entire reload. `new-window-placement` defaults to `outer`; `root-orientation` defaults to
-`auto` and accepts `horizontal`/`vertical`. Flipping orientation gives the active screen an in-memory
-override. Keyboard width/height resize uses 50-point increments. A translucent outline previews screen
+Native engineering choices: `floating-apps` is an array of bundle-ID strings and defaults to `[]`; invalid array entries reject the entire reload. Spiral direction defaults to `clockwise` and accepts `clockwise`/`counter-clockwise`; flipping spiral direction toggles between them. Keyboard width/height resize uses 50-point increments. A translucent outline previews screen
 transfer (blue for tiling, orange for floating). Fixed-window eligibility uses Accessibility's settable-size
 capability; unknown capability is allowed. Two matching successful native size writes exceeding the
 requested dimension by more than 32 points can teach a larger minimum. Smaller discrepancies are

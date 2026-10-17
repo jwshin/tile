@@ -511,3 +511,82 @@ test('held-pointer cancellation stays blocked until a terminal event outside the
     }
   }
 });
+
+test('clockwise and counter-clockwise spiral form four quadrants, split once per quadrant up to 8 windows, and float beyond 8', () => {
+  const session = new Layout.DisplayLayoutState();
+  while (session.state.displays[0].root != null) session.dispatch({ type: 'delete' });
+  const startId = session.state.nextId;
+  for (let i = 0; i < 4; i++) session.dispatch({ type: 'create' });
+  const [w1, w2, w3, w4] = [0, 1, 2, 3].map(i => frame(session, startId + i));
+  assert.equal(w1.path, '00'); // Top-Left
+  assert.equal(w2.path, '10'); // Top-Right
+  assert.equal(w3.path, '11'); // Bottom-Right
+  assert.equal(w4.path, '01'); // Bottom-Left
+  assert(w1.x < w2.x && w1.y < w4.y && w2.y < w3.y && w4.x < w3.x);
+
+  // Pass 1 (W5..W8): one horizontal split in each quadrant (TL -> TR -> BR -> BL), reaching depth 3 (8 tiles)
+  for (let i = 4; i < 8; i++) session.dispatch({ type: 'create' });
+  assert.deepEqual([4, 5, 6, 7].map(i => frame(session, startId + i).path), ['001', '101', '111', '011']);
+  assert.deepEqual([0, 1, 2, 3].map(i => frame(session, startId + i).path), ['000', '100', '110', '010']);
+  const treeAtEight = root(session);
+
+  // 9th window floats because all four quadrants have reached depth 3 (2 windows per quadrant)
+  session.dispatch({ type: 'create' });
+  const ninthId = startId + 8;
+  assert.equal(session.state.windows[ninthId].mode, 'floating');
+  assert.deepEqual(root(session), treeAtEight);
+  assertValid(session);
+
+  // Counter-clockwise on Screen B: W1=TL, W2=BL, W3=BR, W4=TR
+  session.dispatch({ type: 'display', display: 'B' });
+  session.dispatch({ type: 'spiral', spiral: 'counter-clockwise' });
+  const ccwStart = session.state.nextId;
+  for (let i = 0; i < 4; i++) session.dispatch({ type: 'create' });
+  const [c1, c2, c3, c4] = [0, 1, 2, 3].map(i => frame(session, ccwStart + i));
+  assert(c1.x === c2.x && c1.y < c2.y); // c1=TL, c2=BL
+  assert(c2.y === c3.y && c2.x < c3.x); // c3=BR
+  assert(c1.y === c4.y && c1.x < c4.x); // c4=TR
+  assertValid(session);
+});
+
+test('explicit focus starts spiral subdivision at the focused window when at the shallowest stage', () => {
+  const session = new Layout.DisplayLayoutState();
+  // Delete W3 so only W1 (left) and W2 (right) remain; focus W1 and create W4
+  session.dispatch({ type: 'delete', id: 3 });
+  session.dispatch({ type: 'focus', id: 1 });
+  session.dispatch({ type: 'create' });
+  assert.equal(frame(session, 1).path, '00'); // Top-Left
+  assert.equal(frame(session, 4).path, '01'); // Bottom-Left
+  assert.equal(frame(session, 2).path, '1');  // Right half still unsplit
+  session.dispatch({ type: 'create' });
+  assert.equal(frame(session, 2).path, '10'); // Top-Right
+  assert.equal(frame(session, 5).path, '11'); // Bottom-Right
+
+  // With 4 quadrants present, explicitly focus Bottom-Right (W5) and create 4 windows: BR -> BL -> TL -> TR
+  session.dispatch({ type: 'focus', id: 5 });
+  for (let i = 0; i < 4; i++) session.dispatch({ type: 'create' });
+  assert.deepEqual([6, 7, 8, 9].map(id => frame(session, id).path), ['111', '011', '001', '101']);
+  assertValid(session);
+});
+
+test('spiral insertions and spiral direction guided scenarios exercise controls end to end', () => {
+  const fixture = pointerFixture();
+  const insertions = fixture.scenarioControls('Spiral insertions');
+  for (let i = 0; i < 6; i++) insertions.click(i);
+  assert.equal(fixture.api.state.windows[9].mode, 'floating');
+  for (let i = 6; i < 10; i++) insertions.click(i);
+  assert.equal(fixture.api.state.windows[9].display, 'A');
+  assert.equal(fixture.api.state.windows[9].mode, 'tiled');
+  assertValid({ state: fixture.api.state });
+
+  const direction = fixture.scenarioControls('Spiral direction');
+  for (let i = 0; i < 7; i++) direction.click(i);
+  assert.equal(fixture.api.state.spiral, 'clockwise');
+  fixture.element('flip').onclick();
+  assert.equal(fixture.api.state.spiral, 'counter-clockwise');
+  assertValid({ state: fixture.api.state });
+});
+
+
+
+

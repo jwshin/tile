@@ -16,7 +16,7 @@ extension CoreTests {
             DisplayLayoutState.shared.reconcileMonitors(monitors)
         }
 
-        @Test func initialRootFollowsUsableScreenShape() {
+        @Test func initialRootFollowsConfiguredSpiralDirection() {
             let portrait = TestMonitor(displayId: "portrait", name: "Portrait", x: 1920, width: 1080, height: 1920)
             connect([main, portrait])
             for (monitor, base) in [(main, UInt32(1)), (portrait, UInt32(3))] {
@@ -24,6 +24,9 @@ extension CoreTests {
                 TestWindow.new(id: base + 1, workspace: monitor.activeWorkspace)
             }
             #expect(main.activeWorkspace.tiledFrames[1]?.height == main.activeWorkspace.layoutRect.height)
+            #expect(portrait.activeWorkspace.tiledFrames[3]?.height == portrait.activeWorkspace.layoutRect.height)
+            ConfigurationApplication.shared.apply("spiral = 'counter-clockwise'")
+            portrait.activeWorkspace.recover()
             #expect(portrait.activeWorkspace.tiledFrames[3]?.width == portrait.activeWorkspace.layoutRect.width)
         }
 
