@@ -124,7 +124,7 @@ struct DiagnosticSnapshot {
             "macOS \(ProcessInfo.processInfo.operatingSystemVersionString); pid=\(myPid) bundle=\(appId)",
             "Enabled=\(ConfigurationApplication.shared.isEnabled) readOnly=\(appOptions.isReadOnly) Accessibility=\(AXIsProcessTrusted()) secureInput=\(IsSecureEventInputEnabled())",
             "Frontmost app: pid=\(frontmost?.processIdentifier.description ?? "none") bundle=\(frontmost?.bundleIdentifier ?? "unknown")",
-            "Preferences: gap=\(config.gap) placement=\(config.newWindowPlacement) orientation=\(config.rootOrientation) floatingApps=\(config.floatingApps) shortcuts=\(config.bindings.count)",
+            "Preferences: gap=\(config.gap) spiral=\(config.spiral) floatingApps=\(config.floatingApps) shortcuts=\(config.bindings.count)",
             "Read-only capture; no refresh, registration, layout, or focus action is performed.",
             "The model is frozen first; native reads occur later and may differ during transitions.",
             "Window titles and document contents are omitted. App names, bundle IDs, window IDs, and screen geometry are included.",

@@ -9,6 +9,8 @@ import Common
     var layout = BinaryLayout()
     var orientationOverride: Orientation?
     private var recentWindowIds: [UInt32] = []
+    private var insertionHistory: [UInt32] = []
+    var lastInsertedId: UInt32?
 
     init(monitor: MonitorInfo, state: DisplayLayoutState) {
         name = monitor.displayId
@@ -27,7 +29,7 @@ import Common
             ?? windows.last { $0.isFocusable }
     }
     var insertionTarget: UInt32? {
-        recentWindowIds.first { layout.windowIds.contains($0) } ?? layout.windowIds.last
+        insertionHistory.first { layout.windowIds.contains($0) }
     }
     var layoutRect: Rect {
         var rect = workspaceMonitor.visibleRectPaddedByOuterGaps
@@ -36,7 +38,7 @@ import Common
         return rect
     }
     var resolvedAxis: Orientation {
-        orientationOverride ?? config.rootOrientation.axis ?? (layoutRect.width >= layoutRect.height ? .h : .v)
+        orientationOverride ?? config.spiral.rootAxis
     }
     var minimums: BinaryLayout.Minimums {
         Dictionary(uniqueKeysWithValues: windows.map { ($0.windowId, $0.minimumSize) })
@@ -57,11 +59,19 @@ import Common
     }
     var tiledFrames: [UInt32: Rect] { layout.frames(in: layoutRect, gap: CGFloat(config.gap)) }
 
-    func markRecent(_ id: UInt32) {
+    func markRecent(_ id: UInt32, explicit: Bool = true) {
         recentWindowIds.removeAll { $0 == id }
         recentWindowIds.insert(id, at: 0)
+        if explicit {
+            insertionHistory.removeAll { $0 == id }
+            insertionHistory.insert(id, at: 0)
+        }
     }
-    func forget(_ id: UInt32) { recentWindowIds.removeAll { $0 == id } }
+    func forget(_ id: UInt32) {
+        recentWindowIds.removeAll { $0 == id }
+        insertionHistory.removeAll { $0 == id }
+        if lastInsertedId == id { lastInsertedId = nil }
+    }
 
     nonisolated static func == (lhs: Workspace, rhs: Workspace) -> Bool { lhs === rhs }
     nonisolated static func < (lhs: Workspace, rhs: Workspace) -> Bool { lhs.name < rhs.name }

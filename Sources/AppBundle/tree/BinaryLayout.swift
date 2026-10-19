@@ -3,7 +3,12 @@ import Common
 
 /// Pure layout model. Direction belongs to depth; every branch has exactly two children.
 struct BinaryLayout: Equatable {
-    enum Placement: String { case outer, inner }
+    enum SpiralDirection: String, Sendable {
+        case clockwise
+        case counterClockwise = "counter-clockwise"
+
+        var rootAxis: Orientation { self == .clockwise ? .h : .v }
+    }
     private indirect enum Node: Equatable {
         case window(UInt32)
         case split(CGFloat, Node, Node)
@@ -62,6 +67,24 @@ struct BinaryLayout: Equatable {
         let id: UInt32
         let rect: Rect
         let path: [Bool]
+
+        var slot: Int {
+            switch path.count {
+            case 0: 0
+            case 1: path[0] ? 1 : 2
+            default:
+                switch (path[0], path[1]) {
+                case (false, false): 0
+                case (true, false): 1
+                case (true, true): 2
+                case (false, true): 3
+                }
+            }
+        }
+        var spiralRank: Int {
+            path.dropFirst(2).reduce(slot * 1024) { $0 * 2 + ($1 ? 1 : 0) }
+        }
+        var stage: Int { path.count }
     }
     struct Section {
         let rect: Rect
@@ -83,6 +106,7 @@ struct BinaryLayout: Equatable {
         return root.map { describe($0, axis: rootAxis) } ?? "empty"
     }
     static let baseline = CGSize(width: 160, height: 100)
+    static let maxDepth = 3
     typealias Minimums = [UInt32: CGSize]
 
     private static func length(_ size: CGSize, _ axis: Orientation) -> CGFloat { axis == .h ? size.width : size.height }
@@ -94,6 +118,14 @@ struct BinaryLayout: Equatable {
         return CGSize(width: max(baseline.width, known.width), height: max(baseline.height, known.height))
     }
     private func axis(at depth: Int) -> Orientation { depth.isMultiple(of: 2) ? rootAxis : rootAxis.opposite }
+    private func canSplit(_ leaf: Leaf, adding newId: UInt32, gap: CGFloat, minimums: Minimums) -> Bool {
+        guard leaf.path.count < Self.maxDepth else { return false }
+        let (first, second) = Self.divide(leaf.rect, axis: axis(at: leaf.path.count), ratio: 0.5, gap: gap)
+        let m1 = Self.minimum(leaf.id, minimums)
+        let m2 = Self.minimum(newId, minimums)
+        return first.width + 0.001 >= m1.width && first.height + 0.001 >= m1.height
+            && second.width + 0.001 >= m2.width && second.height + 0.001 >= m2.height
+    }
 
     func geometry(in rect: Rect, gap: CGFloat) -> (leaves: [Leaf], sections: [Section]) {
         var leaves: [Leaf] = []
@@ -136,21 +168,23 @@ struct BinaryLayout: Equatable {
         }
     }
 
-    /// Insertion is deliberately local. A failed 50/50 insertion changes nothing.
+    /// Insertion follows breadth-first spiral order up to depth 3 (8 windows). A failed 50/50 split changes nothing.
     @discardableResult mutating func insert(
-        _ id: UInt32, beside target: UInt32?, placement: Placement = .outer,
+        _ id: UInt32, beside target: UInt32? = nil,
         in rect: Rect, gap: CGFloat, minimums: Minimums = [:]
     ) -> Bool {
         guard !windowIds.contains(id) else { return false }
         let before = root
         if let root {
-            let leaves = geometry(in: rect, gap: gap).leaves
-            let target = leaves.first { $0.id == target } ?? leaves.last!
-            let axis = axis(at: target.path.count)
-            let outerFirst = target.rect.center.getProjection(axis) < rect.center.getProjection(axis)
-            let first = placement == .outer ? outerFirst : !outerFirst
-            self.root = root.replacing(
-                target.id, with: .split(0.5, .window(first ? id : target.id), .window(first ? target.id : id)))
+            let bySpiral = geometry(in: rect, gap: gap).leaves.sorted { $0.spiralRank < $1.spiralRank }
+            let targetIdx = target.flatMap { id in bySpiral.firstIndex { $0.id == id } }
+            let rotated = targetIdx.map { Array(bySpiral[$0...] + bySpiral[..<$0]) } ?? bySpiral
+            let candidates = rotated.enumerated().sorted {
+                $0.element.stage == $1.element.stage ? $0.offset < $1.offset : $0.element.stage < $1.element.stage
+            }.map(\.element)
+            guard let chosen = candidates.first(where: { canSplit($0, adding: id, gap: gap, minimums: minimums) })
+            else { return false }
+            self.root = root.replacing(chosen.id, with: .split(0.5, .window(chosen.id), .window(id)))
         } else {
             root = .window(id)
         }

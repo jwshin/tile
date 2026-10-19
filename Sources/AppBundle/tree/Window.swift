@@ -84,6 +84,6 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
         return true
     }
 
-    func markRecent() { workspace?.markRecent(windowId) }
+    func markRecent(explicit: Bool = true) { workspace?.markRecent(windowId, explicit: explicit) }
     func bindAsFloatingWindow(to workspace: Workspace) { layoutState.place(self, on: workspace, kind: .floating) }
 }

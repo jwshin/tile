@@ -12,6 +12,7 @@ extension CoreTests {
             let result = parseConfig(try String(contentsOf: defaultConfigUrl, encoding: .utf8))
             #expect(result.errors.isEmpty)
             #expect(result.config.gap == 8)
+            #expect(result.config.spiral == .clockwise)
             #expect(result.config.floatingApps.isEmpty)
             #expect(result.config.bindings.count == 23)
             #expect(result.config.bindings["alt-h"]?.action == .focusLeft)
@@ -19,7 +20,7 @@ extension CoreTests {
         }
 
         @Test func omittedBindingsKeepDefaultShortcuts() {
-            for contents in ["", "gap = 12", "new-window-placement = 'inner'"] {
+            for contents in ["", "gap = 12", "spiral = 'counter-clockwise'"] {
                 let result = parseConfig(contents)
                 #expect(result.errors.isEmpty)
                 #expect(result.config.bindings == defaultConfig.bindings)
@@ -27,7 +28,7 @@ extension CoreTests {
                 #expect(result.config.bindings["alt-shift-r"]?.action == .reloadConfig)
             }
             #expect(parseConfig("gap = 12").config.gap == 12)
-            #expect(parseConfig("new-window-placement = 'inner'").config.newWindowPlacement == .inner)
+            #expect(parseConfig("spiral = 'counter-clockwise'").config.spiral == .counterClockwise)
         }
 
         @Test func explicitBindingsReplaceDefaultShortcuts() {
@@ -44,13 +45,13 @@ extension CoreTests {
             let result = parseConfig(
                 """
                 gap = 12
-                new-window-placement = 'inner'
+                spiral = 'counter-clockwise'
                 [bindings]
                 ctrl-alt-h = 'focus-left'
                 """)
             #expect(result.errors.isEmpty)
             #expect(result.config.gap == 12)
-            #expect(result.config.newWindowPlacement == .inner)
+            #expect(result.config.spiral == .counterClockwise)
             let binding = result.config.bindings["alt-ctrl-h"]
             #expect(binding?.keyCode == .h)
             #expect(binding?.action == .focusLeft)
@@ -93,6 +94,7 @@ extension CoreTests {
                 "persistent-workspaces", "auto-reload-config", "start-at-login",
                 "default-root-container-orientation", "enable-normalization-flatten-containers",
                 "enable-normalization-opposite-orientation-for-nested-containers",
+                "new-window-placement", "root-orientation",
             ] {
                 let result = parseConfig("\(key) = []")
                 #expect(!result.allowReloadConfig)
@@ -115,9 +117,9 @@ extension CoreTests {
             }
             #expect(parseConfig("gap = 0").config.gap == 0)
             #expect(parseConfig("").config.gap == 8)
-            #expect(!parseConfig("new-window-placement = 'left'").allowReloadConfig)
-            #expect(!parseConfig("root-orientation = 'diagonal'").allowReloadConfig)
-            #expect(parseConfig("root-orientation = 'vertical'").config.rootOrientation == .vertical)
+            #expect(!parseConfig("spiral = 'diagonal'").allowReloadConfig)
+            #expect(parseConfig("spiral = 'clockwise'").config.spiral == .clockwise)
+            #expect(parseConfig("spiral = 'counter-clockwise'").config.spiral == .counterClockwise)
             #expect(!parseConfig("[bindings]\nalt-unicorn = 'close'").allowReloadConfig)
             #expect(!parseConfig("[bindings]\nalt-ctrl-h = 'close'\nctrl-alt-h = 'grow'").allowReloadConfig)
             #expect(!parseConfig("[bindings").allowReloadConfig)

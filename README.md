@@ -7,21 +7,23 @@ control, with a compact native Swift core, one layout per screen, and a small se
 
 ## A screen, split simply
 
-Start with one window filling the screen. The next window splits it left/right; the next splits
-its focused section top/bottom. Keep going and the directions alternate, forming a spiral of nested
-rectangles. Underneath, it is a simple binary tree: every section is either one window or two smaller
-sections. Each split begins at 50/50, and you can resize it whenever you need more room.
+Start with one window filling the screen. In **clockwise** mode (the default), the second window splits
+it left/right, the third splits the right half top/bottom (`Top-Right` / `Bottom-Right`), and the fourth
+splits the left half top/bottom (`Top-Left` / `Bottom-Left`), completing four quadrants around the screen.
+Windows 5 through 8 divide each quadrant once in spiral order (`TL → TR → BR → BL`, or `TL → BL → BR → TR`
+in **counter-clockwise** mode), up to **8 tiled windows per screen** (two per quadrant). Beyond 8 windows,
+new arrivals float so the mental model stays clear. Underneath, it is a simple binary tree: every section is
+either one window or two smaller sections. Each split begins at 50/50, and you can resize it whenever you need more room.
 
-New windows divide the last focused tile. **Outer** placement puts the new window toward the nearer
-screen edge; **Inner** puts it toward the center. A portrait screen starts top/bottom. Focus a different
-tile to grow a different branch of the tree.
+Focus a specific tile to start the next spiral subdivision from that window, or let new windows follow
+the default spiral order around the screen.
 
 - **Move without losing your size.** Horizontal moves carry the window's width; vertical moves carry
   its height. Move the wide side of a 70/30 split across the screen and the split becomes 30/70.
 - **Keep layout predictable.** Moving within a parent exchanges sibling sections; moving beyond it
   swaps individual windows. Closing a tile promotes its sibling into the space.
 - **Make room on a laptop.** Tiles can shrink to 160 × 100 logical points. Larger application limits
-  still apply. A new window floats if its split cannot fit; existing tiles keep their allocation.
+  still apply. A new window floats if its split cannot fit or the 8-window cap is reached; existing tiles keep their allocation.
 - **Use every screen.** Directional focus follows the physical display arrangement. Transfers have
   their own shortcuts. Disconnecting a screen moves its windows to a surviving screen.
 
@@ -30,7 +32,7 @@ tile to grow a different branch of the tree.
 The layout engine is a value-type binary tree, with native Accessibility adapters handling macOS
 windows. The app ships as a self-contained Apple silicon binary. Its three library dependencies cover
 TOML parsing, collections, and global shortcuts. A purpose-built layout model keeps the dependency
-surface small. Configuration is five concepts: gaps, floating apps, insertion side, orientation, and bindings.
+surface small. Configuration is four concepts: gaps, spiral direction, floating apps, and bindings.
 
 Try the [interactive layout prototype](dev-docs/layout-prototype.html) in Chrome to explore splits,
 resizing, swaps, and screen changes. It is a standalone file. The [tiling rules](dev-docs/tiling-rules.md)
@@ -85,14 +87,13 @@ Reload from the menu or with `alt-shift-r`. Invalid configuration preserves the 
 
 ```toml
 gap = 8
-new-window-placement = 'outer' # outer | inner
-root-orientation = 'auto'     # auto | horizontal | vertical
+spiral = 'clockwise' # clockwise | counter-clockwise
 floating-apps = ['com.apple.finder'] # exact bundle IDs; default []
 ```
 
-`gap` controls all inner and outer spacing. Root orientation follows usable screen shape in Auto;
+`gap` controls all inner and outer spacing. `spiral` sets the breadth-first spiral direction and root split axis (`clockwise` starts left/right; `counter-clockwise` starts top/bottom);
 `toggle-orientation` sets an in-memory override for the selected screen. Disconnecting discards that override.
-Placement affects future insertions, including retiling, returning windows, and transfers.
+Spiral direction affects future insertions, including retiling, returning windows, and transfers.
 
 `floating-apps` makes newly detected windows from matching apps float by default. Matching is exact
 and case-sensitive; use bundle IDs rather than display names or wildcard patterns. Put the list above

@@ -27,23 +27,55 @@ struct BinaryLayoutTest {
         #expect(layout.windowIds.isEmpty)
     }
 
-    @Test func outerInnerUsesScreenCenterOnBothAxes() {
-        for axis in [Orientation.h, .v] {
-            let bounds = Rect(topLeftX: -1500, topLeftY: 100, width: 1600, height: 1600)
-            for placement in [BinaryLayout.Placement.outer, .inner] {
-                for side: UInt32 in [1, 2] {
-                    var layout = BinaryLayout(rootAxis: axis)
-                    layout.insert(1, beside: nil, in: bounds, gap: 12)
-                    layout.insert(2, beside: 1, in: bounds, gap: 12)
-                    layout.insert(3, beside: side, in: bounds, gap: 12)
-                    let accepted38 = layout.insert(4, beside: side, placement: placement, in: bounds, gap: 12)
-                    #expect(accepted38)
-                    let frames = layout.frames(in: bounds, gap: 12)
-                    let before = frames[4]!.center.getProjection(axis) < frames[side]!.center.getProjection(axis)
-                    #expect(before == (placement == .outer ? side == 1 : side == 2))
-                }
-            }
+    @Test func spiralOrderFormsQuadrantsThenSubdividesAcrossQuadrantsToEightWindows() {
+        let bounds = Rect(topLeftX: 0, topLeftY: 0, width: 1600, height: 1200)
+        var clockwise = BinaryLayout(rootAxis: BinaryLayout.SpiralDirection.clockwise.rootAxis)
+        for id: UInt32 in 1...4 {
+            let inserted = clockwise.insert(id, in: bounds, gap: 0)
+            #expect(inserted)
         }
+        let cwQuadrants = clockwise.frames(in: bounds, gap: 0)
+        #expect(cwQuadrants[1]?.topLeftCorner == CGPoint(x: 0, y: 0))
+        #expect(cwQuadrants[2]?.topLeftCorner == CGPoint(x: 800, y: 0))
+        #expect(cwQuadrants[3]?.topLeftCorner == CGPoint(x: 800, y: 600))
+        #expect(cwQuadrants[4]?.topLeftCorner == CGPoint(x: 0, y: 600))
+        for id: UInt32 in 5...8 {
+            let inserted = clockwise.insert(id, in: bounds, gap: 0)
+            #expect(inserted)
+        }
+        #expect(clockwise.windowIds == [1, 5, 4, 8, 2, 6, 3, 7])
+        let cwEight = clockwise.frames(in: bounds, gap: 0)
+        #expect(cwEight[5]?.topLeftCorner == CGPoint(x: 400, y: 0))
+        #expect(cwEight[6]?.topLeftCorner == CGPoint(x: 1200, y: 0))
+        #expect(cwEight[7]?.topLeftCorner == CGPoint(x: 1200, y: 600))
+        #expect(cwEight[8]?.topLeftCorner == CGPoint(x: 400, y: 600))
+        let beforeCap = clockwise
+        let cwNinth = clockwise.insert(9, in: bounds, gap: 0)
+        #expect(!cwNinth)
+        #expect(clockwise == beforeCap)
+
+        var counterClockwise = BinaryLayout(rootAxis: BinaryLayout.SpiralDirection.counterClockwise.rootAxis)
+        for id: UInt32 in 1...4 {
+            let inserted = counterClockwise.insert(id, in: bounds, gap: 0)
+            #expect(inserted)
+        }
+        let ccwQuadrants = counterClockwise.frames(in: bounds, gap: 0)
+        #expect(ccwQuadrants[1]?.topLeftCorner == CGPoint(x: 0, y: 0))
+        #expect(ccwQuadrants[2]?.topLeftCorner == CGPoint(x: 0, y: 600))
+        #expect(ccwQuadrants[3]?.topLeftCorner == CGPoint(x: 800, y: 600))
+        #expect(ccwQuadrants[4]?.topLeftCorner == CGPoint(x: 800, y: 0))
+        for id: UInt32 in 5...8 {
+            let inserted = counterClockwise.insert(id, in: bounds, gap: 0)
+            #expect(inserted)
+        }
+        #expect(counterClockwise.windowIds == [1, 5, 4, 8, 2, 6, 3, 7])
+        let ccwEight = counterClockwise.frames(in: bounds, gap: 0)
+        #expect(ccwEight[5]?.topLeftCorner == CGPoint(x: 0, y: 300))
+        #expect(ccwEight[6]?.topLeftCorner == CGPoint(x: 0, y: 900))
+        #expect(ccwEight[7]?.topLeftCorner == CGPoint(x: 800, y: 900))
+        #expect(ccwEight[8]?.topLeftCorner == CGPoint(x: 800, y: 300))
+        let ccwNinth = counterClockwise.insert(9, in: bounds, gap: 0)
+        #expect(!ccwNinth)
     }
 
     @Test func resizedMovesCarryWideAndNarrowAllocations() {
@@ -98,11 +130,15 @@ struct BinaryLayoutTest {
     @Test func insertionDoesNotResizeExistingSectionsToFitAndKnownMinimumWins() {
         var layout = three(rect)
         let before = layout
-        let accepted91 = !layout.insert(4, beside: 3, in: rect, gap: 0, minimums: [4: CGSize(width: 500, height: 200)])
-        #expect(accepted91)
+        let rejected = !layout.insert(4, beside: 3, in: rect, gap: 0, minimums: [4: CGSize(width: 800, height: 200)])
+        #expect(rejected)
         #expect(layout == before)
-        let accepted93 = !layout.insert(1, beside: 3, in: rect, gap: 0)
-        #expect(accepted93)
+        let duplicate = !layout.insert(1, beside: 3, in: rect, gap: 0)
+        #expect(duplicate)
+        // When W1 cannot split vertically due to its height minimum, spiral insertion advances to W2.
+        let advanced = layout.insert(4, in: rect, gap: 0, minimums: [1: CGSize(width: 160, height: 500)])
+        #expect(advanced)
+        #expect(layout.windowIds == [1, 2, 4, 3])
         var empty = BinaryLayout()
         let accepted95 = !empty.insert(
             1, beside: nil, in: Rect(topLeftX: 0, topLeftY: 0, width: 159, height: 900), gap: 0)
@@ -117,14 +153,17 @@ struct BinaryLayoutTest {
         let inserted5 = layout.insert(5, beside: 4, in: bounds, gap: 12)
         #expect(inserted4 && inserted5)
         let nested = layout.frames(in: bounds, gap: 12)[5]!
-        #expect(nested.width < 320 && nested.height < 200)
+        #expect(nested.width < 320)
         let resizedWidth = layout.resize(5, axis: .h, by: -10000, in: bounds, gap: 12)
         let resizedHeight = layout.resize(5, axis: .v, by: -10000, in: bounds, gap: 12)
         #expect(resizedWidth && resizedHeight)
         let minimum = layout.frames(in: bounds, gap: 12)[5]!
         #expect(abs(minimum.width - 160) < 0.001)
         #expect(abs(minimum.height - 100) < 0.001)
-        let known: BinaryLayout.Minimums = [5: CGSize(width: 240, height: 180)]
+        let known: BinaryLayout.Minimums = [
+            5: CGSize(width: 240, height: 180),
+            6: CGSize(width: 700, height: 200),
+        ]
         let recovered = layout.recover(in: bounds, gap: 12, minimums: known, oldestFirst: [])
         #expect(recovered.isEmpty)
         #expect(layout.isValid(in: bounds, gap: 12, minimums: known))
@@ -156,9 +195,11 @@ struct BinaryLayoutTest {
     @Test func collapseRotatesAndRecoveryFloatsLeastRecentOnlyWhenRequired() {
         var layout = three(rect)
         layout.insert(4, beside: 3, in: rect, gap: 0)
+        layout.insert(5, beside: 3, in: rect, gap: 0)
         layout.remove(1)
+        layout.remove(4)
         let bounds = Rect(topLeftX: 0, topLeftY: 0, width: 340, height: 210)
-        let accepted119 = layout.recover(in: bounds, gap: 12, oldestFirst: [4, 2, 3]) == [4]
+        let accepted119 = layout.recover(in: bounds, gap: 12, oldestFirst: [5, 2, 3]) == [5]
         #expect(accepted119)
         #expect(layout.windowIds == [2, 3])
         #expect(layout.isValid(in: bounds, gap: 12))
@@ -167,9 +208,15 @@ struct BinaryLayoutTest {
     @Test func snapshotAndMixedEditsKeepIdentityCoverageAndMinimums() {
         let bounds = Rect(topLeftX: -3200, topLeftY: -100, width: 3200, height: 2000)
         var layout = BinaryLayout()
-        for id: UInt32 in 1...12 { layout.insert(id, beside: id / 2, in: bounds, gap: 0) }
+        for id: UInt32 in 1...8 {
+            let inserted = layout.insert(id, beside: id / 2, in: bounds, gap: 0)
+            #expect(inserted)
+        }
+        let ninth = layout.insert(9, in: bounds, gap: 0)
+        #expect(!ninth)
         let snapshot = layout
         let ids = layout.windowIds
+        #expect(ids.count == 8)
         for iteration in 0..<50 {
             let id = ids[iteration % ids.count]
             layout.move(id, direction: [.left, .right, .up, .down][iteration % 4], in: bounds, gap: 0)

@@ -1,6 +1,5 @@
 # One permanent layout per connected monitor. Reload from the menu after editing.
-new-window-placement = 'outer'
-root-orientation = 'auto'
+spiral = 'clockwise'
 
 gap = 8
 
