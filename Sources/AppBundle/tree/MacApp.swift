@@ -15,6 +15,10 @@ final class MacApp: AbstractApp {
     private var thread: Thread?
     private var setFrameJobs: [UInt32: RunLoopJob] = [:]
     @MainActor private static var focusJob: RunLoopJob? = nil
+    @MainActor static func cancelPendingFocus() {
+        focusJob?.cancel()
+        focusJob = nil
+    }
 
     /*conforms*/ var name: String? { nsApp.localizedName }
     @MainActor var isHidden: Bool { nsApp.isHidden }
@@ -126,7 +130,7 @@ final class MacApp: AbstractApp {
     }
 
     @MainActor func nativeFocus(_ windowId: UInt32) {
-        if appOptions.isReadOnly { return }
+        if appOptions.isReadOnly || DisplayLayoutState.shared.isRecoveringDisplays { return }
         MacApp.focusJob?.cancel()
         // Performance optimization. If possible avoid doing AX requests
         // (important for apps which are slow at responding even such basic AX requests. E.g. Godot)
@@ -138,19 +142,26 @@ final class MacApp: AbstractApp {
         } else {
             MacApp.focusJob = withWindowAsync(windowId, .cancellable) { [nsApp] window, job in
                 // Raise firstly to make sure that by the time we activate the app, the window would be already on top
+                try job.checkCancellation()
                 window.set(Ax.isMainAttr, true)
+                try job.checkCancellation()
                 AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+                try job.checkCancellation()
                 nsApp.activate(options: [])
             }
         }
     }
 
-    func setAxFrame(
+    @MainActor func setAxFrame(
         _ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?,
         observedSize: (@MainActor @Sendable (CGSize) -> Void)? = nil
     ) {
+        guard !DisplayLayoutState.shared.isRecoveringDisplays else { return }
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         setFrameJobs[windowId] = withWindowAsync(windowId, .cancellable) { [axApp] window, job in
+            try job.checkCancellation()
+            guard window.get(Ax.isFullscreenAttr) == false else { return }
+            try job.checkCancellation()
             let observed = try disableAnimations(app: axApp.threadGuarded, job) {
                 try setFrame(window, topLeft, size, job)
             }
@@ -422,15 +433,12 @@ private func getAxRect(window: AXUIElement, job: RunLoopJob) throws -> Rect? {
 
 private func setFrame(_ window: AXUIElement, _ topLeft: CGPoint?, _ size: CGSize?, _ job: RunLoopJob) throws -> CGSize?
 {
-    // Set size and then the position. The order is important https://github.com/nikitabobko/AeroSpace/issues/143
-    //                                                        https://github.com/nikitabobko/AeroSpace/issues/335
-    if let size { window.set(Ax.sizeAttr, size) }
-    try job.checkCancellation()
-    if let topLeft { window.set(Ax.topLeftCornerAttr, topLeft) }
-    try job.checkCancellation()
-    guard let size, window.set(Ax.sizeAttr, size) else { return nil }
-    try job.checkCancellation()
-    return window.get(Ax.sizeAttr)
+    try NativeFrameWriter.apply(
+        position: topLeft, size: size, fullscreen: { window.get(Ax.isFullscreenAttr) },
+        checkCancellation: { try job.checkCancellation() },
+        writeSize: { window.set(Ax.sizeAttr, $0) },
+        writePosition: { window.set(Ax.topLeftCornerAttr, $0) },
+        readSize: { window.get(Ax.sizeAttr) })
 }
 
 // Some undocumented magic

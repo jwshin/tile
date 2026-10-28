@@ -2,16 +2,28 @@ import AppKit
 
 extension Workspace {
     func layoutWorkspace(preservingPointerWindow pendingWindow: Window? = nil) async throws {
+        guard !state.isRecoveringDisplays else { return }
+        let generation = state.lifecycleGeneration
         recover()
-        let frames = tiledFrames
-        let selected = insertionTarget
         for window in tiledWindows {
             if state.manipulatedWindow === window || pendingWindow === window {
                 window.cancelPendingFrame()
                 continue
             }
-            guard let rect = frames[window.windowId] else { continue }
-            if window.isFullscreen && window.windowId == selected {
+            let fullscreen = try await window.isMacosFullscreen(.cancellable)
+            try state.checkLifecycle(generation)
+            guard window.isRegistered, window.workspace === self, window.kind == .tiled else { continue }
+            guard fullscreen == false else {
+                window.cancelPendingFrame()
+                continue
+            }
+            if state.manipulatedWindow === window || pendingWindow === window {
+                window.cancelPendingFrame()
+                continue
+            }
+            // Native reads suspend; use the current allocation after any intervening action.
+            guard let rect = tiledFrames[window.windowId] else { continue }
+            if window.isFullscreen && window.windowId == insertionTarget {
                 window.lastAppliedLayoutPhysicalRect = nil
                 let full = workspaceMonitor.visibleRectPaddedByOuterGaps
                 window.setAxFrame(full.topLeftCorner, full.size)
@@ -26,6 +38,16 @@ extension Workspace {
                 window.cancelPendingFrame()
                 continue
             }
+            let fullscreen = try await window.isMacosFullscreen(.cancellable)
+            try state.checkLifecycle(generation)
+            guard fullscreen == false else {
+                window.cancelPendingFrame()
+                continue
+            }
+            if state.manipulatedWindow === window || pendingWindow === window {
+                window.cancelPendingFrame()
+                continue
+            }
             try await window.layoutFloatingWindow(on: self)
         }
     }
@@ -33,7 +55,9 @@ extension Workspace {
 
 extension Window {
     fileprivate func layoutFloatingWindow(on workspace: Workspace) async throws {
+        let generation = layoutState.lifecycleGeneration
         let rect = try await getAxRect(.cancellable)
+        try layoutState.checkLifecycle(generation)
         guard isRegistered, self.workspace === workspace, kind == .floating else { return }
         if let rect {
             lastAppliedLayoutPhysicalRect = rect

@@ -14,11 +14,15 @@ final class MacWindow: Window {
 
     @discardableResult
     static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow {
+        let state = DisplayLayoutState.shared
+        let generation = state.lifecycleGeneration
+        try state.checkLifecycle(generation)
         if let existing = Window.get(byId: windowId) as? MacWindow { return existing }
         let destination = focus.workspace
         let rect = try await macApp.getAxRect(windowId, .cancellable)
         var kind = try await classifyWindow(windowId, macApp, .cancellable)
         let resizable = try await macApp.isResizable(windowId, .cancellable)
+        try state.checkLifecycle(generation)
         if kind == .tiled && !resizable { kind = .floating }
         // AX reads suspend. Resolve identity and display membership again before publishing.
         if let existing = Window.get(byId: windowId) as? MacWindow { return existing }
@@ -41,8 +45,8 @@ final class MacWindow: Window {
         layoutState.removeWindow(self, remember: !skipClosedWindowsCache)
     }
 
-    override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool {
-        try await macApp.isMacosNativeFullscreen(windowId, cm) == true
+    override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool? {
+        try await macApp.isMacosNativeFullscreen(windowId, cm)
     }
     override func isMacosMinimized(_ cm: CancellationMode) async throws -> Bool {
         try await macApp.isMacosNativeMinimized(windowId, cm) == true
@@ -62,6 +66,7 @@ final class MacWindow: Window {
     }
 
     override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {
+        guard !layoutState.isRecoveringDisplays else { return }
         frameRequest += 1
         let request = frameRequest
         macApp.setAxFrame(windowId, topLeft, size) { [weak self] actual in
@@ -84,8 +89,11 @@ final class MacWindow: Window {
 
 extension MacWindow {
     func reclassify(on workspace: Workspace, _ cm: CancellationMode) async throws {
+        let generation = layoutState.lifecycleGeneration
+        try layoutState.checkLifecycle(generation)
         let kind = try await classifyWindow(windowId, macApp, cm)
         let resizable = try await macApp.isResizable(windowId, cm)
+        try layoutState.checkLifecycle(generation)
         guard isRegistered, self.kind == .popup else { return }
         isResizable = resizable
         layoutState.place(self, on: workspace, kind: kind)

@@ -26,6 +26,8 @@
 <div class="controls"><label>New window fullscreen button <select id="fullscreen-button"><option value="enabled">Enabled</option><option value="missing">Missing</option><option value="disabled">Disabled</option></select></label><span class="caption">Simulated Accessibility metadata: normal Claude windows still tile without this button. Dialogs and fixed windows float; overlays stay unmanaged.</span></div>
 <div class="controls"><span class="caption">Focused window’s known minimum</span><label>Width<input id="min-w" type="number" min="0" step="20"></label><label>Height<input id="min-h" type="number" min="0" step="20"></label><button id="minimum">Apply minimum</button><span class="caption">0 = unknown; tiles still use the 160 × 100 baseline.</span></div>
 <div class="controls"><button data-suspend="minimized">Minimize</button><button data-suspend="hidden">Hide</button><button data-suspend="fullscreen">Native fullscreen</button><select id="suspended" aria-label="Unavailable window"></select><button id="restore">Restore window</button><button id="observations">Interrupt observations</button><button id="restart">Simulate restart</button></div>
+<div class="controls"><button id="power-sleep">Simulate sleep</button><button id="power-wake">Simulate wake</button><button id="power-drop">Observe active screen missing</button><button id="power-return">Observe original screens returned</button><button id="power-tick">Advance wake clock 1s</button><span id="power-status" class="caption"></span></div>
+<div class="controls"><label>Fullscreen window ID <input id="fullscreen-read-window" type="number" min="1" value="3"></label><label>Native fullscreen read <select id="fullscreen-read"><option value="unknown">Unavailable</option><option value="true">Fullscreen</option><option value="false">Confirmed exit</option></select></label><button id="fullscreen-observe">Observe fullscreen</button></div>
 <div class="controls"><label>Native notifications <select id="native-notifications"><option value="all">All supported</option><option value="partial">Some fail</option><option value="none">All fail</option><option value="stalled">Request cannot complete</option></select></label><label>Native window reads <select id="native-readable"><option value="yes">Readable</option><option value="no">Unavailable</option></select></label><button id="native-app">Observe app from fields above</button><button id="native-refresh">Refresh native windows</button><span class="caption">One simulated main window per bundle ID. Readable windows are discovered even when notifications fail.</span></div>
 <p class="caption">These controls simulate native events. Reconnection starts empty; restart rebuilds open windows without saved layout storage. X/Y positions describe the physical screen arrangement.</p>
 </details>
@@ -246,13 +248,62 @@ const Layout = (() => {
   const isUnmanagedEvent=action=>action.type==='create'&&action.kind==='overlay';
   function seed(placement='outer') {
     const a=screen('A'),b=screen('B',1480);a.root={ratio:.5,children:[1,{ratio:.5,children:[2,3]}]};a.history=[3,2,1];
-    const s={placement,floatingApps:[],displays:[a,b],offline:[],windows:{},nativeApps:{},focused:3,nativeFocused:3,activeDisplay:'A',screenHistory:['A','B'],nextId:4,nextScreen:2,tick:3,message:'Ready. Focus a window or choose a guided experiment.',recovered:[],observationsPaused:false};
+    const s={placement,floatingApps:[],displays:[a,b],offline:[],windows:{},nativeApps:{},focused:3,nativeFocused:3,activeDisplay:'A',screenHistory:['A','B'],nextId:4,nextScreen:2,tick:3,message:'Ready. Focus a window or choose a guided experiment.',recovered:[],observationsPaused:false,power:{phase:'awake',reasons:[],clock:0,expected:[],observed:[],candidate:'',since:0,wakeAt:null}};
     for(const id of [1,2,3])s.windows[id]={...windowRecord(id,'A'),lastFocus:id};return s;
+  }
+  const displayGeometry=d=>({id:d.id,x:d.x,y:d.y,w:d.w,h:d.h});
+  const topologyKey=list=>JSON.stringify([...list].sort((a,b)=>a.id.localeCompare(b.id)));
+  function advancePower(s) {
+    const p=s.power;if(p.phase!=='recovering')return s;
+    const key=topologyKey(p.observed);if(key!==p.candidate){p.candidate=key;p.since=p.clock;}
+    const original=p.expected.every(before=>p.observed.some(after=>topologyKey([before])===topologyKey([after])));
+    if(!p.observed.length||p.clock-p.since<1||(!original&&p.clock-p.wakeAt<10))return s;
+    p.phase='awake';const nativeFocus=s.nativeFocused;let result=s;
+    // Reconcile only the final accepted topology; intermediate observations never touch trees.
+    for(const next of p.observed) {
+      if(!display(result,next.id)) {
+        result.offline=result.offline.filter(d=>d.id!==next.id);result.offline.push({...next,orientation:'auto'});
+        result=reduce(result,{type:'connect',display:next.id});
+      }
+      result=reduce(result,{type:'screen',display:next.id,...next});
+    }
+    for(const old of [...result.displays])if(!p.observed.some(d=>d.id===old.id))result=reduce(result,{type:'disconnect',display:old.id});
+    result.nativeFocused=nativeFocus;
+    result.message='Wake recovery complete. Stable screens accepted; retained layouts resume. Missing screens migrate only after the 10s grace.';
+    return result;
+  }
+  function powerEvent(s,action) {
+    const p=s.power,reason=action.reason??'system';
+    if(action.type==='powerSleep') {
+      if(p.phase==='awake'){p.expected=s.displays.map(displayGeometry);p.observed=clone(p.expected);}
+      p.phase='sleeping';p.reasons=[...new Set([...p.reasons,reason])];p.wakeAt=null;p.candidate='';
+    } else if(action.type==='powerWake') {
+      p.reasons=p.reasons.filter(r=>r!==reason);
+      if(p.phase!=='awake'&&!p.reasons.length&&p.wakeAt==null){p.phase='recovering';p.wakeAt=p.clock;p.candidate='';p.since=p.clock;}
+    } else if(action.type==='powerDrop')p.observed=p.observed.filter(d=>d.id!==(action.display??s.activeDisplay));
+    else if(action.type==='powerReturn')p.observed=clone(p.expected);
+    else if(action.type==='powerGeometry') {
+      const d=p.observed.find(d=>d.id===(action.display??s.activeDisplay));if(d)for(const k of ['w','h','x','y'])if(Number.isFinite(action[k]))d[k]=action[k];
+    } else if(action.type==='powerTick')p.clock+=action.seconds??1;
+    s.message=`${p.phase==='sleeping'?'Sleeping':p.phase==='recovering'?'Waiting for stable displays':'Awake'}; observed screens ${p.observed.map(d=>d.id).join(', ')||'none'}. Layout and native writes are protected during recovery.`;
+    return advancePower(s);
   }
   function reduce(state,action) {
     if(isUnmanagedEvent(action))return {...clone(state),message:'Non-normal overlay stays unmanaged; layout, focus, and gestures are unchanged.'};
     const s=clone(state),id=action.id??s.focused,w=s.windows[id];let d=display(s,action.display??s.activeDisplay);
     s.recovered=[];s.message='No layout change.';
+    if(action.type.startsWith('power'))return powerEvent(s,action);
+    if(s.power.phase!=='awake') {
+      if(action.type==='disconnect')return powerEvent(s,{type:'powerDrop',display:action.display});
+      if(action.type==='screen')return powerEvent(s,{...action,type:'powerGeometry'});
+      s.message='Displays are recovering from sleep; layout actions and native reconciliation are paused.';return s;
+    }
+    if(action.type==='fullscreenObservation'&&w) {
+      w.nativeFullscreenRead=action.value;
+      if(action.value===true&&available(w))return reduce(s,{type:'suspend',id,reason:'fullscreen'});
+      if(action.value===false&&w.mode==='suspended'&&w.reason==='fullscreen')return reduce(s,{type:'restore',id});
+      s.message=action.value==='unknown'?`W${id} fullscreen read unavailable: retain membership and native focus; suppress frame writes.`:`W${id} fullscreen state confirmed.`;return s;
+    }
     if(action.type==='nativeApp') {
       const bundleId=action.bundleId??'com.example.editor',previous=s.nativeApps[bundleId];
       s.nativeApps[bundleId]={windowId:previous?.windowId??null,subscribedNotifications:previous?.subscribedNotifications??'none',notificationSetupDeferred:previous?.notificationSetupDeferred??false,notifications:action.notifications??'all',readable:action.readable??true,kind:action.kind??'normal',fullscreenButton:action.fullscreenButton??'enabled'};
@@ -350,12 +401,12 @@ const Layout = (() => {
     reset(state){this.state=clone(state);this.gesture=null;this.blocked=false;this.pendingNativeResize=null;}
     dispatch(action){
       if(isUnmanagedEvent(action))return this.state=reduce(this.state,action);
-      if(action.type.startsWith('nativeResize'))return this.simulateNativeResize(action);
+      if(action.type.startsWith('nativeResize')&&this.state.power.phase==='awake')return this.simulateNativeResize(action);
       this.pendingNativeResize=null;this.cancel();this.state=reduce(this.state,action);return this.state;
     }
     visibleFrames(){return frames(this.state).map(r=>r.id===this.pendingNativeResize?.id?this.pendingNativeResize.frame:r);}
     diagnostics(){return clone({scope:'simulation only',state:this.state,gesture:this.gesture,blockedUntilRelease:this.blocked,pendingNativeResize:this.pendingNativeResize,rectangles:frames(this.state)});}
-    layoutWrites(){return frames(this.state).filter(r=>r.id!==this.pendingNativeResize?.id&&r.id!==this.gesture?.id);}
+    layoutWrites(){return this.state.power.phase!=='awake'?[]:frames(this.state).filter(r=>r.id!==this.pendingNativeResize?.id&&r.id!==this.gesture?.id&&![true,'unknown'].includes(this.state.windows[r.id].nativeFullscreenRead));}
     simulateNativeResize(action){
       if(action.type==='nativeResizeStart') {
         const id=action.id??this.state.focused,axis=action.axis??'x',q=ancestor(this.state,id,axis),frame=frames(this.state).find(r=>r.id===id);
@@ -377,7 +428,7 @@ const Layout = (() => {
       return this.state;
     }
     begin({id=null,kind='window',point,split=null}) {
-      if(this.gesture||this.blocked||this.pendingNativeResize)return false;
+      if(this.state.power.phase!=='awake'||this.gesture||this.blocked||this.pendingNativeResize)return false;
       const frame=frames(this.state).find(r=>r.id===id);
       if(kind==='split'?!split:!frame)return false;
       point=point??{x:frame.x+frame.w/2,y:frame.y+frame.h/2};
@@ -433,6 +484,8 @@ const $=id=>document.getElementById(id),copy=x=>structuredClone(x);
 const model=new Layout.DisplayLayoutState();
 let state=model.state,history=[],messages=[state.message],drag=null,scenarioIndex=null,stepIndex=0,world=null;
 const scenarios=[
+  {name:'Sleep and wake',init:()=>Layout.reduce(Layout.seed(),{type:'transfer',id:3,destination:'B'}),note:'System sleep freezes layout membership and frame writes. Temporary monitor loss and smaller geometry are observations only. Recovery waits for the original geometry plus 1s stability, or 10s grace plus stability before accepting a changed setup. Unknown fullscreen reads retain the excluded window; only a confirmed exit retiles it. This simulates policy, not real macOS Space animations or black-screen recovery.',steps:[['Fullscreen W3 on B',{type:'fullscreenObservation',id:3,value:true}],['Sleep',{type:'powerSleep'}],['External B disappears',{type:'powerDrop',display:'B'}],['A temporarily shrinks',{type:'powerGeometry',display:'A',w:800,h:600}],['Wake',{type:'powerWake'}],['Wait 3s; retain both layouts',{type:'powerTick',seconds:3}],['Original displays return',{type:'powerReturn'}],['Stable for 1s; resume',{type:'powerTick'}],['Fullscreen read unavailable',{type:'fullscreenObservation',id:3,value:'unknown'}],['Confirmed fullscreen exit',{type:'fullscreenObservation',id:3,value:false}]]},
+  {name:'Monitor absent after wake',init:()=>Layout.reduce(Layout.seed(),{type:'transfer',id:3,destination:'B'}),note:'A genuinely absent monitor migrates only after the 10s wake grace and stable geometry. A later reconnection starts empty, as with an ordinary disconnect.',steps:[['Sleep',{type:'powerSleep'}],['B disappears',{type:'powerDrop',display:'B'}],['Wake',{type:'powerWake'}],['Wait 9s; keep B layout',{type:'powerTick',seconds:9}],['Grace expires; migrate W3',{type:'powerTick'}],['Reconnect B empty',{type:'connect',display:'B'}]]},
   {name:'Native discovery without notifications',init:()=>{let s=Layout.reduce(Layout.seed(),{type:'delete',id:3});s=Layout.reduce(s,{type:'delete',id:2});s.windows[1].bundleId='com.openai.codex';return s;},note:'W1 represents ChatGPT. Chrome remains discoverable from readable native windows even when notification setup fails. Ordinary native refreshes retry failed setup; the status control supplies the simulated retry outcome. An unresponsive request defers the remaining setup attempts until a later refresh while readable discovery continues. A later refresh does not duplicate Chrome; temporarily unavailable reads preserve its tile. If initial window reads are unavailable, the native snapshot controls defer discovery until reads recover. This models API availability, not a guarantee that restarting Chrome repairs it. Observer creation, raw AX errors, AX identity validity, and native run-loop liveness require Swift and macOS validation.',steps:[['Chrome notification request cannot complete; reads work',{type:'nativeApp',bundleId:'com.google.Chrome',notifications:'stalled'}],['Refresh: tile Chrome beside ChatGPT',{type:'nativeRefresh'}],['Refresh again: no duplicate',{type:'nativeRefresh'}],['Chrome reads temporarily unavailable',{type:'nativeApp',bundleId:'com.google.Chrome',notifications:'none',readable:false}],['Refresh: retain both tiles',{type:'nativeRefresh'}],['Reads return; notification retry partially recovers',{type:'nativeApp',bundleId:'com.google.Chrome',notifications:'partial'}],['Refresh: recover notifications and retain Chrome’s identity',{type:'nativeRefresh'}],['All failed notification retries recover',{type:'nativeApp',bundleId:'com.google.Chrome',notifications:'all'}],['Refresh: complete notification recovery',{type:'nativeRefresh'}]]},
   {name:'State diagnostics',note:'Capture preserves the model and active gesture. A report includes tiled, floating, and temporarily unavailable windows; later edits leave that snapshot unchanged until recaptured. Native cache/list mismatches and stalled AX threads require the macOS diagnostics view.',steps:[['Capture initial state',{type:'diagnostics'}],['Float W3',{type:'float',id:3}],['Create W4',{type:'create'}],['Minimize W4',{type:'suspend',reason:'minimized'}],['Capture all window kinds',{type:'diagnostics'}],['Begin dragging W3',{type:'gestureBegin',id:3}],['Capture during gesture',{type:'diagnostics'}],['Cancel and release',{type:'gesturePointerCancel'}],['Interrupt observations',{type:'observations'}],['Capture observation status',{type:'diagnostics'}]]},
   {name:'Pointer cancellation',note:'Browser pointer cancellation ends the stream: roll back a live swap or transfer preview and accept the next drag immediately, without an extra click or release.',steps:[['Begin dragging W3',{type:'gestureBegin',id:3}],['Swap W3 onto W1',{type:'gestureMove',target:1}],['Browser cancels pointer stream',{type:'gesturePointerCancel'}],['Begin W3 again immediately',{type:'gestureBegin',id:3}],['Preview screen B',{type:'gestureMove',destination:'B'}],['Browser cancels transfer preview',{type:'gesturePointerCancel'}],['Begin W3 after stream ends',{type:'gestureBegin',id:3}],['Release pointer',{type:'gestureRelease'}]]},
@@ -529,6 +582,9 @@ function render() {
   for(const id of ['delete','float','minimum'])$(id).disabled=!Layout.available(w);
   for(const id of ['disconnect','screen-apply','orientation','flip'])$(id).disabled=!screen;
   $('transfer').disabled=!Layout.available(w)||!$('destination').value;$('restore').disabled=!$('suspended').value;$('reconnect').disabled=!$('offline').value;$('undo').disabled=!history.length;
+  for(const id of ['power-drop','power-return','power-tick'])$(id).disabled=state.power.phase==='awake';
+  $('power-wake').disabled=state.power.phase==='awake';
+  $('power-status').textContent=`${state.power.phase} · clock ${state.power.clock}s · ${model.layoutWrites().length} permitted frame writes`;
   $('observations').textContent=state.observationsPaused?'Resume observations':'Interrupt observations';
   document.querySelectorAll('[data-move]').forEach(b=>b.disabled=!Layout.available(w)||(!Layout.floating(state,w.id)&&!Layout.moveAction(state,w.id,b.dataset.move)));
   document.querySelectorAll('[data-focus]').forEach(b=>b.disabled=Layout.focusTarget(state,b.dataset.focus)==null);
@@ -557,6 +613,9 @@ $('minimum').onclick=()=>apply({type:'constraint',w:Number($('min-w').value),h:N
 $('restore').onclick=()=>apply({type:'restore',id:Number($('suspended').value)});$('observations').onclick=()=>apply({type:'observations'});$('restart').onclick=()=>apply({type:'restart'});
 $('native-app').onclick=()=>apply({type:'nativeApp',bundleId:$('app-bundle').value.trim()||'com.example.editor',notifications:$('native-notifications').value,readable:$('native-readable').value==='yes',kind:$('kind').value,fullscreenButton:$('fullscreen-button').value});
 $('native-refresh').onclick=()=>apply({type:'nativeRefresh'});
+$('power-sleep').onclick=()=>apply({type:'powerSleep'});$('power-wake').onclick=()=>apply({type:'powerWake'});
+$('power-drop').onclick=()=>apply({type:'powerDrop'});$('power-return').onclick=()=>apply({type:'powerReturn'});$('power-tick').onclick=()=>apply({type:'powerTick'});
+$('fullscreen-observe').onclick=()=>apply({type:'fullscreenObservation',id:Number($('fullscreen-read-window').value),value:$('fullscreen-read').value==='unknown'?'unknown':$('fullscreen-read').value==='true'});
 function captureDiagnostics(){const snapshot=model.diagnostics();$('diagnostics-report').textContent=JSON.stringify(snapshot,null,2);$('diagnostics-panel').open=true;$('copy-diagnostics').disabled=false;}
 $('capture-diagnostics').onclick=captureDiagnostics;
 $('copy-diagnostics').onclick=async()=>{try{await navigator.clipboard.writeText($('diagnostics-report').textContent);log('Copied diagnostics.');}catch{log('Clipboard unavailable; select and copy the report text.');}render();};

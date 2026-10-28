@@ -27,6 +27,24 @@ enum GlobalObserver {
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main, using: onNotif)
         let nc = NSWorkspace.shared.notificationCenter
+        // Process power events even while tiling is disabled. Main-queue delivery closes the gate
+        // before subsequently queued AX/display callbacks can reconcile a partial topology.
+        for (name, reason, sleeping) in [
+            (NSWorkspace.willSleepNotification, DisplayRecovery.Reason.system, true),
+            (NSWorkspace.didWakeNotification, .system, false),
+            (NSWorkspace.screensDidSleepNotification, .screens, true),
+            (NSWorkspace.screensDidWakeNotification, .screens, false),
+        ] {
+            nc.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated {
+                    if sleeping {
+                        ActionExecution.shared.displayWillSleep(reason)
+                    } else {
+                        ActionExecution.shared.displayDidWake(reason)
+                    }
+                }
+            }
+        }
         nc.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main, using: onNotif)
         nc.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main, using: onNotif)

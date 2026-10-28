@@ -15,13 +15,75 @@ enum ActionInput { case shortcut, menu }
     static var shared = ActionExecution(desktop: NativeDesktopSessionAdapter())
     private let desktop: any DesktopSessionAdapter
     private var activeRefreshTask: Task<Void, Never>?
+    private var recoveryTask: Task<Void, Never>?
+    private let now: @MainActor () -> TimeInterval
+    private let automaticallyPollRecovery: Bool
     let diagnostics = SessionDiagnostics()
 
-    init(desktop: any DesktopSessionAdapter) { self.desktop = desktop }
+    init(
+        desktop: any DesktopSessionAdapter,
+        now: @escaping @MainActor () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+        automaticallyPollRecovery: Bool = true
+    ) {
+        self.desktop = desktop
+        self.now = now
+        self.automaticallyPollRecovery = automaticallyPollRecovery
+    }
+
+    func displayWillSleep(_ reason: DisplayRecovery.Reason) {
+        cancelRefresh()
+        recoveryTask?.cancel()
+        recoveryTask = nil
+        DisplayLayoutState.shared.beginDisplaySleep(reason)
+        MacApp.cancelPendingFocus()
+    }
+
+    func displayDidWake(_ reason: DisplayRecovery.Reason) {
+        DisplayLayoutState.shared.beginDisplayWake(reason, at: now())
+        scheduleRefresh(.globalObserver("DisplayWakeRecovery"))
+    }
+
+    private func displaysReady() -> Bool {
+        let state = DisplayLayoutState.shared
+        state.advanceDisplayRecovery(monitorInfos, at: now())
+        guard state.isRecoveringDisplays else { return true }
+        if automaticallyPollRecovery, recoveryTask == nil, state.displayRecovery.shouldPoll(at: now()) {
+            recoveryTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                    guard !Task.isCancelled else { return }
+                    let state = DisplayLayoutState.shared
+                    state.advanceDisplayRecovery(monitorInfos, at: now())
+                    if !state.isRecoveringDisplays {
+                        recoveryTask = nil
+                        scheduleRefresh(.globalObserver("DisplayWakeRecovery"))
+                        return
+                    }
+                    if !state.displayRecovery.shouldPoll(at: now()) {
+                        recoveryTask = nil
+                        return
+                    }
+                }
+            }
+        }
+        return false
+    }
 
     @discardableResult
     func execute(_ action: Action, from input: ActionInput = .shortcut) async throws -> CmdResult {
         let allowedWhileDisabled = input == .menu && (action == .toggleTiling || action == .reloadConfig)
+        guard displaysReady() else {
+            // Configuration controls remain available without entering a native layout session.
+            if allowedWhileDisabled {
+                let io = CmdIo()
+                let result = await action.command.run(io)
+                desktop.updateStatus()
+                return CmdResult(stdout: io.stdout, stderr: io.stderr, exitCode: result)
+            }
+            return CmdResult(
+                stdout: [], stderr: ["Displays are recovering from sleep; try again shortly."], exitCode: .fail)
+        }
         guard ConfigurationApplication.shared.isEnabled || allowedWhileDisabled else {
             return CmdResult(stdout: [], stderr: [], exitCode: .fail)
         }
@@ -46,6 +108,7 @@ enum ActionInput { case shortcut, menu }
 
     func scheduleRefresh(_ event: RefreshSessionEvent, optimisticallyPreLayoutWorkspaces: Bool = false) {
         cancelRefresh()
+        guard displaysReady() else { return }
         activeRefreshTask = Task { @MainActor in
             guard !Task.isCancelled else { return }
             await refresh(
@@ -68,6 +131,12 @@ enum ActionInput { case shortcut, menu }
                 session, outcome: outcome, windowIds: DisplayLayoutState.shared.allWindows.map(\.windowId))
         }
         guard ConfigurationApplication.shared.isEnabled else { return }
+        guard displaysReady() else {
+            outcome = "display recovery"
+            return
+        }
+        let state = DisplayLayoutState.shared
+        let generation = state.lifecycleGeneration
         outcome = "completed"
         do {
             try await $refreshSessionEvent.withValue(event) {
@@ -85,24 +154,31 @@ enum ActionInput { case shortcut, menu }
                 }
                 if preserveNativeFocus { DisplayLayoutState.shared.discardFocusRecovery() }
                 let nativeFocus = try await desktop.focusedWindow()
-                let nativeFullscreen = try await nativeFocus?.isMacosFullscreen(.cancellable) ?? false
-                preserveNativeFocus = preserveNativeFocus || nativeFullscreen
+                try state.checkLifecycle(generation)
+                let nativeFullscreen = try await nativeFocus?.isMacosFullscreen(.cancellable)
+                try state.checkLifecycle(generation)
+                preserveNativeFocus = preserveNativeFocus || (nativeFocus != nil && nativeFullscreen != false)
                 if preserveNativeFocus { DisplayLayoutState.shared.discardFocusRecovery() }
                 if shouldLayout && optimisticallyPreLayoutWorkspaces {
                     try await layoutWorkspaces(preservingPointerInputFrom: nativeFocus)
                 }
                 refreshModel()
                 try await desktop.refreshWindows()
+                try state.checkLifecycle(generation)
                 DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
                 if try await normalizeLayoutReason() {
                     // A native-focused window may only become focusable after its state returns.
-                    DisplayLayoutState.shared.importNativeFocus(try await desktop.focusedWindow())
+                    let returnedFocus = try await desktop.focusedWindow()
+                    try state.checkLifecycle(generation)
+                    DisplayLayoutState.shared.importNativeFocus(returnedFocus)
                 } else {
                     DisplayLayoutState.shared.importNativeFocus(nativeFocus)
                 }
                 desktop.updateStatus()
                 try await desktop.validatePopups()
+                try state.checkLifecycle(generation)
                 if shouldLayout { try await layoutWorkspaces(preservingPointerInputFrom: nativeFocus) }
+                try state.checkLifecycle(generation)
                 if preserveNativeFocus {
                     DisplayLayoutState.shared.discardFocusRecovery()
                 }
@@ -110,7 +186,9 @@ enum ActionInput { case shortcut, menu }
             }
         } catch is CancellationError {
             outcome = "cancelled"
-            check(assumeCancellable, "Non cancellable refresh session was canceled")
+            check(
+                assumeCancellable || state.lifecycleGeneration != generation,
+                "Non cancellable refresh session was canceled")
         } catch {
             outcome = "failed: \(error)"
             die("Illegal error: \(error)")
@@ -122,6 +200,9 @@ enum ActionInput { case shortcut, menu }
         action: String? = nil,
         body: @MainActor () async throws -> T
     ) async throws -> T {
+        guard displaysReady() else { throw CancellationError() }
+        let state = DisplayLayoutState.shared
+        let generation = state.lifecycleGeneration
         let interval = signposter.beginInterval(#function, "event: \(event)")
         defer { signposter.endInterval(#function, interval) }
         let session = diagnostics.begin(
@@ -135,14 +216,18 @@ enum ActionInput { case shortcut, menu }
         cancelRefresh()
         do {
             return try await $refreshSessionEvent.withValue(event) {
-                DisplayLayoutState.shared.importNativeFocus(try await desktop.focusedWindow())
+                let nativeFocus = try await desktop.focusedWindow()
+                try state.checkLifecycle(generation)
+                DisplayLayoutState.shared.importNativeFocus(nativeFocus)
                 let focusBefore = focus.windowOrNil
                 refreshModel()
                 let result = try await body()
+                try state.checkLifecycle(generation)
                 refreshModel()
                 let focusAfter = focus.windowOrNil
                 desktop.updateStatus()
                 try await layoutWorkspaces()
+                try state.checkLifecycle(generation)
                 let recovery = DisplayLayoutState.shared.takeFocusRecovery()
                 if recovery != nil || focusBefore != focusAfter { focusAfter?.nativeFocus() }
                 scheduleRefresh(event)
@@ -160,7 +245,9 @@ enum ActionInput { case shortcut, menu }
     }
 
     private func layoutWorkspaces(preservingPointerInputFrom nativeFocus: Window? = nil) async throws {
-        guard ConfigurationApplication.shared.isEnabled, !monitorInfos.isEmpty else { return }
+        guard ConfigurationApplication.shared.isEnabled, !monitorInfos.isEmpty,
+            !DisplayLayoutState.shared.isRecoveringDisplays
+        else { return }
         for workspace in DisplayLayoutState.shared.workspaces {
             // A passive refresh can run before the first move/resize notification. The native
             // focused window already belongs to the held pointer during that interval.
@@ -172,7 +259,7 @@ enum ActionInput { case shortcut, menu }
 
 struct RunSessionGuard: Sendable {
     @MainActor static var isEnabled: RunSessionGuard? {
-        ConfigurationApplication.shared.isEnabled ? forceRun : nil
+        ConfigurationApplication.shared.isEnabled && !DisplayLayoutState.shared.isRecoveringDisplays ? forceRun : nil
     }
     static let forceRun = RunSessionGuard()
     private init() {}

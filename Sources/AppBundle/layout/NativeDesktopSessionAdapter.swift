@@ -22,9 +22,13 @@ import Common
     func updateStatus() { updateTrayStatus() }
 
     func refreshWindows() async throws {
+        let state = DisplayLayoutState.shared
+        let generation = state.lifecycleGeneration
+        try state.checkLifecycle(generation)
         // Garbage collect terminated apps and windows before working with all windows
         let mapping = try await MacApp.refreshAllAndGetAliveWindowIds(
             frontmostAppBundleId: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        try state.checkLifecycle(generation)
         let aliveWindowIds = mapping.values.flatMap(id).toSet()
 
         for window in MacWindow.allWindows {
