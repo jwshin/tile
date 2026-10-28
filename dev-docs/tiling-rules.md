@@ -81,6 +81,14 @@ Deleting or floating a tile removes its leaf and promotes its sibling into the r
 
 Minimizing, hiding, or entering native fullscreen also removes a window from the tree, letting other windows expand. On return, a previously tiled window uses normal insertion; a previously floating window remains floating. No empty tile is reserved.
 
+An unavailable Accessibility fullscreen observation is **unknown**, not an exit. Retain the window's
+last membership and resume kind, suppress its frame writes, and preserve native activation. Only an
+explicit false observation permits a previously fullscreen window to return to normal insertion.
+Optimistic layout must also respect fullscreen/unknown reads. The AX adapter rechecks fullscreen
+and cancellation immediately before each queued size or position write; only a confirmed false
+permits the write. An AX call already executing cannot be interrupted, and a read and write are not
+an atomic macOS operation. This protection does not manage Spaces or guarantee repair of a black Space.
+
 Distinguish those explicit lifecycle changes from transient observation failures, such as temporary inaccessibility during screen lock. Reuse the app's existing reconciliation/restoration mechanisms where practical; a missed observation alone is not a close or minimize event.
 
 Accessibility notification support is independent of window eligibility. A failed observer or unsupported
@@ -168,7 +176,28 @@ The prototype's smaller centered rectangle on entering floating mode is an exper
 
 ## 9. Screen disconnection and restart
 
-When a screen disconnects, permanently migrate its windows to a remaining screen. Insert tiled windows **individually** through normal Outer / Inner insertion; float arrivals that cannot fit. Floating windows remain floating. Do not preserve the disconnected layout as a group for later restoration.
+When a screen disconnects outside sleep recovery, permanently migrate its windows to a remaining screen. Insert tiled windows **individually** through normal Outer / Inner insertion; float arrivals that cannot fit. Floating windows remain floating. Do not preserve the disconnected layout as a group for later restoration.
+
+**Sleep/wake exception:** system sleep and display sleep protect the existing in-memory layouts,
+ratios, window membership, focus history, and restoration snapshots. Cancel active gestures and queued
+frame/focus writes; pause window discovery/removal, layout actions, native focus import, and display
+reconciliation. Partial or smaller display snapshots during this period are observations only.
+Track system and display sleep separately; resume recovery only after both have awakened.
+The menu's enable/disable and configuration reload controls remain available without native layout work.
+
+After wake, sample displays every 250 ms. Resume when the original display IDs and usable geometry
+have returned and the complete observed topology has remained stable for **1 second**. Allow a
+**10-second grace period** for missing displays or changed geometry. After that grace, accept a
+nonempty topology once stable for 1 second and apply ordinary migration/minimum-size recovery to
+genuinely absent or changed displays. These intervals are engineering defaults, not guarantees about
+hardware wake latency. A display returning after recovery committed starts empty under the ordinary
+reconnect rule. With no usable displays, keep protection; stop polling after the grace and retry on
+the next display event. Sleep notifications are processed even when tiling is disabled. Stale work
+from before sleep must not mutate the recovered state, even if it finishes after protection ends.
+
+This exception uses only the current process's state and reported display IDs; it adds no persistent
+storage or physical-monitor identity matching. A missed or late sleep notification remains a native
+integration boundary; already-committed disconnection before sleep protection cannot be undone.
 
 A newly connected or reconnected screen receives an empty tile layout; windows are not automatically moved back. Its initial orientation follows its usable shape or configured override. Reconnection does not imply that it is the same physical monitor.
 
@@ -206,6 +235,7 @@ Keep the prototype as a small executable reference beside this specification: on
 | Physical screen arrangement and orientation | Implemented; edit screen X/Y and dimensions, use Auto or an explicit root override |
 | Cross-screen dragging | Implemented; preview on hover, transfer on release, discard source swaps |
 | Disconnection and reconnection | Simulated; migrate individually, support deferred placement with no screens, reconnect empty |
+| Sleep/wake protection | **Sleep and wake** and **Monitor absent after wake** scenarios; simulated clock, temporary missing/smaller displays, 1s stability and 10s grace, retained fullscreen exclusion; actual power notifications and hardware timing require native validation |
 | Minimization, hiding, native fullscreen, restoration | Simulated through debug controls; fullscreen/Space guided scenario separates native from logical focus; actual native events need an adapter |
 | Window classification | Simulated normal/dialog/palette/non-resizable kinds, unmanaged non-normal overlays, exact bundle-ID floating preferences, and Claude’s missing/disabled fullscreen-button exception; raw Accessibility attributes and native classification remain app integration |
 | Temporary observation loss and restart | Simulated; observation interruption retains state, restart demonstrates rebuilding without persistent layout storage |
@@ -255,6 +285,7 @@ The **Claude window eligibility** scenario exercises missing and disabled fullsc
 - During a live swap or transfer preview, create or close a window or disconnect its screen. Cancel the gesture before applying that event; ignore stale movement until release and retain the event after stale release/cancel. Mutate a separate display layout state with matching window IDs: its changes must leave the first gesture and preview intact.
 - Cancel a browser pointer stream during a live swap: restore the original layout, then start the next drag without an extra click. Cancel with Escape or a lifecycle edit while held: reject a new drag until `pointerup` or `pointercancel`, even outside the board, and preserve the lifecycle edit.
 - Disconnect a populated screen: migrate windows individually; reconnect a screen: do not restore or move them back.
+- Sleep with populated displays and a native fullscreen window; temporarily remove one display and shrink another. Keep all trees, assignments, and ratios through wake until the original geometry is stable. An unavailable fullscreen read retains exclusion and native focus; a confirmed exit uses normal insertion. If a display remains absent past the wake grace, migrate once and reconnect empty. Overlapping system/display sleep notifications and zero displays must not release protection early.
 - Minimize, hide, or fullscreen a tiled window: collapse its old position; on return, use normal insertion rather than restoring a placeholder.
 - Add an app to `floating-apps`: its existing windows stay put; a new matching window floats. Tile it manually, transfer it, and minimize/restore it: retain the manual choice. Remove the rule: only future windows return to automatic classification. Matching must not turn unmanaged popups into managed floats.
 - Create standard resizable Claude windows with missing and disabled Accessibility fullscreen buttons: tile both when insertion fits. Keep Claude dialogs and fixed windows floating and non-normal overlays unmanaged. Apply an explicit Claude floating-app preference: future managed windows float. Confirm that the generic missing-button fallback still floats an app without this exception.

@@ -7,7 +7,8 @@ final class TestWindow: Window, CustomStringConvertible {
     var deferFrameWrites = false
     private var pendingFrame: Rect?
     var beforeNextSizeRead: (@MainActor () async throws -> Void)?
-    var isMacosFullscreenForTest = false
+    var beforeNextFullscreenRead: (@MainActor () async throws -> Void)?
+    var isMacosFullscreenForTest: Bool? = false
     var isMacosMinimizedForTest = false
 
     private init(_ id: UInt32, _ workspace: Workspace, _ kind: WindowKind, _ rect: Rect?) {
@@ -61,5 +62,10 @@ final class TestWindow: Window, CustomStringConvertible {
 
     override func isMacosMinimized(_ cm: CancellationMode) async throws -> Bool { isMacosMinimizedForTest }
 
-    override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool { isMacosFullscreenForTest }
+    override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool? {
+        let beforeRead = beforeNextFullscreenRead
+        beforeNextFullscreenRead = nil
+        try await beforeRead?()
+        return isMacosFullscreenForTest
+    }
 }

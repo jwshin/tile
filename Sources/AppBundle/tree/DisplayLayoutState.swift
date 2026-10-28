@@ -15,6 +15,29 @@ import Common
     private var screenHistory: [String] = []
     private var focusSequence: UInt64 = 0
     private var restoration: [String: SavedLayout] = [:]
+    private(set) var displayRecovery = DisplayRecovery()
+    private(set) var lifecycleGeneration: UInt64 = 0
+    var isRecoveringDisplays: Bool { displayRecovery.isProtected }
+
+    func beginDisplaySleep(_ reason: DisplayRecovery.Reason) {
+        displayRecovery.sleep(reason, monitors: workspaces.map(\.workspaceMonitor))
+        lifecycleGeneration += 1
+        cancelPointer()
+        discardFocusRecovery()
+        for window in allWindows { window.cancelPendingFrame() }
+    }
+
+    func beginDisplayWake(_ reason: DisplayRecovery.Reason, at now: TimeInterval) {
+        displayRecovery.wake(reason, at: now)
+    }
+
+    @discardableResult func advanceDisplayRecovery(_ monitors: [MonitorInfo], at now: TimeInterval) -> Bool {
+        displayRecovery.advance(monitors, at: now)
+    }
+
+    func checkLifecycle(_ generation: UInt64) throws {
+        guard !isRecoveringDisplays, lifecycleGeneration == generation else { throw CancellationError() }
+    }
 
     private struct SavedLayout {
         let layout: BinaryLayout
@@ -34,7 +57,8 @@ import Common
 
     /// Pointer samples and lifecycle edits use this owner's gesture and restoration history.
     func updatePointer(_ window: Window, frame: Rect, at point: CGPoint, on destination: Workspace) {
-        guard isPointerDown, window.layoutState === self, window.isRegistered, contains(destination),
+        guard !isRecoveringDisplays, isPointerDown, window.layoutState === self, window.isRegistered,
+            contains(destination),
             manipulatedWindow == nil || manipulatedWindow === window
         else { return }
         restoration = [:]
@@ -43,7 +67,7 @@ import Common
     }
 
     func finishPointer(at point: CGPoint, on destination: Workspace) {
-        guard isHandlingPointer, contains(destination) else { return }
+        guard !isRecoveringDisplays, isHandlingPointer, contains(destination) else { return }
         restoration = [:]
         mouseTiling.finish(at: point, on: destination)
     }
@@ -58,6 +82,7 @@ import Common
         let counts = kinds.map { kind in "\(kind)=\(allWindows.filter { $0.kind == kind }.count)" }
         var lines = [
             "MODEL (captured before native reads)",
+            "Display recovery: protected=\(isRecoveringDisplays) generation=\(lifecycleGeneration)",
             "Registered windows: \(allWindows.count); \(counts.joined(separator: ", "))",
             "Logical focus: display=\(frozenFocus?.workspaceName ?? "none") window=\(frozenFocus?.windowId?.description ?? "none")",
             "Last imported native focus: \(lastKnownNativeFocusedWindowId?.description ?? "none"); recovery pending=\(pendingFocusRecovery)",
@@ -125,7 +150,7 @@ import Common
 
     /// All arrivals share one insertion policy, including restoration and screen migration.
     func place(_ window: Window, on requested: Workspace, kind: WindowKind) {
-        guard windows[window.windowId] === window else { return }
+        guard !isRecoveringDisplays, windows[window.windowId] === window else { return }
         check(requested.state === self)
         cancelPointer()
         let previous = focus
@@ -202,6 +227,7 @@ import Common
     }
 
     func reconcileMonitors(_ monitors: [MonitorInfo]) {
+        guard !isRecoveringDisplays else { return }
         guard let main = monitors.first(where: \.isMain) ?? monitors.first else { return }
         let ids = Set(monitors.map(\.displayId))
         let removed = workspaces.filter { !ids.contains($0.name) }
@@ -240,7 +266,7 @@ import Common
     }
 
     @discardableResult func removeWindow(_ window: Window, remember: Bool) -> Window? {
-        guard windows[window.windowId] === window else { return nil }
+        guard !isRecoveringDisplays, windows[window.windowId] === window else { return nil }
         cancelPointer()
         let previous = focus
         if remember { saveForRestoration() }
@@ -277,6 +303,7 @@ import Common
     }
 
     @discardableResult func restoreWindow(newlyDetectedWindow window: Window) -> Bool {
+        guard !isRecoveringDisplays else { return false }
         guard restoration.values.contains(where: { $0.kinds[window.windowId] != nil }) else { return false }
         cancelPointer()
         // Rebuild all saved memberships atomically, without transient insertion failures.

@@ -50,6 +50,15 @@ updates geometry without exchanging trees. Disconnecting inserts its tiled windo
 (or the main screen), moving floating and unavailable windows to that screen as well. A newly connected display
 gets an empty tree. A transient zero-display snapshot does not destroy existing layouts.
 
+`DisplayRecovery`, owned by `DisplayLayoutState`, protects the existing layouts across system and
+display sleep. `ActionExecution` cancels active refreshes and queued frame/focus work at sleep, then
+samples geometry every 250 ms after both wake notifications. The original display IDs and usable
+geometry must return and remain stable for 1 second; after a 10-second grace, a different stable,
+nonempty topology can commit normal migration/recovery. With no usable screens, polling stops after
+the grace and the next display event retries. A lifecycle generation rejects asynchronous results
+from before sleep even after recovery finishes. Menu configuration controls remain usable while
+layout actions are paused. No persistent snapshots or physical-monitor identification are added.
+
 There is no inactive-workspace hiding. All registered display layouts are visible. Frozen focus resolves
 references to disconnected displays back to the main display. Removing a display invalidates the
 closed-window restoration snapshot so unlocking cannot restore an obsolete display arrangement.
@@ -122,6 +131,13 @@ and authoritative policy document. Keep both synchronized with native policy cha
 MacApp serializes Accessibility operations on a dedicated run-loop thread per application. Main-actor
 refresh sessions reconcile native events with the mutable model. MacWindow bridges native window IDs
 and registered window objects. Keep cancellation, window classification, and lock-screen restoration when changing policy.
+Native fullscreen observations retain three states: true, false, and unavailable. Unavailable reads
+preserve membership and suppress frame writes. `NativeFrameWriter` runs on the AX thread and checks
+fullscreen plus cancellation before each size/position mutation, including delayed requests from
+optimistic layout. Main-actor layout rechecks the current allocation after suspending native reads.
+Actual AX calls are not interruptible or atomic with the preceding read; physical sleep/fullscreen
+timing and macOS Space behavior remain native integration checks.
+
 Notification setup is best effort and does not gate app/window registration. Successful subscriptions
 remain active when another notification fails; readable AXWindows and native focus still drive
 discovery during ordinary refreshes. An independent Foundation port keeps each AX thread alive even

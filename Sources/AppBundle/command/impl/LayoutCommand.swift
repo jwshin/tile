@@ -19,8 +19,11 @@ struct LayoutCommand: Command {
             window.bindAsFloatingWindow(to: workspace)
             if let size = window.lastFloatingSize { window.setAxFrame(nil, size) }
         case .floating:
+            let generation = window.layoutState.lifecycleGeneration
             let size = try? await window.getAxSize(.nonCancellable)
-            guard window.isRegistered, window.workspace === workspace, window.kind == .floating else { return .fail }
+            guard !window.layoutState.isRecoveringDisplays, window.layoutState.lifecycleGeneration == generation,
+                window.isRegistered, window.workspace === workspace, window.kind == .floating
+            else { return .fail }
             window.lastFloatingSize = size ?? window.lastFloatingSize
             window.layoutState.place(window, on: workspace, kind: .tiled)
         default: return .fail(io.err("Can't change layout of a native fullscreen, hidden, minimized, or popup window"))

@@ -42,6 +42,7 @@ import Common
         Dictionary(uniqueKeysWithValues: windows.map { ($0.windowId, $0.minimumSize) })
     }
     func recover() {
+        guard !state.isRecoveringDisplays else { return }
         layout.rootAxis = resolvedAxis
         let oldest = tiledWindows.sorted {
             $0.lastFocusSequence == $1.lastFocusSequence

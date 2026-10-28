@@ -511,3 +511,85 @@ test('held-pointer cancellation stays blocked until a terminal event outside the
     }
   }
 });
+
+test('sleep and wake guided controls retain display trees and native fullscreen until confirmed exit', () => {
+  const fixture = pointerFixture();
+  const scenario = fixture.scenarioControls('Sleep and wake');
+  scenario.click(0);
+  const before = plain(fixture.api.state.displays);
+  const nativeFocus = fixture.api.state.nativeFocused;
+  for (let i = 1; i <= 6; i++) {
+    scenario.click(i);
+    assert.deepEqual(plain(fixture.api.state.displays), before);
+    assert.equal(fixture.session.layoutWrites().length, 0);
+    assert.equal(fixture.api.state.nativeFocused, nativeFocus);
+  }
+  scenario.click(7);
+  assert.equal(fixture.api.state.power.phase, 'awake');
+  assert.deepEqual(plain(fixture.api.state.displays), before);
+  assert.equal(fixture.api.state.nativeFocused, 3);
+  scenario.click(8);
+  assert.equal(fixture.api.state.windows[3].mode, 'suspended');
+  assert.equal(fixture.api.state.windows[3].reason, 'fullscreen');
+  assert.equal(fixture.api.state.nativeFocused, 3);
+  assert(!fixture.session.layoutWrites().some(frame => frame.id === 3));
+  scenario.click(9);
+  assert.equal(fixture.api.state.windows[3].mode, 'tiled');
+  assert.equal(fixture.api.state.windows[3].display, 'B');
+  assertValid(fixture.session);
+});
+
+test('wake grace expires for an absent monitor and later reconnection stays empty', () => {
+  const fixture = pointerFixture();
+  const scenario = fixture.scenarioControls('Monitor absent after wake');
+  for (let i = 0; i < 4; i++) scenario.click(i);
+  assert.equal(fixture.api.state.windows[3].display, 'B');
+  scenario.click(4);
+  assert.equal(fixture.api.state.power.phase, 'awake');
+  assert.equal(fixture.api.state.windows[3].display, 'A');
+  scenario.click(5);
+  assert.equal(Layout.display(fixture.api.state, 'B').root, null);
+  assertValid(fixture.session);
+});
+
+test('sleep and fullscreen observation controls suppress writes and block user layout edits', () => {
+  const { api, element, session } = pointerFixture();
+  element('fullscreen-read-window').value = '3';
+  element('fullscreen-read').value = 'unknown';
+  element('fullscreen-observe').onclick();
+  assert.equal(api.state.windows[3].mode, 'tiled');
+  assert(!session.layoutWrites().some(frame => frame.id === 3));
+  element('fullscreen-read').value = 'true';
+  element('fullscreen-observe').onclick();
+  assert.equal(api.state.windows[3].reason, 'fullscreen');
+  const before = plain(api.state.displays);
+  element('power-sleep').onclick();
+  element('power-drop').onclick();
+  element('create').onclick();
+  assert.equal(Object.keys(api.state.windows).length, 3);
+  assert.equal(session.begin({ id: 1 }), false);
+  element('power-wake').onclick();
+  element('power-tick').onclick();
+  assert.deepEqual(plain(api.state.displays), before);
+  element('power-return').onclick();
+  element('power-tick').onclick();
+  assert.equal(api.state.power.phase, 'awake');
+  assert.deepEqual(plain(api.state.displays), before);
+});
+
+test('duplicate and overlapping sleep notifications and zero displays never prematurely release protection', () => {
+  const session = new Layout.DisplayLayoutState();
+  for (const reason of ['system', 'screens', 'system']) session.dispatch({ type: 'powerSleep', reason });
+  session.dispatch({ type: 'powerWake', reason: 'system' });
+  session.dispatch({ type: 'powerTick', seconds: 20 });
+  assert.equal(session.state.power.phase, 'sleeping');
+  session.dispatch({ type: 'powerDrop', display: 'A' });
+  session.dispatch({ type: 'powerDrop', display: 'B' });
+  session.dispatch({ type: 'powerWake', reason: 'screens' });
+  session.dispatch({ type: 'powerTick', seconds: 20 });
+  assert.equal(session.state.power.phase, 'recovering');
+  session.dispatch({ type: 'powerReturn' });
+  session.dispatch({ type: 'powerTick' });
+  assert.equal(session.state.power.phase, 'awake');
+  assertValid(session);
+});

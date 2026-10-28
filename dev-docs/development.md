@@ -146,3 +146,16 @@ Manual validation still needs an installed signed `tile.app`: enable the toggle,
 disable/re-enable there and reopen the menu, then log out/in and confirm tile starts. Disabling the
 toggle should prevent the next login launch without quitting the current app. These native menu and
 login/logout checks are not automated.
+
+## Sleep/wake protection validation (2026-10-28)
+
+The full Swift suite passes 165 tests, including unknown fullscreen reads, optimistic layout,
+per-write fullscreen/cancellation checks, interrupted refreshes, stale results after wake, temporary
+monitor loss and smaller geometry, overlapping power events, zero displays, grace expiry, menu
+controls during recovery, and timer-driven recovery without another notification. All 24 prototype
+checks pass; the new guided scenarios and lifecycle buttons are exercised through the DOM harness.
+
+Physical system/display sleep, external monitor wake latency and notification ordering, AX calls
+already executing at sleep, fullscreen animations, and the reported empty black Space still require
+an installed-app desktop check. The change does not claim to repair macOS Spaces. The Chrome visual
+check was blocked because browser automation disallowed the local-file URL; no visual pass is claimed.

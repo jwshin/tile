@@ -9,7 +9,7 @@ struct EnableCommand: Command {
         let newState = !application.isEnabled
         // Publish before an AX read can suspend, so a later toggle observes this transition.
         application.setEnabled(newState)
-        if newState {
+        if newState && !DisplayLayoutState.shared.isRecoveringDisplays {
             for workspace in DisplayLayoutState.shared.workspaces {
                 for window in workspace.floatingWindows {
                     window.lastFloatingSize = (try? await window.getAxSize(.nonCancellable)) ?? window.lastFloatingSize
