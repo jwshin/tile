@@ -156,5 +156,31 @@ extension CoreTests {
             await execution.refresh(.startup, assumeCancellable: false)
             #expect(side.layout.windowIds == [1])
         }
+
+        @Test func staleSnapshotAfterNormalCloseRefreshesWhenSurvivorChangesStateOrGeometry() {
+            let state = DisplayLayoutState(monitors: [main], pointer: TestPointerAdapter())
+            let workspace = state.mainWorkspace
+            let a = TestWindow.new(id: 1, workspace: workspace)
+            let b = TestWindow.new(id: 2, workspace: workspace)
+            let closed = TestWindow.new(id: 3, workspace: workspace)
+            state.removeWindow(closed, remember: true)
+            // Later b is minimized; a subsequent lock-screen departure must capture b as minimized, not tiled.
+            state.place(b, on: workspace, kind: .minimized)
+            state.removeWindow(a, remember: true)
+            state.removeWindow(b, remember: true)
+            let returnedA = TestWindow.new(id: 1, workspace: workspace)
+            let returnedB = TestWindow.new(id: 2, workspace: workspace)
+            #expect(state.restoreWindow(newlyDetectedWindow: returnedA))
+            #expect(state.restoreWindow(newlyDetectedWindow: returnedB))
+            #expect(returnedA.kind == .tiled && returnedB.kind == .minimized)
+
+            // Geometry change also invalidates an earlier close snapshot.
+            state.removeWindow(returnedB, remember: true)
+            state.reconcileMonitors([
+                TestMonitor(displayId: main.displayId, name: main.name, x: 0, isMain: true, width: 1280, height: 800)
+            ])
+            let afterResize = TestWindow.new(id: 2, workspace: workspace)
+            #expect(!state.restoreWindow(newlyDetectedWindow: afterResize))
+        }
     }
 }

@@ -16,8 +16,15 @@ struct LayoutCommand: Command {
         }
         switch window.kind {
         case .tiled:
+            let origin = window.lastAppliedLayoutPhysicalRect?.topLeftCorner
             window.bindAsFloatingWindow(to: workspace)
-            if let size = window.lastFloatingSize { window.setAxFrame(nil, size) }
+            if let size = window.lastFloatingSize {
+                window.setAxFrame(nil, size)
+                if let origin {
+                    window.lastAppliedLayoutPhysicalRect = Rect(
+                        topLeftX: origin.x, topLeftY: origin.y, width: size.width, height: size.height)
+                }
+            }
         case .floating:
             let generation = window.layoutState.lifecycleGeneration
             let size = try? await window.getAxSize(.nonCancellable)

@@ -3,6 +3,7 @@ import Common
 
 @MainActor struct NativeDesktopSessionAdapter: DesktopSessionAdapter {
     func focusedWindow() async throws -> Window? {
+        invalidateWindowLevelCache()
         let focused = try await getNativeFocusedWindow(.cancellable)
         if let window = focused as? MacWindow, window.kind != .popup {
             window.macApp.lastNativeFocusedWindowId = window.windowId
@@ -10,13 +11,18 @@ import Common
         return focused
     }
 
-    func validatePopups() async throws {
+    func validatePopups() async throws -> Bool {
+        invalidateWindowLevelCache()
+        var reclassified = false
         for popup in MacWindow.allWindows where popup.kind == .popup {
             let windowLevel = getWindowLevel(for: popup.windowId)
             if try await popup.isWindowHeuristic(windowLevel, .cancellable) {
-                try await popup.reclassify(on: focus.workspace, .cancellable)
+                if try await popup.reclassify(on: focus.workspace, .cancellable) {
+                    reclassified = true
+                }
             }
         }
+        return reclassified
     }
 
     func updateStatus() { updateTrayStatus() }
@@ -36,6 +42,7 @@ import Common
                 window.garbageCollect(skipClosedWindowsCache: false)
             }
         }
+        invalidateWindowLevelCache()
         for (app, windowIds) in mapping {
             for windowId in windowIds {
                 try await MacWindow.getOrRegister(windowId: windowId, macApp: app)

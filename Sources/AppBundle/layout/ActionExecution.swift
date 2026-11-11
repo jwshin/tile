@@ -5,7 +5,7 @@ import Common
 @MainActor protocol DesktopSessionAdapter {
     func focusedWindow() async throws -> Window?
     func refreshWindows() async throws
-    func validatePopups() async throws
+    @discardableResult func validatePopups() async throws -> Bool
     func updateStatus()
 }
 
@@ -18,6 +18,9 @@ enum ActionInput { case shortcut, menu }
     private var recoveryTask: Task<Void, Never>?
     private let now: @MainActor () -> TimeInterval
     private let automaticallyPollRecovery: Bool
+    private var activeSessionCount = 0
+    private var pendingRefreshAfterSession: (event: RefreshSessionEvent, optimistic: Bool)?
+    private var sessionGeneration: UInt64 = 0
     let diagnostics = SessionDiagnostics()
 
     init(
@@ -102,12 +105,20 @@ enum ActionInput { case shortcut, menu }
     }
 
     func cancelRefresh() {
+        pendingRefreshAfterSession = nil
         activeRefreshTask?.cancel()
         activeRefreshTask = nil
     }
 
     func scheduleRefresh(_ event: RefreshSessionEvent, optimisticallyPreLayoutWorkspaces: Bool = false) {
-        cancelRefresh()
+        activeRefreshTask?.cancel()
+        activeRefreshTask = nil
+        if activeSessionCount > 0 {
+            let optimistic = (pendingRefreshAfterSession?.optimistic ?? false) || optimisticallyPreLayoutWorkspaces
+            pendingRefreshAfterSession = (event, optimistic)
+            return
+        }
+        pendingRefreshAfterSession = nil
         guard displaysReady() else { return }
         activeRefreshTask = Task { @MainActor in
             guard !Task.isCancelled else { return }
@@ -147,6 +158,8 @@ enum ActionInput { case shortcut, menu }
                 } else {
                     spaceTransition = false
                 }
+                if spaceTransition { DisplayLayoutState.shared.cancelPointer() }
+                DisplayLayoutState.shared.reconcileReleasedPointer()
                 var preserveNativeFocus = spaceTransition
                 // Clear even on cancellation: a later AX refresh must not replay this recovery.
                 defer {
@@ -166,8 +179,11 @@ enum ActionInput { case shortcut, menu }
                 try await desktop.refreshWindows()
                 try state.checkLifecycle(generation)
                 DisplayLayoutState.shared.reconcileMonitors(monitorInfos)
-                if try await normalizeLayoutReason() {
-                    // A native-focused window may only become focusable after its state returns.
+                let restored = try await normalizeLayoutReason()
+                let reclassifiedPopup = try await desktop.validatePopups()
+                try state.checkLifecycle(generation)
+                if restored || reclassifiedPopup {
+                    // A native-focused window may only become focusable after its state returns or popup reclassifies.
                     let returnedFocus = try await desktop.focusedWindow()
                     try state.checkLifecycle(generation)
                     DisplayLayoutState.shared.importNativeFocus(returnedFocus)
@@ -175,8 +191,6 @@ enum ActionInput { case shortcut, menu }
                     DisplayLayoutState.shared.importNativeFocus(nativeFocus)
                 }
                 desktop.updateStatus()
-                try await desktop.validatePopups()
-                try state.checkLifecycle(generation)
                 if shouldLayout { try await layoutWorkspaces(preservingPointerInputFrom: nativeFocus) }
                 try state.checkLifecycle(generation)
                 if preserveNativeFocus {
@@ -202,7 +216,7 @@ enum ActionInput { case shortcut, menu }
     ) async throws -> T {
         guard displaysReady() else { throw CancellationError() }
         let state = DisplayLayoutState.shared
-        let generation = state.lifecycleGeneration
+        let lifecycleGen = state.lifecycleGeneration
         let interval = signposter.beginInterval(#function, "event: \(event)")
         defer { signposter.endInterval(#function, interval) }
         let session = diagnostics.begin(
@@ -214,22 +228,40 @@ enum ActionInput { case shortcut, menu }
                 session, outcome: outcome, windowIds: DisplayLayoutState.shared.allWindows.map(\.windowId))
         }
         cancelRefresh()
+        activeSessionCount += 1
+        sessionGeneration += 1
+        let currentSession = sessionGeneration
+        defer {
+            activeSessionCount -= 1
+            if activeSessionCount == 0, let pending = pendingRefreshAfterSession {
+                pendingRefreshAfterSession = nil
+                scheduleRefresh(pending.event, optimisticallyPreLayoutWorkspaces: pending.optimistic)
+            }
+        }
         do {
             return try await $refreshSessionEvent.withValue(event) {
                 let nativeFocus = try await desktop.focusedWindow()
-                try state.checkLifecycle(generation)
+                try state.checkLifecycle(lifecycleGen)
                 DisplayLayoutState.shared.importNativeFocus(nativeFocus)
                 let focusBefore = focus.windowOrNil
                 refreshModel()
                 let result = try await body()
-                try state.checkLifecycle(generation)
-                refreshModel()
-                let focusAfter = focus.windowOrNil
-                desktop.updateStatus()
-                try await layoutWorkspaces()
-                try state.checkLifecycle(generation)
-                let recovery = DisplayLayoutState.shared.takeFocusRecovery()
-                if recovery != nil || focusBefore != focusAfter { focusAfter?.nativeFocus() }
+                try state.checkLifecycle(lifecycleGen)
+                if currentSession == sessionGeneration {
+                    refreshModel()
+                    desktop.updateStatus()
+                    try await layoutWorkspaces()
+                    try state.checkLifecycle(lifecycleGen)
+                    if currentSession == sessionGeneration {
+                        let focusAfter = focus.windowOrNil
+                        let recovery = DisplayLayoutState.shared.takeFocusRecovery()
+                        if recovery != nil || focusBefore != focusAfter,
+                            let focusAfter, focusAfter.isRegistered, focusAfter.isFocusable
+                        {
+                            focusAfter.nativeFocus()
+                        }
+                    }
+                }
                 scheduleRefresh(event)
                 outcome = "completed"
                 return result

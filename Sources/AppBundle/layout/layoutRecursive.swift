@@ -24,8 +24,8 @@ extension Workspace {
             // Native reads suspend; use the current allocation after any intervening action.
             guard let rect = tiledFrames[window.windowId] else { continue }
             if window.isFullscreen && window.windowId == insertionTarget {
-                window.lastAppliedLayoutPhysicalRect = nil
                 let full = workspaceMonitor.visibleRectPaddedByOuterGaps
+                window.lastAppliedLayoutPhysicalRect = full
                 window.setAxFrame(full.topLeftCorner, full.size)
             } else {
                 window.isFullscreen = false

@@ -46,6 +46,23 @@ extension CoreTests {
             let existingFrame = try #require(workspace.tiledFrames[existing.windowId])
             #expect(existingFrame.width < initialWidth)
         }
+
+        @Test func malformedAccessibilityAttributeValuesReturnNilInsteadOfTrapping() throws {
+            #expect(Ax.sizeAttr.getter(NSNull()) == nil)
+            #expect(Ax.sizeAttr.getter(NSNumber(value: 42)) == nil)
+            #expect(Ax.topLeftCornerAttr.getter(NSNull()) == nil)
+            #expect(Ax.closeButtonAttr.getter(NSNull()) == nil)
+            #expect(Ax.closeButtonAttr.getter("unexpected" as AnyObject) == nil)
+            #expect(Ax.focusedWindowAttr.getter(NSNull()) == nil)
+            #expect(Ax.windowsAttr.getter(NSArray(array: [NSNull(), NSNumber(value: 1)]))?.isEmpty == true)
+
+            let pointValue = try #require(Ax.topLeftCornerAttr.setter(CGPoint(x: 10, y: 20)))
+            let sizeValue = try #require(Ax.sizeAttr.setter(CGSize(width: 300, height: 200)))
+            #expect(Ax.sizeAttr.getter(pointValue as AnyObject) == nil)
+            #expect(Ax.topLeftCornerAttr.getter(sizeValue as AnyObject) == nil)
+            #expect(Ax.topLeftCornerAttr.getter(pointValue as AnyObject) == CGPoint(x: 10, y: 20))
+            #expect(Ax.sizeAttr.getter(sizeValue as AnyObject) == CGSize(width: 300, height: 200))
+        }
     }
 }
 

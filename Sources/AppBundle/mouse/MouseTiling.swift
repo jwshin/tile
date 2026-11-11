@@ -23,6 +23,7 @@ import Foundation
         let frame: Rect
         let bounds: Rect
         let gap: CGFloat
+        let wasFullscreen: Bool
         var expected: BinaryLayout
         var resizing = false
         var hasRearranged = false
@@ -48,29 +49,58 @@ import Foundation
     func cancel() {
         if let current = validGesture() {
             current.workspace.layout = current.original
+            current.window.isFullscreen = current.wasFullscreen
             if current.kind == .floating { current.window.setAxFrame(current.frame.topLeftCorner, current.frame.size) }
             blockedUntilRelease = pointer.isButtonDown
+        } else if !pointer.isButtonDown {
+            blockedUntilRelease = false
         }
         clear()
     }
+
+    func resetMissedRelease() {
+        guard isHandlingPointer else { return }
+        if let current = validGesture() {
+            current.workspace.layout = current.original
+            current.window.isFullscreen = current.wasFullscreen
+            if current.kind == .floating { current.window.setAxFrame(current.frame.topLeftCorner, current.frame.size) }
+        }
+        clear()
+        blockedUntilRelease = false
+    }
+
+    func reconcileReleasedPointer() {
+        if gesture == nil && !pointer.isButtonDown {
+            blockedUntilRelease = false
+        }
+    }
+
     private func clear() {
         gesture = nil
         preview = nil
         pointer.showPreview(nil)
     }
 
-    func observe(_ window: Window, frame: Rect) {
+    @discardableResult
+    func observe(_ window: Window, frame: Rect) -> Bool {
         guard !blockedUntilRelease, window.layoutState === state, window.isRegistered,
             window.kind == .tiled || window.kind == .floating,
             let workspace = window.workspace
-        else { return }
+        else { return false }
         if gesture == nil {
-            let original = window.lastAppliedLayoutPhysicalRect ?? workspace.tiledFrames[window.windowId] ?? frame
+            let original: Rect
+            if window.kind == .floating {
+                let origin = window.lastAppliedLayoutPhysicalRect?.topLeftCorner ?? frame.topLeftCorner
+                original = Rect(topLeftX: origin.x, topLeftY: origin.y, width: frame.width, height: frame.height)
+            } else {
+                original = window.gestureBaselineRect ?? workspace.tiledFrames[window.windowId] ?? frame
+            }
             gesture = Gesture(
                 window: window, workspace: workspace, kind: window.kind, original: workspace.layout,
-                frame: original, bounds: workspace.layoutRect, gap: CGFloat(config.gap), expected: workspace.layout)
+                frame: original, bounds: workspace.layoutRect, gap: CGFloat(config.gap),
+                wasFullscreen: window.isFullscreen, expected: workspace.layout)
         }
-        guard var current = validGesture(), current.window === window else { return }
+        guard var current = validGesture(), current.window === window else { return false }
         // Only accepted samples supersede earlier writes. Stale samples after cancellation
         // must leave queued restoration and independent-action frames intact.
         window.cancelPendingFrame()
@@ -79,7 +109,7 @@ import Foundation
             current.resizing
             || (!current.hasRearranged
                 && (abs(frame.width - current.frame.width) > 0.001 || abs(frame.height - current.frame.height) > 0.001))
-        if current.resizing && current.kind == .tiled {
+        if current.resizing && current.kind == .tiled && !current.wasFullscreen {
             var layout = current.original
             let edges: [(CardinalDirection, CGFloat)] = [
                 (.left, frame.minX - current.frame.minX), (.right, frame.maxX - current.frame.maxX),
@@ -94,6 +124,7 @@ import Foundation
             current.expected = layout
         }
         gesture = current
+        return true
     }
 
     private func validGesture() -> Gesture? {
@@ -183,6 +214,7 @@ import Foundation
             window.windowId, with: target, section: section,
             in: current.bounds, gap: current.gap, minimums: destination.minimums)
         {
+            window.isFullscreen = false
             current.lastTargetRegion = rect
             current.windowSwapMode = current.windowSwapMode || !section
             current.hasRearranged = true
@@ -192,20 +224,23 @@ import Foundation
         gesture = current
     }
 
-    func finish(at point: CGPoint, on destination: Workspace) {
+    @discardableResult
+    func finish(at point: CGPoint, on destination: Workspace) -> Bool {
         defer {
             clear()
             blockedUntilRelease = false
         }
-        guard let current = validGesture() else { return }
+        guard let current = validGesture() else { return false }
         if !current.resizing, destination !== current.workspace, current.window.layoutState.contains(destination) {
             // Discard all incidental live swaps on the source before doing one transfer.
             current.workspace.layout = current.original
+            current.window.isFullscreen = false
             clear()
             current.window.layoutState.place(current.window, on: destination, kind: current.kind)
             _ = current.window.focusWindow()
         } else {
             drag(at: point, on: current.workspace)
         }
+        return true
     }
 }

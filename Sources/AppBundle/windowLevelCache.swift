@@ -5,6 +5,11 @@ import Foundation
 private var cache: [UInt32: MacOsWindowLevel] = [:]
 
 @MainActor
+func invalidateWindowLevelCache() {
+    cache.removeAll()
+}
+
+@MainActor
 func getWindowLevel(for windowId: UInt32) -> MacOsWindowLevel? {
     if let existing = cache[windowId] { return existing }
 
@@ -13,14 +18,10 @@ func getWindowLevel(for windowId: UInt32) -> MacOsWindowLevel? {
     guard let cfArray = CGWindowListCopyWindowInfo(options, CGWindowID(0)) as? [CFDictionary] else { return nil }
     for elem in cfArray {
         let dict = elem as NSDictionary
-
-        guard let _windowLayer = dict[kCGWindowLayer] else { continue }
-        let windowLayer = ((_windowLayer as! CFNumber) as NSNumber).intValue
-
-        guard let _windowId = dict[kCGWindowNumber] else { continue }
-        let windowId = ((_windowId as! CFNumber) as NSNumber).uint32Value
-
-        result[windowId] = .new(windowLevel: windowLayer)
+        guard let windowLayer = (dict[kCGWindowLayer] as? NSNumber)?.intValue,
+            let id = (dict[kCGWindowNumber] as? NSNumber)?.uint32Value
+        else { continue }
+        result[id] = .new(windowLevel: windowLayer)
     }
     cache = result
     return result[windowId]

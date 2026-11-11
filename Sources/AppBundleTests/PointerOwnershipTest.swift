@@ -161,5 +161,48 @@ extension CoreTests {
             #expect(!first.restoreWindow(newlyDetectedWindow: returnedA))
             #expect(second.restoreWindow(newlyDetectedWindow: returnedB))
         }
+
+        @Test func blockedPointerSamplesAndReleaseAfterCancellationPreserveRestoration() throws {
+            let pointer = TestPointerAdapter()
+            let state = DisplayLayoutState(monitors: [main], pointer: pointer)
+            let workspace = state.mainWorkspace
+            let a = TestWindow.new(id: 1, workspace: workspace)
+            let b = TestWindow.new(id: 2, workspace: workspace)
+            let frame = try #require(workspace.tiledFrames[1])
+            state.updatePointer(a, frame: frame, at: frame.center, on: workspace)
+            state.removeWindow(b, remember: true)
+            #expect(state.isHandlingPointer && state.manipulatedWindow == nil)
+            // Stale movement and eventual release of the cancelled gesture must not wipe restoration.
+            state.updatePointer(a, frame: frame, at: frame.center, on: workspace)
+            pointer.isButtonDown = false
+            state.finishPointer(at: frame.center, on: workspace)
+            let returned = TestWindow.new(id: 2, workspace: workspace)
+            #expect(state.restoreWindow(newlyDetectedWindow: returned))
+        }
+
+        @Test func missedReleaseRecoversOnNextMouseDownAndSpaceTransition() async throws {
+            let pointer = TestPointerAdapter()
+            let state = DisplayLayoutState(monitors: [main, side], pointer: pointer)
+            DisplayLayoutState.shared = state
+            unsafe testMonitors = [main, side]
+            let source = state.mainWorkspace
+            let a = TestWindow.new(id: 1, workspace: source)
+            let b = TestWindow.new(id: 2, workspace: source)
+            let original = source.layout
+            let frameA = try #require(source.tiledFrames[1])
+            state.updatePointer(a, frame: frameA, at: side.rect.center, on: state.workspace(for: side))
+            #expect(pointer.preview != nil && state.manipulatedWindow === a)
+            state.resetMissedPointerRelease()
+            #expect(!state.isHandlingPointer && pointer.preview == nil && source.layout == original)
+            let frameB = try #require(source.tiledFrames[2])
+            state.updatePointer(b, frame: frameB, at: frameB.center, on: source)
+            #expect(state.manipulatedWindow === b)
+
+            pointer.isButtonDown = false
+            let execution = ActionExecution(desktop: TestDesktopSessionAdapter())
+            await execution.refresh(
+                .globalObserver(NSWorkspace.activeSpaceDidChangeNotification.rawValue), assumeCancellable: false)
+            #expect(!state.isHandlingPointer && state.manipulatedWindow == nil)
+        }
     }
 }

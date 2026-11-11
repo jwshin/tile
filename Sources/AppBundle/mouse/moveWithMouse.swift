@@ -28,10 +28,14 @@ private func observeMouseChange(windowId: UInt32?, notification: String) {
     }
 }
 
-@MainActor func resetManipulatedWithMouseIfPossible() async throws {
+@discardableResult
+@MainActor func resetManipulatedWithMouseIfPossible() async throws -> Bool {
     let state = DisplayLayoutState.shared
-    guard state.isHandlingPointer else { return }
+    guard state.isHandlingPointer else { return false }
     let point = mouseLocation
     state.finishPointer(at: point, on: state.workspace(for: point.monitorApproximation))
-    ActionExecution.shared.scheduleRefresh(.resetManipulatedWithMouse)
+    if ConfigurationApplication.shared.isEnabled {
+        ActionExecution.shared.scheduleRefresh(.resetManipulatedWithMouse)
+    }
+    return true
 }

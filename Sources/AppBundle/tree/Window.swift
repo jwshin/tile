@@ -13,10 +13,27 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
     var lastFloatingSize: CGSize?
     var minimumSize = BinaryLayout.baseline
     var isResizable = true
+    var needsClassificationOnResume = false
     private var constraintCandidate: CGSize?
+    private var confirmedAppliedRounding: (requested: CGSize, actual: CGSize)?
     var lastFocusSequence: UInt64 = 0
     var isFullscreen = false
-    var lastAppliedLayoutPhysicalRect: Rect?
+    var lastAppliedLayoutPhysicalRect: Rect? {
+        didSet {
+            if lastAppliedLayoutPhysicalRect == nil {
+                confirmedAppliedRounding = nil
+            }
+        }
+    }
+
+    var gestureBaselineRect: Rect? {
+        guard var rect = lastAppliedLayoutPhysicalRect else { return nil }
+        if let rounding = confirmedAppliedRounding, rect.size == rounding.requested {
+            rect.width = rounding.actual.width
+            rect.height = rounding.actual.height
+        }
+        return rect
+    }
 
     init(
         id: UInt32, _ app: any AbstractApp, workspace: Workspace, kind: WindowKind = .tiled,
@@ -45,6 +62,7 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
     func cancelPendingFrame() {}
     func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool? { false }
     func isMacosMinimized(_ cm: CancellationMode) async throws -> Bool { false }
+    func classifyOnResume() async throws -> (kind: WindowKind, isResizable: Bool)? { nil }
     func getCenter(_ cm: CancellationMode) async throws -> CGPoint? { try await getAxRect(cm)?.center }
 
     /// Keep the actual applied size as the next gesture's baseline, including app rounding/cell snapping.
@@ -53,6 +71,14 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
         if lastAppliedLayoutPhysicalRect?.size == requested, layoutState.manipulatedWindow !== self {
             lastAppliedLayoutPhysicalRect?.width = actual.width
             lastAppliedLayoutPhysicalRect?.height = actual.height
+            if !learnedMinimum,
+                abs(actual.width - requested.width) <= 32,
+                abs(actual.height - requested.height) <= 32
+            {
+                confirmedAppliedRounding = (requested: requested, actual: actual)
+            } else {
+                confirmedAppliedRounding = nil
+            }
         }
         return learnedMinimum
     }
@@ -79,6 +105,7 @@ enum WindowKind { case tiled, floating, popup, minimized, hidden, nativeFullscre
             return false
         }
         layoutState.cancelPointer()
+        layoutState.invalidateRestoration()
         minimumSize = candidate
         constraintCandidate = nil
         return true

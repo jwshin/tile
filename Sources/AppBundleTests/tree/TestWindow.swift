@@ -6,10 +6,12 @@ final class TestWindow: Window, CustomStringConvertible {
     private var _rect: Rect?
     var deferFrameWrites = false
     private var pendingFrame: Rect?
+    var beforeNextRectRead: (@MainActor () async throws -> Void)?
     var beforeNextSizeRead: (@MainActor () async throws -> Void)?
     var beforeNextFullscreenRead: (@MainActor () async throws -> Void)?
     var isMacosFullscreenForTest: Bool? = false
     var isMacosMinimizedForTest = false
+    var resumeClassificationForTest: (kind: WindowKind, isResizable: Bool)?
 
     private init(_ id: UInt32, _ workspace: Workspace, _ kind: WindowKind, _ rect: Rect?) {
         _rect = rect
@@ -35,7 +37,10 @@ final class TestWindow: Window, CustomStringConvertible {
     }
 
     @MainActor override func getAxRect(_ cm: CancellationMode) async throws -> Rect? {  // todo change to not Optional
-        _rect
+        let beforeRead = beforeNextRectRead
+        beforeNextRectRead = nil
+        try await beforeRead?()
+        return _rect
     }
 
     @MainActor override func getAxSize(_ cm: CancellationMode) async throws -> CGSize? {
@@ -67,5 +72,9 @@ final class TestWindow: Window, CustomStringConvertible {
         beforeNextFullscreenRead = nil
         try await beforeRead?()
         return isMacosFullscreenForTest
+    }
+
+    override func classifyOnResume() async throws -> (kind: WindowKind, isResizable: Bool)? {
+        resumeClassificationForTest
     }
 }

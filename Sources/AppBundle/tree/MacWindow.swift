@@ -4,9 +4,14 @@ import Common
 final class MacWindow: Window {
     let macApp: MacApp
     private var frameRequest: UInt64 = 0
+    private let listedFloatingAtDiscovery: Bool
 
-    private init(_ id: UInt32, _ app: MacApp, workspace: Workspace, kind: WindowKind, size: CGSize?) {
+    private init(
+        _ id: UInt32, _ app: MacApp, workspace: Workspace, kind: WindowKind, size: CGSize?,
+        listedFloatingAtDiscovery: Bool
+    ) {
         macApp = app
+        self.listedFloatingAtDiscovery = listedFloatingAtDiscovery
         super.init(id: id, app, workspace: workspace, kind: kind, lastFloatingSize: size)
     }
 
@@ -19,17 +24,42 @@ final class MacWindow: Window {
         try state.checkLifecycle(generation)
         if let existing = Window.get(byId: windowId) as? MacWindow { return existing }
         let destination = focus.workspace
+        let listedFloating = macApp.rawAppBundleId.map(config.floatingApps.contains) == true
         let rect = try await macApp.getAxRect(windowId, .cancellable)
-        var kind = try await classifyWindow(windowId, macApp, .cancellable)
-        let resizable = try await macApp.isResizable(windowId, .cancellable)
         try state.checkLifecycle(generation)
-        if kind == .tiled && !resizable { kind = .floating }
+        let fullscreen = try await macApp.isMacosNativeFullscreen(windowId, .cancellable) == true
+        try state.checkLifecycle(generation)
+        let minimized = fullscreen ? false : (try await macApp.isMacosNativeMinimized(windowId, .cancellable) == true)
+        try state.checkLifecycle(generation)
+        let deferredNativeKind: WindowKind? =
+            fullscreen ? .nativeFullscreen : minimized ? .minimized : macApp.isHidden ? .hidden : nil
+        let kind: WindowKind
+        let resizable: Bool
+        if let deferredNativeKind {
+            // Minimized, hidden, and fullscreen windows expose AXDialog subroles or nil window levels;
+            // defer window-kind classification until the window becomes available on screen.
+            kind = deferredNativeKind
+            resizable = true
+        } else {
+            var classified = try await classifyWindow(
+                windowId, macApp, .cancellable, listedFloating: listedFloating)
+            try state.checkLifecycle(generation)
+            resizable = try await macApp.isResizable(windowId, .cancellable)
+            try state.checkLifecycle(generation)
+            if classified == .tiled && !resizable { classified = .floating }
+            kind = classified
+        }
         // AX reads suspend. Resolve identity and display membership again before publishing.
         if let existing = Window.get(byId: windowId) as? MacWindow { return existing }
         let workspace = destination.state.contains(destination) ? destination : focus.workspace
-        let window = MacWindow(windowId, macApp, workspace: workspace, kind: kind, size: rect?.size)
+        let window = MacWindow(
+            windowId, macApp, workspace: workspace, kind: kind, size: rect?.size,
+            listedFloatingAtDiscovery: listedFloating)
         window.isResizable = resizable
-        window.layoutState.restoreWindow(newlyDetectedWindow: window)
+        window.needsClassificationOnResume = deferredNativeKind != nil
+        if window.layoutState.restoreWindow(newlyDetectedWindow: window) {
+            window.needsClassificationOnResume = false
+        }
         return window
     }
 
@@ -85,22 +115,43 @@ final class MacWindow: Window {
         frameRequest += 1
         macApp.cancelPendingFrame(windowId)
     }
-}
 
-extension MacWindow {
-    func reclassify(on workspace: Workspace, _ cm: CancellationMode) async throws {
+    override func classifyOnResume() async throws -> (kind: WindowKind, isResizable: Bool)? {
         let generation = layoutState.lifecycleGeneration
         try layoutState.checkLifecycle(generation)
-        let kind = try await classifyWindow(windowId, macApp, cm)
-        let resizable = try await macApp.isResizable(windowId, cm)
+        invalidateWindowLevelCache()
+        let kind = try await classifyWindow(
+            windowId, macApp, .cancellable, listedFloating: listedFloatingAtDiscovery)
         try layoutState.checkLifecycle(generation)
-        guard isRegistered, self.kind == .popup else { return }
-        isResizable = resizable
-        layoutState.place(self, on: workspace, kind: kind)
+        let resizable = try await macApp.isResizable(windowId, .cancellable)
+        try layoutState.checkLifecycle(generation)
+        return (kind, resizable)
     }
 }
 
-@MainActor private func classifyWindow(_ id: UInt32, _ app: MacApp, _ cm: CancellationMode) async throws -> WindowKind {
+extension MacWindow {
+    @discardableResult
+    func reclassify(on workspace: Workspace, _ cm: CancellationMode) async throws -> Bool {
+        let generation = layoutState.lifecycleGeneration
+        try layoutState.checkLifecycle(generation)
+        let kind = try await classifyWindow(
+            windowId, macApp, cm,
+            listedFloating: macApp.rawAppBundleId.map(config.floatingApps.contains) == true)
+        try layoutState.checkLifecycle(generation)
+        let resizable = try await macApp.isResizable(windowId, cm)
+        try layoutState.checkLifecycle(generation)
+        guard isRegistered, self.kind == .popup else { return false }
+        isResizable = resizable
+        layoutState.place(self, on: workspace, kind: kind)
+        return self.kind != .popup
+    }
+}
+
+@MainActor private func classifyWindow(
+    _ id: UInt32, _ app: MacApp, _ cm: CancellationMode, listedFloating: Bool
+) async throws -> WindowKind {
     let type = try await app.getAxUiElementWindowType(id, getWindowLevel(for: id), cm)
-    return type.initialKind(bundleId: app.rawAppBundleId, floatingApps: config.floatingApps)
+    if type == .popup { return .popup }
+    if listedFloating { return .floating }
+    return type == .dialog ? .floating : .tiled
 }

@@ -11,6 +11,7 @@ import Testing
     }
     var failFocusRead = false
     var onRefreshWindows: (() throws -> Void)?
+    var onValidatePopups: (() throws -> Bool)?
     private(set) var focusReads = 0
     private(set) var statusUpdates = 0
     private(set) var refreshes = 0
@@ -24,7 +25,7 @@ import Testing
         refreshes += 1
         try onRefreshWindows?()
     }
-    func validatePopups() {}
+    func validatePopups() throws -> Bool { try onValidatePopups?() ?? false }
     func updateStatus() { statusUpdates += 1 }
 }
 
@@ -324,6 +325,170 @@ extension CoreTests {
             #expect(window.isRegistered)
             #expect(desktop.statusUpdates == 0)
         }
+
+        @Test func reclassifiedPopupImportsNativeFocusInSameRefresh() async {
+            let workspace = focus.workspace
+            let existing = TestWindow.new(id: 1, workspace: workspace)
+            _ = existing.focusWindow()
+            let promoted = TestWindow.new(id: 2, workspace: workspace, kind: .popup)
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = promoted
+            desktop.onValidatePopups = {
+                workspace.state.place(promoted, on: workspace, kind: .tiled)
+                return true
+            }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            await execution.refresh(.startup, assumeCancellable: false)
+            #expect(promoted.kind == .tiled)
+            #expect(focus.windowOrNil === promoted)
+        }
+
+        @Test func backgroundRefreshScheduledDuringActiveSessionWaitsUntilSessionFinishes() async throws {
+            let workspace = focus.workspace
+            let window = TestWindow.new(
+                id: 1, workspace: workspace, kind: .floating,
+                rect: Rect(topLeftX: 100, topLeftY: 100, width: 400, height: 300))
+            _ = window.focusWindow()
+            let started = AwaitableOneTimeBroadcastLatch()
+            let resumeRead = AwaitableOneTimeBroadcastLatch()
+            window.beforeNextSizeRead = {
+                await started.signalToAll()
+                try await resumeRead.await()
+            }
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = window
+            let refreshed = AwaitableOneTimeBroadcastLatch()
+            desktop.onRefreshWindows = {
+                Task { await refreshed.signalToAll() }
+            }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+            let actionTask = Task { try await execution.execute(.toggleFloating) }
+            defer { actionTask.cancel() }
+            try await started.await()
+            execution.scheduleRefresh(.startup)
+            await Task.yield()
+            #expect(desktop.refreshes == 0)
+            await resumeRead.signalToAll()
+            let result = try await actionTask.value
+            #expect(result.exitCode == .succ)
+            try await refreshed.await()
+            #expect(desktop.refreshes == 1)
+        }
+
+        @Test func overlappingShortcutsApplyOnlyLatestSessionFocus() async throws {
+            let workspace = focus.workspace
+            let left = TestWindow.new(id: 1, workspace: workspace)
+            let middle = TestWindow.new(id: 2, workspace: workspace)
+            let right = TestWindow.new(id: 3, workspace: workspace)
+            let float = TestWindow.new(
+                id: 4, workspace: workspace, kind: .floating,
+                rect: Rect(topLeftX: 80, topLeftY: 80, width: 320, height: 220))
+            _ = middle.focusWindow()
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = middle
+            let inFirstLayout = AwaitableOneTimeBroadcastLatch()
+            let releaseFirstLayout = AwaitableOneTimeBroadcastLatch()
+            float.beforeNextRectRead = {
+                await inFirstLayout.signalToAll()
+                try await releaseFirstLayout.await()
+            }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+
+            // First shortcut moves logical focus to `left`, then suspends inside layoutWorkspaces().
+            let first = Task { try await execution.execute(.focusLeft) }
+            defer { first.cancel() }
+            try await inFirstLayout.await()
+            #expect(focus.windowOrNil === left)
+
+            // Second shortcut runs while first is suspended and focuses `right` (`left` -> `middle` -> `right`).
+            desktop.nativeFocus = left
+            _ = try await execution.execute(.focusRight)
+            desktop.nativeFocus = middle
+            _ = try await execution.execute(.focusDown)
+            #expect(focus.windowOrNil === right)
+            #expect(desktop.nativeFocus === right)
+
+            // Resuming the older session must not clobber native focus back to `left`.
+            await releaseFirstLayout.signalToAll()
+            _ = try await first.value
+            #expect(focus.windowOrNil === right)
+            #expect(desktop.nativeFocus === right)
+        }
+
+        @Test func optimisticRefreshDeferredDuringActiveSessionPreservesOptimisticFlag() async throws {
+            let workspace = focus.workspace
+            let window = TestWindow.new(
+                id: 1, workspace: workspace, kind: .floating,
+                rect: Rect(topLeftX: 100, topLeftY: 100, width: 400, height: 300))
+            let tile = TestWindow.new(id: 2, workspace: workspace)
+            _ = window.focusWindow()
+            let started = AwaitableOneTimeBroadcastLatch()
+            let resumeRead = AwaitableOneTimeBroadcastLatch()
+            window.beforeNextSizeRead = {
+                await started.signalToAll()
+                try await resumeRead.await()
+            }
+            let desktop = TestDesktopSessionAdapter()
+            desktop.nativeFocus = window
+            var preLayoutFrameObservedDuringRefresh: Rect?
+            let refreshed = AwaitableOneTimeBroadcastLatch()
+            desktop.onRefreshWindows = {
+                // Optimistic pre-layout runs before refreshWindows(), so `tile` already has its frame.
+                preLayoutFrameObservedDuringRefresh = tile.lastAppliedLayoutPhysicalRect
+                Task { await refreshed.signalToAll() }
+            }
+            let execution = ActionExecution(desktop: desktop)
+            defer { execution.cancelRefresh() }
+
+            let session = Task { try await execution.execute(.toggleFloating) }
+            defer { session.cancel() }
+            try await started.await()
+            // Clear tile's applied rect after scheduling an optimistic refresh followed by a non-optimistic one.
+            execution.scheduleRefresh(
+                .globalObserver(NSWorkspace.didActivateApplicationNotification.rawValue),
+                optimisticallyPreLayoutWorkspaces: true)
+            execution.scheduleRefresh(
+                .ax(kAXFocusedWindowChangedNotification), optimisticallyPreLayoutWorkspaces: false)
+            #expect(desktop.refreshes == 0)
+
+            await resumeRead.signalToAll()
+            _ = try await session.value
+            // Note: runSession's trailing scheduleRefresh coalesces with any queued optimistic flag.
+            try await refreshed.await()
+            #expect(preLayoutFrameObservedDuringRefresh != nil)
+        }
+
+        @Test func outOfOrderSizeCallbacksCannotCorruptNewerLayoutOrRoundingBaseline() async throws {
+            let workspace = focus.workspace
+            let a = TestWindow.new(id: 1, workspace: workspace)
+            let b = TestWindow.new(id: 2, workspace: workspace)
+            try await workspace.layoutWorkspace()
+            let initialRect = try #require(workspace.tiledFrames[1])
+            let roundedInitial = CGSize(width: initialRect.width - 10, height: initialRect.height - 6)
+            #expect(!a.observeAppliedSize(requested: initialRect.size, actual: roundedInitial))
+            #expect(a.gestureBaselineRect?.size == roundedInitial)
+
+            // Resize split so `a` gets a new requested width, then deliver a stale callback from `initialRect`.
+            workspace.layout.resize(1, axis: .h, by: 140, in: workspace.layoutRect, gap: CGFloat(config.gap))
+            try await workspace.layoutWorkspace()
+            let resizedRect = try #require(workspace.tiledFrames[1])
+            #expect(!a.observeAppliedSize(requested: initialRect.size, actual: CGSize(width: 900, height: 900)))
+            #expect(a.gestureBaselineRect?.size == resizedRect.size)
+            #expect(a.minimumSize == BinaryLayout.baseline)
+
+            // Dragging `a` with its new size swaps cleanly with `b` rather than resizing.
+            var moved = resizedRect
+            moved.topLeftX += 25
+            let target = try #require(workspace.tiledFrames[b.windowId])
+            let mouse = TestPointerDriver(state: workspace.state)
+            defer { mouse.cancel() }
+            mouse.observe(a, frame: moved)
+            mouse.drag(at: target.center, on: workspace)
+            #expect(workspace.layout.windowIds == [2, 1])
+        }
     }
 }
 
@@ -345,6 +510,6 @@ extension CoreTests {
         return TestApp.shared.focusedWindow
     }
     func refreshWindows() {}
-    func validatePopups() {}
+    func validatePopups() -> Bool { false }
     func updateStatus() {}
 }

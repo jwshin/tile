@@ -35,10 +35,11 @@ struct TestMonitor: MonitorInfo {
     let displayId: String
     let name: String
     let x: Double
+    var y: Double = 0
     var isMain: Bool = false
     var width: CGFloat = 1920
     var height: CGFloat = 1080
-    var rect: Rect { Rect(topLeftX: x, topLeftY: 0, width: width, height: height) }
+    var rect: Rect { Rect(topLeftX: x, topLeftY: y, width: width, height: height) }
     var visibleRect: Rect { rect }
 }
 

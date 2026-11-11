@@ -48,11 +48,15 @@ extension MonitorInfo {
         monitorsInDirection: [MonitorInfo], index: Int
     )? {
         let currentMonitor = self
-        let monitors = sortedMonitorInfos.filter {
-            currentMonitor.rect.topLeftCorner == $0.rect.topLeftCorner
+        let sorted =
+            direction.orientation == .h
+            ? monitorInfos.sortedBy([\.rect.minX, \.rect.minY])
+            : monitorInfos.sortedBy([\.rect.minY, \.rect.minX])
+        let monitors = sorted.filter {
+            currentMonitor.displayId == $0.displayId
                 || $0.relation(to: currentMonitor) == direction.orientation
         }
-        guard let index = monitors.firstIndex(where: { $0.rect.topLeftCorner == currentMonitor.rect.topLeftCorner })
+        guard let index = monitors.firstIndex(where: { $0.displayId == currentMonitor.displayId })
         else { return nil }
         return (monitors, index + direction.focusOffset)
     }

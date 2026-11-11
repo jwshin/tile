@@ -21,6 +21,20 @@ func normalizeLayoutReason() async throws -> Bool {
             if window.kind == .tiled || window.kind == .floating { window.resumeKind = window.kind }
             if window.kind != nativeKind { window.layoutState.place(window, on: workspace, kind: nativeKind) }
         } else if window.kind == .nativeFullscreen || window.kind == .minimized || window.kind == .hidden {
+            if window.needsClassificationOnResume,
+                let classified = try await window.classifyOnResume()
+            {
+                try state.checkLifecycle(generation)
+                guard window.isRegistered, let currentWorkspace = window.workspace else { continue }
+                window.needsClassificationOnResume = false
+                window.isResizable = classified.isResizable
+                var targetKind = classified.kind
+                if targetKind == .tiled && !classified.isResizable { targetKind = .floating }
+                window.resumeKind = targetKind == .popup ? .tiled : targetKind
+                window.layoutState.place(window, on: currentWorkspace, kind: targetKind)
+                if targetKind != .popup { restored = true }
+                continue
+            }
             window.layoutState.place(window, on: workspace, kind: window.resumeKind)
             restored = true
         }

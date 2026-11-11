@@ -239,5 +239,33 @@ extension CoreTests {
             workspace.state.place(window, on: workspace, kind: .tiled)
             #expect(window.kind == .floating && workspace.layout.windowIds.isEmpty)
         }
+
+        @Test func windowDiscoveredWhileUnavailableClassifiesOnFirstResume() async throws {
+            let workspace = focus.workspace
+            let standard = TestWindow.new(id: 1, workspace: workspace, kind: .minimized)
+            standard.isMacosMinimizedForTest = true
+            standard.needsClassificationOnResume = true
+            standard.resumeClassificationForTest = (.tiled, true)
+
+            let fixed = TestWindow.new(id: 2, workspace: workspace, kind: .hidden)
+            fixed.needsClassificationOnResume = true
+            fixed.resumeClassificationForTest = (.tiled, false)
+
+            let overlay = TestWindow.new(id: 3, workspace: workspace, kind: .hidden)
+            overlay.needsClassificationOnResume = true
+            overlay.resumeClassificationForTest = (.popup, true)
+
+            TestApp.shared.isHidden = true
+            try await normalizeLayoutReason()
+            #expect(standard.kind == .minimized && fixed.kind == .hidden && overlay.kind == .hidden)
+
+            standard.isMacosMinimizedForTest = false
+            TestApp.shared.isHidden = false
+            #expect(try await normalizeLayoutReason())
+            #expect(standard.kind == .tiled && !standard.needsClassificationOnResume)
+            #expect(fixed.kind == .floating && !fixed.isResizable && !fixed.needsClassificationOnResume)
+            #expect(overlay.kind == .popup && !overlay.needsClassificationOnResume)
+            #expect(workspace.layout.windowIds == [1])
+        }
     }
 }

@@ -333,5 +333,77 @@ extension CoreTests {
             mouse.finish(at: workspace.tiledFrames[2]!.center, on: workspace)
             #expect(workspace.layout == before && DisplayLayoutState.shared.manipulatedWindow == nil)
         }
+
+        @Test func appRoundedSizeSurvivesRedundantLayoutPassBeforeDrag() async throws {
+            let workspace = focus.workspace
+            let first = TestWindow.new(id: 1, workspace: workspace)
+            TestWindow.new(id: 2, workspace: workspace)
+            try await workspace.layoutWorkspace()
+            let requested = try #require(workspace.tiledFrames[1])
+            var rounded = requested
+            rounded.width -= 12
+            #expect(!first.observeAppliedSize(requested: requested.size, actual: rounded.size))
+            // A later layout pass queues the same unrounded tile frame while the window stays cell-snapped.
+            first.deferFrameWrites = true
+            try await workspace.layoutWorkspace()
+            rounded.topLeftX += 30
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
+            defer { mouse.cancel() }
+            mouse.observe(first, frame: rounded)
+            mouse.drag(at: workspace.tiledFrames[2]!.center, on: workspace)
+            #expect(workspace.layout.windowIds == [2, 1])
+        }
+
+        @Test func tileFullscreenWindowCanSwapAndTransferByDraggingTitleBar() async throws {
+            let source = focus.workspace
+            let first = TestWindow.new(id: 1, workspace: source)
+            let second = TestWindow.new(id: 2, workspace: source)
+            let destination = secondScreen()
+            let secondSlot = try #require(source.tiledFrames[second.windowId])
+            _ = first.focusWindow()
+            await Action.fullscreen.applyToModel()
+            try await source.layoutWorkspace()
+            let full = try #require(await first.getAxRect(.nonCancellable))
+            var dragged = full
+            dragged.topLeftX += 10
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
+            mouse.observe(first, frame: dragged)
+            mouse.drag(at: secondSlot.center, on: source)
+            #expect(source.layout.windowIds == [2, 1])
+            #expect(!first.isFullscreen)
+            mouse.cancel()
+            #expect(first.isFullscreen && source.layout.windowIds == [1, 2])
+            DisplayLayoutState.shared.resetMissedPointerRelease()
+            mouse.observe(first, frame: dragged)
+            mouse.drag(at: destination.layoutRect.center, on: destination)
+            #expect(mouse.preview?.workspace === destination)
+            mouse.finish(at: destination.layoutRect.center, on: destination)
+            #expect(first.workspace === destination && !first.isFullscreen)
+        }
+
+        @Test func floatingWindowTransfersAfterPriorResizeUnlessResizedDuringGesture() throws {
+            let source = focus.workspace
+            let destination = secondScreen()
+            let oldBaseline = Rect(topLeftX: 100, topLeftY: 100, width: 400, height: 300)
+            let currentFloat = Rect(topLeftX: 140, topLeftY: 120, width: 520, height: 360)
+            let floating = TestWindow.new(id: 1, workspace: source, kind: .floating, rect: currentFloat)
+            floating.lastAppliedLayoutPhysicalRect = oldBaseline
+            let mouse = TestPointerDriver(state: DisplayLayoutState.shared)
+            mouse.observe(floating, frame: currentFloat)
+            mouse.drag(at: destination.layoutRect.center, on: destination)
+            #expect(mouse.preview?.floating == true)
+            mouse.finish(at: destination.layoutRect.center, on: destination)
+            #expect(floating.workspace === destination && floating.kind == .floating)
+
+            // Active corner-resizing during the gesture itself must not transfer across screens.
+            var resizedDuringGesture = currentFloat
+            resizedDuringGesture.width += 80
+            mouse.observe(floating, frame: currentFloat)
+            mouse.observe(floating, frame: resizedDuringGesture)
+            mouse.drag(at: source.layoutRect.center, on: source)
+            #expect(mouse.preview == nil)
+            mouse.finish(at: source.layoutRect.center, on: source)
+            #expect(floating.workspace === destination)
+        }
     }
 }

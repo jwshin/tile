@@ -189,5 +189,25 @@ extension CoreTests {
             #expect(rect.maxX <= main.visibleRect.maxX)
         }
 
+        @Test func verticalMonitorCommandsUseVerticalOrderDespiteHorizontalOffset() async {
+            let laptop = TestMonitor(
+                displayId: "laptop", name: "Laptop", x: 0, y: 0, isMain: true, width: 1512, height: 982)
+            let externalAbove = TestMonitor(
+                displayId: "external", name: "External", x: 500, y: -1440, width: 2560, height: 1440)
+            connect([laptop, externalAbove])
+            let window = TestWindow.new(id: 1, workspace: laptop.activeWorkspace)
+            _ = window.focusWindow()
+            #expect(await Action.downMonitor.applyToModel().exitCode == .fail)
+            #expect(await Action.upMonitor.applyToModel().exitCode == .succ)
+            #expect(focus.workspace === externalAbove.activeWorkspace)
+            #expect(await Action.upMonitor.applyToModel().exitCode == .fail)
+            #expect(await Action.downMonitor.applyToModel().exitCode == .succ)
+            #expect(focus.workspace === laptop.activeWorkspace)
+            #expect(await Action.moveToMonitorUp.applyToModel().exitCode == .succ)
+            #expect(window.workspace === externalAbove.activeWorkspace)
+            #expect(await Action.moveToMonitorDown.applyToModel().exitCode == .succ)
+            #expect(window.workspace === laptop.activeWorkspace)
+        }
+
     }
 }

@@ -61,18 +61,23 @@ import Common
             contains(destination),
             manipulatedWindow == nil || manipulatedWindow === window
         else { return }
-        restoration = [:]
-        mouseTiling.observe(window, frame: frame)
-        mouseTiling.drag(at: point, on: destination)
+        if mouseTiling.observe(window, frame: frame) {
+            restoration = [:]
+            mouseTiling.drag(at: point, on: destination)
+        }
     }
 
     func finishPointer(at point: CGPoint, on destination: Workspace) {
         guard !isRecoveringDisplays, isHandlingPointer, contains(destination) else { return }
-        restoration = [:]
-        mouseTiling.finish(at: point, on: destination)
+        if mouseTiling.finish(at: point, on: destination) {
+            restoration = [:]
+        }
     }
 
     func cancelPointer() { mouseTiling.cancel() }
+    func resetMissedPointerRelease() { mouseTiling.resetMissedRelease() }
+    func reconcileReleasedPointer() { mouseTiling.reconcileReleasedPointer() }
+    func invalidateRestoration() { restoration = [:] }
 
     var workspaces: [Workspace] { layouts.values.sorted() }
     var allWindows: [Window] { windows.values.sorted { $0.windowId < $1.windowId } }
@@ -249,12 +254,21 @@ import Common
                 + source.windows.filter { $0.kind != .tiled }.map { ($0, $0.kind) }
             source.layout = BinaryLayout()
             layouts.removeValue(forKey: source.name)
-            for (window, kind) in incoming { place(window, on: destination, kind: kind) }
+            for (window, kind) in incoming {
+                place(window, on: destination, kind: kind)
+                if window.windowId == focusedId, let live = window.toLiveFocusOrNil() {
+                    setFocus(to: live)
+                }
+            }
         }
-        if !removed.isEmpty, let focusedId, let focused = windows[focusedId], let live = focused.toLiveFocusOrNil() {
-            setFocus(to: live)
+        if !removed.isEmpty {
+            if let focusedId, let focused = windows[focusedId], let live = focused.toLiveFocusOrNil() {
+                setFocus(to: live)
+            } else if let frozenFocus, !ids.contains(frozenFocus.workspaceName) {
+                setFocus(to: destination.toLiveFocus())
+            }
         }
-        if !removed.isEmpty { restoration = [:] }
+        if !removed.isEmpty || geometryChanged { restoration = [:] }
         screenHistory.removeAll { !ids.contains($0) }
         for workspace in workspaces { workspace.recover() }
     }
@@ -284,9 +298,7 @@ import Common
     }
 
     private func saveForRestoration() {
-        let savedIds = Set(restoration.values.flatMap { $0.kinds.keys })
-        let currentIds = Set(allWindows.filter { $0.kind != .popup }.map(\.windowId))
-        if currentIds.isSubset(of: savedIds) { return }
+        if canReuseSavedRestoration() { return }
         restoration = Dictionary(
             uniqueKeysWithValues: workspaces.map { workspace in
                 (
@@ -302,6 +314,19 @@ import Common
             })
     }
 
+    private func canReuseSavedRestoration() -> Bool {
+        guard !restoration.isEmpty else { return false }
+        let current = allWindows.filter { $0.kind != .popup }
+        return current.allSatisfy { window in
+            guard let workspace = window.workspace,
+                let saved = restoration[workspace.name],
+                saved.kinds[window.windowId] == window.kind,
+                saved.resumeKinds[window.windowId] == window.resumeKind
+            else { return false }
+            return true
+        }
+    }
+
     @discardableResult func restoreWindow(newlyDetectedWindow window: Window) -> Bool {
         guard !isRecoveringDisplays else { return false }
         guard restoration.values.contains(where: { $0.kinds[window.windowId] != nil }) else { return false }
@@ -315,6 +340,7 @@ import Common
                     existing.workspace = destination
                     existing.kind = kind
                     existing.resumeKind = saved.resumeKinds[id] ?? .tiled
+                    existing.lastAppliedLayoutPhysicalRect = nil
                 }
             }
         }

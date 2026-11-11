@@ -593,3 +593,11 @@ test('duplicate and overlapping sleep notifications and zero displays never prem
   assert.equal(session.state.power.phase, 'awake');
   assertValid(session);
 });
+
+test('screens and focus guided controls clear source history on transfer and preserve focus across disconnect', () => {
+  const fixture = pointerFixture();
+  const screens = fixture.scenarioControls('Screens & focus');
+  for (let i = 0; i < 9; i++) screens.click(i);
+  assert.equal(fixture.api.state.focused, 1);
+  assertValid(fixture.session);
+});

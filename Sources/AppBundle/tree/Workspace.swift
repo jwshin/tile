@@ -27,7 +27,10 @@ import Common
             ?? windows.last { $0.isFocusable }
     }
     var insertionTarget: UInt32? {
-        recentWindowIds.first { layout.windowIds.contains($0) } ?? layout.windowIds.last
+        if let focusedId = state.focus.windowOrNil?.windowId, layout.windowIds.contains(focusedId) {
+            return focusedId
+        }
+        return recentWindowIds.first { layout.windowIds.contains($0) } ?? layout.windowIds.last
     }
     var layoutRect: Rect {
         var rect = workspaceMonitor.visibleRectPaddedByOuterGaps

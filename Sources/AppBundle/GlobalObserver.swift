@@ -56,34 +56,53 @@ enum GlobalObserver {
 
         NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
             guard event.keyCode == 53 else { return }
-            Task { @MainActor in
-                DisplayLayoutState.shared.cancelPointer()
-                ActionExecution.shared.scheduleRefresh(.resetManipulatedWithMouse)
-            }
+            handleEscapeKey()
+        }
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { handleEscapeKey() }
+            return event
+        }
+
+        NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { _ in
+            handleLeftMouseDown()
+        }
+        NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+            handleLeftMouseDown()
+            return event
         }
 
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { _ in
-            // todo reduce number of refresh session in the callback
-            //  resetManipulatedWithMouseIfPossible might call its own refresh session
-            //  The end of the callback calls refresh session
-            _ = Task { @MainActor in
-                try await resetManipulatedWithMouseIfPossible()
-                guard let token: RunSessionGuard = .isEnabled else { return }
-                let mouseLocation = mouseLocation
-                let clickedMonitor = mouseLocation.monitorApproximation
-                switch true {
-                // Detect clicks on desktop of different monitors
-                case clickedMonitor.visibleRect.contains(mouseLocation)
-                    && clickedMonitor.activeWorkspace != focus.workspace:
-                    _ = try await ActionExecution.shared.runSession(.globalObserverLeftMouseUp, token) {
-                        clickedMonitor.activeWorkspace.focusWorkspace()
-                    }
-                // Detect close button clicks for unfocused windows. Yes, kAXUIElementDestroyedNotification is that unreliable
-                //  And trigger new window detection that could be delayed due to mouseDown event
-                default:
-                    ActionExecution.shared.scheduleRefresh(.globalObserverLeftMouseUp)
-                }
+            handleLeftMouseUp()
+        }
+        NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { event in
+            handleLeftMouseUp()
+            return event
+        }
+    }
+
+    private static func handleEscapeKey() {
+        _ = Task { @MainActor in
+            guard DisplayLayoutState.shared.isHandlingPointer else { return }
+            DisplayLayoutState.shared.cancelPointer()
+            if ConfigurationApplication.shared.isEnabled {
+                ActionExecution.shared.scheduleRefresh(.resetManipulatedWithMouse)
             }
+        }
+    }
+
+    private static func handleLeftMouseDown() {
+        _ = Task { @MainActor in
+            DisplayLayoutState.shared.resetMissedPointerRelease()
+        }
+    }
+
+    private static func handleLeftMouseUp() {
+        _ = Task { @MainActor in
+            let didResetPointer = try await resetManipulatedWithMouseIfPossible()
+            guard ConfigurationApplication.shared.isEnabled, !didResetPointer else { return }
+            // Detect close button clicks for unfocused windows and trigger new window detection
+            // that was deferred while the mouse button remained pressed.
+            ActionExecution.shared.scheduleRefresh(.globalObserverLeftMouseUp)
         }
     }
 }
